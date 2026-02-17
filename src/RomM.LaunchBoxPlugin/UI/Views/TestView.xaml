@@ -1,0 +1,75 @@
+<UserControl x:Class="RomMbox.UI.Views.TestView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <UserControl.Resources>
+        <Style x:Key="DarkSecondaryButton" TargetType="Button">
+            <Setter Property="Background" Value="#1C2230"/>
+            <Setter Property="Foreground" Value="#E6EBF5"/>
+            <Setter Property="BorderBrush" Value="#2D374B"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#4A6EDC"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#283042"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.6"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <StackPanel>
+        <TextBlock Text="Test"
+                   Style="{StaticResource PageHeader}"
+                   Foreground="#FF7F7F7F"
+                   FontWeight="Bold"/>
+        <TextBlock Text="Run quick diagnostics against your RomM setup."
+                   Style="{StaticResource HelperText}"
+                   Margin="0,0,0,14"/>
+
+        <StackPanel Width="420">
+            <Button Content="Test Connection"
+                    Command="{Binding TestConnectionCommand}"
+                    Height="48"
+                    Margin="0,0,0,12"
+                    Style="{StaticResource DarkSecondaryButton}"/>
+
+            <Button Content="Test Rom Path"
+                    Command="{Binding TestRomPathCommand}"
+                    Height="48"
+                    Margin="0,0,0,12"
+                    Style="{StaticResource DarkSecondaryButton}"/>
+
+            <Button Content="Test Saves Path"
+                    Command="{Binding TestSavesPathCommand}"
+                    Height="48"
+                    Margin="0,0,0,12"
+                    Style="{StaticResource DarkSecondaryButton}"/>
+
+            <Button Content="Run RomM Smoke Test"
+                    Command="{Binding RomMSmokeTestCommand}"
+                    Height="48"
+                    Style="{StaticResource DarkSecondaryButton}"/>
+        </StackPanel>
+    </StackPanel>
+</UserControl>

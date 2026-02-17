@@ -1,0 +1,923 @@
+3DO Interactive Multiplayer:
+  RomM Platform: 3DO Interactive Multiplayer
+  romm_platform_id: 3do
+  aliases:
+  - 3do
+Aamber Pegasus:
+  RomM Platform: Aamber Pegasus
+  romm_platform_id: pegasus
+  aliases:
+  - pegasus
+Acorn Archimedes:
+  RomM Platform: Acorn Archimedes
+  romm_platform_id: acorn-archimedes
+  aliases:
+  - acorn-archimedes
+Acorn Atom:
+  RomM Platform: Atom
+  romm_platform_id: atom
+  aliases:
+  - atom
+Acorn Electron:
+  RomM Platform: Acorn Electron
+  romm_platform_id: acorn-electron
+  aliases:
+  - acorn-electron
+Amstrad CPC:
+  RomM Platform: Amstrad CPC
+  romm_platform_id: acpc
+  aliases:
+  - acpc
+Amstrad GX4000:
+  RomM Platform: Amstrad GX4000
+  romm_platform_id: amstrad-gx4000
+  aliases:
+  - amstrad-gx4000
+Android:
+  RomM Platform: Android
+  romm_platform_id: android
+  aliases:
+  - android
+APF Imagination Machine:
+  RomM Platform: APF MP1000/Imagination Machine
+  romm_platform_id: apf
+  aliases:
+  - apf
+Apogee BK-01:
+  RomM Platform: Apogee BK-01
+  romm_platform_id: bk-01
+  aliases:
+  - bk-01
+Apple II:
+  RomM Platform: Apple II
+  romm_platform_id: appleii
+  aliases:
+  - appleii
+Apple IIGS:
+  RomM Platform: Apple IIGS
+  romm_platform_id: apple-iigs
+  aliases:
+  - apple-iigs
+Apple iOS:
+  RomM Platform: iOS
+  romm_platform_id: ios
+  aliases:
+  - ios
+Apple Mac OS:
+  RomM Platform: Mac
+  romm_platform_id: mac
+  aliases:
+  - mac
+Arcade:
+  RomM Platform: Arcade
+  romm_platform_id: arcade
+  aliases:
+  - arcade
+Arduboy:
+  RomM Platform: Arduboy
+  romm_platform_id: arduboy
+  aliases:
+  - arduboy
+Atari 2600:
+  RomM Platform: Atari 2600
+  romm_platform_id: atari2600
+  aliases:
+  - atari2600
+Atari 5200:
+  RomM Platform: Atari 5200
+  romm_platform_id: atari5200
+  aliases:
+  - atari5200
+Atari 7800:
+  RomM Platform: Atari 7800
+  romm_platform_id: atari7800
+  aliases:
+  - atari7800
+Atari 800:
+  RomM Platform: Atari 800
+  romm_platform_id: atari800
+  aliases:
+  - atari800
+Atari Jaguar:
+  RomM Platform: Atari Jaguar
+  romm_platform_id: jaguar
+  aliases:
+  - jaguar
+Atari Jaguar CD:
+  RomM Platform: Atari Jaguar CD
+  romm_platform_id: atari-jaguar-cd
+  aliases:
+  - atari-jaguar-cd
+Atari Lynx:
+  RomM Platform: Atari Lynx
+  romm_platform_id: lynx
+  aliases:
+  - lynx
+Atari ST:
+  RomM Platform: Atari ST/STE
+  romm_platform_id: atari-st
+  aliases:
+  - atari-st
+Atari XEGS:
+  RomM Platform: Atari XEGS
+  romm_platform_id: atari-xegs
+  aliases:
+  - atari-xegs
+Bally Astrocade:
+  RomM Platform: Bally Astrocade
+  romm_platform_id: astrocade
+  aliases:
+  - astrocade
+Bandai Super Vision 8000:
+  RomM Platform: Super Vision 8000
+  romm_platform_id: super-vision-8000
+  aliases:
+  - super-vision-8000
+BBC Microcomputer System:
+  RomM Platform: BBC Microcomputer System
+  romm_platform_id: bbcmicro
+  aliases:
+  - bbcmicro
+Camputers Lynx:
+  RomM Platform: Camputers Lynx
+  romm_platform_id: camputers-lynx
+  aliases:
+  - camputers-lynx
+Casio Loopy:
+  RomM Platform: Casio Loopy
+  romm_platform_id: casio-loopy
+  aliases:
+  - casio-loopy
+Casio PV-1000:
+  RomM Platform: Casio PV-1000
+  romm_platform_id: casio-pv-1000
+  aliases:
+  - casio-pv-1000
+Coleco ADAM:
+  RomM Platform: Coleco Adam
+  romm_platform_id: colecoadam
+  aliases:
+  - colecoadam
+ColecoVision:
+  RomM Platform: ColecoVision
+  romm_platform_id: colecovision
+  aliases:
+  - colecovision
+Commodore 128:
+  RomM Platform: Commodore 128
+  romm_platform_id: c128
+  aliases:
+  - c128
+Commodore 64:
+  RomM Platform: Commodore C64/128/MAX
+  romm_platform_id: c64
+  aliases:
+  - c64
+Commodore Amiga:
+  RomM Platform: Amiga
+  romm_platform_id: amiga
+  aliases:
+  - amiga
+Commodore Amiga CD32:
+  RomM Platform: Amiga CD32
+  romm_platform_id: amiga-cd32
+  aliases:
+  - amiga-cd32
+Commodore CDTV:
+  RomM Platform: Commodore CDTV
+  romm_platform_id: commodore-cdtv
+  aliases:
+  - commodore-cdtv
+Commodore MAX Machine:
+  RomM Platform: Commodore C64/128/MAX
+  romm_platform_id: c64
+  aliases:
+  - c64
+Commodore PET:
+  RomM Platform: Commodore PET
+  romm_platform_id: cpet
+  aliases:
+  - cpet
+Commodore Plus 4:
+  RomM Platform: Commodore Plus
+  aliases:
+  - c-plus-4
+Commodore VIC-20:
+  RomM Platform: Commodore VIC-20
+  romm_platform_id: vic-20
+  aliases:
+  - vic-20
+Dragon 32/64:
+  RomM Platform: Dragon 32/64
+  romm_platform_id: dragon-32-slash-64
+  aliases:
+  - dragon-32-slash-64
+EACA EG2000:
+  RomM Platform: ''
+  aliases: []
+Colour Genie:
+  RomM Platform: Colour Genie
+  romm_platform_id: colour-genie
+  aliases:
+  - colour-genie
+Elektor TV Games Computer:
+  RomM Platform: Elektor TV Games Computer
+  romm_platform_id: elektor
+  aliases:
+  - elektor
+Elektronika BK:
+  RomM Platform: Elektronika BK
+  romm_platform_id: bk
+  aliases:
+  - bk
+Emerson Arcadia 2001:
+  RomM Platform: Arcadia 2001
+  romm_platform_id: arcadia-2001
+  aliases:
+  - arcadia-2001
+Enterprise:
+  RomM Platform: Enterprise
+  romm_platform_id: enterprise
+  aliases:
+  - enterprise
+Entex Adventure Vision:
+  RomM Platform: Adventure Vision
+  romm_platform_id: adventure-vision
+  aliases: []
+Epoch Game Pocket Computer:
+  RomM Platform: Epoch Game Pocket Computer
+  romm_platform_id: epoch-game-pocket-computer
+  aliases:
+  - epoch-game-pocket-computer
+Epoch Super Cassette Vision:
+  RomM Platform: Epoch Super Cassette Vision
+  romm_platform_id: epoch-super-cassette-vision
+  aliases:
+  - epoch-super-cassette-vision
+Exelvision EXL 100:
+  RomM Platform: Exelvision
+  romm_platform_id: exelvision
+  aliases:
+  - exelvision
+Exidy Sorcerer:
+  RomM Platform: Exidy Sorcerer
+  romm_platform_id: exidy-sorcerer
+  aliases:
+  - exidy-sorcerer
+Fairchild Channel F:
+  RomM Platform: Fairchild Channel F
+  romm_platform_id: fairchild-channel-f
+  aliases:
+  - fairchild-channel-f
+Fujitsu FM-7:
+  RomM Platform: FM-7
+  romm_platform_id: fm-7
+  aliases:
+  - fm-7
+Fujitsu FM Towns Marty:
+  RomM Platform: FM Towns
+  romm_platform_id: fm-towns
+  aliases:
+  - fm-towns
+Funtech Super Acan:
+  RomM Platform: ''
+  aliases: []
+GamePark GP32:
+  RomM Platform: GP32
+  romm_platform_id: gp32
+  aliases:
+  - gp32
+GameWave:
+  RomM Platform: Game Wave
+  romm_platform_id: game-wave
+  aliases:
+  - game-wave
+Game Wave Family Entertainment System:
+  RomM Platform: Game Wave
+  romm_platform_id: game-wave
+  aliases:
+  - game-wave
+GCE Vectrex:
+  RomM Platform: Vectrex
+  romm_platform_id: vectrex
+  aliases:
+  - vectrex
+Hartung Game Master:
+  RomM Platform: Game Master
+  romm_platform_id: hartung
+  aliases:
+  - hartung
+Hector HRX:
+  RomM Platform: Hector HRX
+  romm_platform_id: hrx
+  aliases:
+  - hrx
+Interton VC 4000:
+  RomM Platform: Interton VC 4000
+  romm_platform_id: interton-vc-4000
+  aliases:
+  - interton-vc-4000
+Jupiter Ace:
+  RomM Platform: Jupiter Ace
+  romm_platform_id: jupiter-ace
+  aliases:
+  - jupiter-ace
+Linux:
+  RomM Platform: Linux
+  romm_platform_id: linux
+  aliases:
+  - linux
+Magnavox Odyssey:
+  RomM Platform: Magnavox Odyssey
+  romm_platform_id: odyssey
+  aliases:
+  - odyssey
+Magnavox Odyssey 2:
+  RomM Platform: Odyssey 2
+  romm_platform_id: odyssey-2
+  aliases:
+  - odyssey-2
+Matra and Hachette Alice:
+  RomM Platform: ''
+  aliases: []
+Mattel Aquarius:
+  RomM Platform: Mattel Aquarius
+  romm_platform_id: aquarius
+  aliases:
+  - aquarius
+Mattel HyperScan:
+  RomM Platform: HyperScan
+  romm_platform_id: hyperscan
+  aliases:
+  - hyperscan
+Mattel Intellivision:
+  RomM Platform: Intellivision
+  romm_platform_id: intellivision
+  aliases:
+  - intellivision
+Mega Duck:
+  RomM Platform: Mega Duck/Cougar Boy
+  romm_platform_id: mega-duck-slash-cougar-boy
+  aliases:
+  - mega-duck-slash-cougar-boy
+Memotech MTX512:
+  RomM Platform: Memotech MTX512
+  romm_platform_id: mtx512
+  aliases:
+  - mtx512
+Microsoft MSX:
+  RomM Platform: MSX
+  romm_platform_id: msx
+  aliases:
+  - msx
+Microsoft MSX2:
+  RomM Platform: MSX2
+  romm_platform_id: msx2
+  aliases:
+  - msx2
+Microsoft MSX2+:
+  RomM Platform: Microsoft MSX2+
+  romm_platform_id: msx2plus
+  aliases:
+  - msx2plus
+Microsoft Xbox:
+  RomM Platform: Xbox
+  romm_platform_id: xbox
+  aliases:
+  - xbox
+Microsoft Xbox 360:
+  RomM Platform: Xbox 360
+  romm_platform_id: xbox360
+  aliases:
+  - xbox360
+Microsoft Xbox One:
+  RomM Platform: Xbox One
+  romm_platform_id: xboxone
+  aliases:
+  - xboxone
+Microsoft Xbox Series X/S:
+  RomM Platform: Xbox Series X/S
+  romm_platform_id: series-x-s
+  aliases:
+  - series-x-s
+MS-DOS:
+  RomM Platform: DOS
+  romm_platform_id: dos
+  aliases:
+  - dos
+MUGEN:
+  RomM Platform: MUGEN
+  romm_platform_id: mugen
+  aliases:
+  - mugen
+Namco System 22:
+  RomM Platform: Namco System 22
+  romm_platform_id: system-32
+  aliases:
+  - system-32
+NEC PC-8801:
+  RomM Platform: ''
+  aliases: []
+NEC PC-9801:
+  RomM Platform: ''
+  aliases: []
+NEC PC-FX:
+  RomM Platform: PC-FX
+  romm_platform_id: pc-fx
+  aliases:
+  - pc-fx
+NEC TurboGrafx-16:
+  RomM Platform: TurboGrafx-16/PC Engine
+  romm_platform_id: tg16
+  aliases:
+  - tg16
+NEC TurboGrafx-CD:
+  RomM Platform: ''
+  aliases: []
+Nintendo 3DS:
+  RomM Platform: Nintendo 3DS
+  romm_platform_id: 3ds
+  aliases:
+  - 3ds
+Nintendo 64:
+  RomM Platform: Nintendo 64
+  romm_platform_id: n64
+  aliases:
+  - n64
+Nintendo 64DD:
+  RomM Platform: Nintendo 64DD
+  romm_platform_id: 64dd
+  aliases:
+  - 64dd
+Nintendo DS:
+  RomM Platform: Nintendo DS
+  romm_platform_id: nds
+  aliases:
+  - nds
+Nintendo Entertainment System:
+  RomM Platform: Nintendo Entertainment System
+  romm_platform_id: nes
+  aliases:
+  - nes
+Nintendo Famicom Disk System:
+  RomM Platform: ''
+  aliases: []
+Nintendo Game Boy:
+  RomM Platform: Game Boy
+  romm_platform_id: gb
+  aliases:
+  - gb
+Nintendo Game Boy Advance:
+  RomM Platform: Game Boy Advance
+  romm_platform_id: gba
+  aliases:
+  - gba
+Nintendo Game Boy Color:
+  RomM Platform: Game Boy Color
+  romm_platform_id: gbc
+  aliases:
+  - gbc
+Nintendo GameCube:
+  RomM Platform: Nintendo GameCube
+  romm_platform_id: ngc
+  aliases:
+  - ngc
+Nintendo Game & Watch:
+  RomM Platform: Game & Watch
+  romm_platform_id: g-and-w
+  aliases:
+  - g-and-w
+Nintendo Pokemon Mini:
+  RomM Platform: "Pok\xE9mon mini"
+  aliases:
+  - pokemon-mini
+Nintendo Satellaview:
+  RomM Platform: Satellaview
+  romm_platform_id: satellaview
+  aliases:
+  - satellaview
+Nintendo Switch:
+  RomM Platform: Nintendo Switch
+  romm_platform_id: switch
+  aliases:
+  - switch
+Nintendo Switch 2:
+  RomM Platform: Nintendo Switch 2
+  romm_platform_id: switch-2
+  aliases:
+  - switch-2
+Nintendo Virtual Boy:
+  RomM Platform: Virtual Boy
+  romm_platform_id: virtualboy
+  aliases:
+  - virtualboy
+Nintendo Wii:
+  RomM Platform: Wii
+  romm_platform_id: wii
+  aliases:
+  - wii
+Nintendo Wii U:
+  RomM Platform: Wii U
+  romm_platform_id: wiiu
+  aliases:
+  - wiiu
+"Nokia N\u2011Gage":
+  RomM Platform: N-Gage
+  romm_platform_id: ngage
+  aliases:
+  - ngage
+Nuon:
+  RomM Platform: Nuon
+  romm_platform_id: nuon
+  aliases:
+  - nuon
+OpenBOR:
+  RomM Platform: OpenBOR
+  romm_platform_id: openbor
+  aliases:
+  - openbor
+Oric Atmos:
+  RomM Platform: Oric Atmos
+  romm_platform_id: atmos
+  aliases:
+  - atmos
+Othello Multivision:
+  RomM Platform: Othello Multivision
+  romm_platform_id: multivision
+  aliases:
+  - multivision
+Ouya:
+  RomM Platform: Ouya
+  romm_platform_id: ouya
+  aliases:
+  - ouya
+PC Engine SuperGrafx:
+  RomM Platform: PC Engine SuperGrafx
+  romm_platform_id: supergrafx
+  aliases:
+  - supergrafx
+"Philips CD\u2011i":
+  RomM Platform: Philips CD-i
+  romm_platform_id: philips-cd-i
+  aliases:
+  - philips-cd-i
+Philips VG 5000:
+  RomM Platform: Philips VG 5000
+  romm_platform_id: philips-vg-5000
+  aliases:
+  - philips-vg-5000
+Philips Videopac+:
+  RomM Platform: Videopac+ G7400
+  romm_platform_id: videopac-g7400
+  aliases:
+  - videopac-g7400
+"PICO\u20118":
+  RomM Platform: PICO
+  romm_platform_id: pico
+  aliases:
+  - pico
+Pinball:
+  RomM Platform: Pinball
+  romm_platform_id: pinball
+  aliases:
+  - pinball
+RCA Studio II:
+  RomM Platform: RCA Studio II
+  romm_platform_id: rca-studio-ii
+  aliases:
+  - rca-studio-ii
+"SAM Coup\xE9":
+  RomM Platform: "SAM Coup\xE9"
+  aliases:
+  - sam-coupe
+Sammy Atomiswave:
+  RomM Platform: Atom
+  romm_platform_id: atom
+  aliases:
+  - atom
+ScummVM:
+  RomM Platform: ScummVM
+  romm_platform_id: scummvm
+  aliases:
+  - scummvm
+Sega 32X:
+  RomM Platform: Sega 32X
+  romm_platform_id: sega32
+  aliases:
+  - sega32
+Sega CD:
+  RomM Platform: Sega CD
+  romm_platform_id: segacd
+  aliases:
+  - segacd
+Sega CD 32X:
+  RomM Platform: Sega CD 32X
+  romm_platform_id: segacd32
+  aliases:
+  - segacd32
+Sega Dreamcast:
+  RomM Platform: Dreamcast
+  romm_platform_id: dc
+  aliases:
+  - dc
+Sega Dreamcast VMU:
+  RomM Platform: Sega Dreamcast VMU
+  romm_platform_id: vmu
+  aliases:
+  - vmu
+Sega Game Gear:
+  RomM Platform: Sega Game Gear
+  romm_platform_id: gamegear
+  aliases:
+  - gamegear
+Sega Genesis:
+  RomM Platform: Sega Mega Drive/Genesis
+  romm_platform_id: genesis
+  aliases:
+  - genesis
+Sega Hikaru:
+  RomM Platform: Sega Hikaru
+  romm_platform_id: hikaru
+  aliases:
+  - hikaru
+Sega Master System:
+  RomM Platform: Sega Master System/Mark III
+  romm_platform_id: sms
+  aliases:
+  - sms
+Sega Model 1:
+  RomM Platform: Sega Model 1
+  romm_platform_id: model1
+  aliases:
+  - model1
+Sega Model 2:
+  RomM Platform: Sega Model 2
+  romm_platform_id: model2
+  aliases:
+  - model2
+Sega Model 3:
+  RomM Platform: Sega Model 3
+  romm_platform_id: model3
+  aliases:
+  - model3
+Sega Naomi:
+  RomM Platform: ''
+  aliases: []
+Sega Naomi 2:
+  RomM Platform: ''
+  aliases: []
+Sega Pico:
+  RomM Platform: Sega Pico
+  romm_platform_id: sega-pico
+  aliases:
+  - sega-pico
+Sega Saturn:
+  RomM Platform: Sega Saturn
+  romm_platform_id: saturn
+  aliases:
+  - saturn
+"Sega SC\u20113000":
+  RomM Platform: Sega SC-3000
+  romm_platform_id: sc3000
+  aliases:
+  - sc3000
+"Sega SG\u20111000":
+  RomM Platform: SG-1000
+  romm_platform_id: sg1000
+  aliases:
+  - sg1000
+"Sega ST\u2011V":
+  RomM Platform: Sega ST-V
+  romm_platform_id: stv
+  aliases:
+  - stv
+Sega System 16:
+  RomM Platform: Sega System 16
+  romm_platform_id: system16
+  aliases:
+  - system16
+Sega System 32:
+  RomM Platform: Sega System 32
+  romm_platform_id: system32
+  aliases:
+  - system32
+Sega Triforce:
+  RomM Platform: ''
+  aliases: []
+"Sharp MZ\u20112500":
+  RomM Platform: ''
+  aliases: []
+Sharp X1:
+  RomM Platform: Sharp X1
+  romm_platform_id: x1
+  aliases:
+  - x1
+Sharp X68000:
+  RomM Platform: Sharp X68000
+  romm_platform_id: sharp-x68000
+  aliases:
+  - sharp-x68000
+"Sinclair ZX\u201181":
+  RomM Platform: Sinclair ZX81
+  romm_platform_id: zx81
+  aliases:
+  - zx81
+Sinclair ZX Spectrum:
+  RomM Platform: ZX Spectrum
+  romm_platform_id: zxs
+  aliases:
+  - zxs
+SNK Neo Geo AES:
+  RomM Platform: Neo Geo AES
+  romm_platform_id: neogeoaes
+  aliases:
+  - neogeoaes
+SNK Neo Geo CD:
+  RomM Platform: Neo Geo CD
+  romm_platform_id: neo-geo-cd
+  aliases:
+  - neo-geo-cd
+SNK Neo Geo MVS:
+  RomM Platform: Neo Geo MVS
+  romm_platform_id: neogeomvs
+  aliases:
+  - neogeomvs
+SNK Neo Geo Pocket:
+  RomM Platform: Neo Geo Pocket
+  romm_platform_id: neo-geo-pocket
+  aliases:
+  - neo-geo-pocket
+SNK Neo Geo Pocket Color:
+  RomM Platform: Neo Geo Pocket Color
+  romm_platform_id: neo-geo-pocket-color
+  aliases:
+  - neo-geo-pocket-color
+Sony Playstation:
+  RomM Platform: PlayStation
+  romm_platform_id: psx
+  aliases:
+  - psx
+Sony Playstation 2:
+  RomM Platform: PlayStation 2
+  romm_platform_id: ps2
+  aliases:
+  - ps2
+Sony Playstation 3:
+  RomM Platform: PlayStation 3
+  romm_platform_id: ps3
+  aliases:
+  - ps3
+Sony Playstation 4:
+  RomM Platform: PlayStation 4
+  romm_platform_id: ps4
+  aliases:
+  - ps4
+Sony Playstation 5:
+  RomM Platform: PlayStation 5
+  romm_platform_id: ps5
+  aliases:
+  - ps5
+Sony Playstation Vita:
+  RomM Platform: PlayStation Vita
+  romm_platform_id: psvita
+  aliases:
+  - psvita
+Sony PocketStation:
+  RomM Platform: PocketStation
+  romm_platform_id: pocketstation
+  aliases:
+  - pocketstation
+Sony PSP:
+  RomM Platform: PlayStation Portable
+  romm_platform_id: psp
+  aliases:
+  - psp
+  - playstation portable
+Sony PSP Minis:
+  RomM Platform: Sony PSP Minis
+  romm_platform_id: psp-minis
+  aliases:
+  - psp-minis
+Sord M5:
+  RomM Platform: Sord M5
+  romm_platform_id: sord-m5
+  aliases:
+  - sord-m5
+Spectravideo:
+  RomM Platform: Spectravideo
+  romm_platform_id: spectravideo
+  aliases:
+  - spectravideo
+Super Nintendo Entertainment System:
+  RomM Platform: Super Nintendo Entertainment System
+  romm_platform_id: snes
+  aliases:
+  - snes
+Taito Type X:
+  RomM Platform: Taito Type X
+  romm_platform_id: type-x
+  aliases:
+  - type-x
+"Tandy TRS\u201180":
+  RomM Platform: TRS-80
+  romm_platform_id: trs-80
+  aliases:
+  - trs-80
+Tapwave Zodiac:
+  RomM Platform: Tapwave Zodiac
+  romm_platform_id: zod
+  aliases:
+  - zod
+Texas Instruments TI 99/4A:
+  RomM Platform: TI-99/4A
+  romm_platform_id: ti-994a
+  aliases:
+  - ti-994a
+Tiger Game.com:
+  RomM Platform: Game.com
+  romm_platform_id: game-dot-com
+  aliases:
+  - game-dot-com
+Tomy Tutor:
+  RomM Platform: Tomy Tutor
+  romm_platform_id: tomy-tutor
+  aliases:
+  - tomy-tutor
+"TRS\u201180 Color Computer":
+  RomM Platform: TRS-80 Color Computer
+  romm_platform_id: trs-80-color-computer
+  aliases:
+  - trs-80-color-computer
+Uzebox:
+  RomM Platform: Uzebox
+  romm_platform_id: uzebox
+  aliases:
+  - uzebox
+"Vector\u201106C":
+  RomM Platform: Vector-06C
+  romm_platform_id: 06c
+  aliases:
+  - 06c
+VTech CreatiVision:
+  RomM Platform: CreatiVision
+  romm_platform_id: creativision
+  aliases:
+  - creativision
+VTech Socrates:
+  RomM Platform: Socrates
+  romm_platform_id: socrates
+  aliases:
+  - socrates
+VTech V.Smile:
+  RomM Platform: V.Smile
+  romm_platform_id: vsmile
+  aliases:
+  - vsmile
+"WASM\u20114":
+  RomM Platform: WASM-4
+  romm_platform_id: wasm-4
+  aliases:
+  - wasm-4
+Watara Supervision:
+  RomM Platform: VIS
+  romm_platform_id: vis
+  aliases:
+  - vis
+Web Browser:
+  RomM Platform: ''
+  aliases: []
+Windows:
+  RomM Platform: Windows
+  romm_platform_id: win
+  aliases:
+  - win
+Windows 3.X:
+  RomM Platform: Windows 3.x
+  romm_platform_id: win3x
+  aliases:
+  - win3x
+WonderSwan:
+  RomM Platform: WonderSwan
+  romm_platform_id: wonderswan
+  aliases:
+  - wonderswan
+WonderSwan Color:
+  RomM Platform: WonderSwan Color
+  romm_platform_id: wonderswan-color
+  aliases:
+  - wonderswan-color
+WoW Action Max:
+  RomM Platform: WoW Action Max
+  romm_platform_id: action-max
+  aliases:
+  - action-max
+XaviXPORT:
+  RomM Platform: XaviXPORT
+  romm_platform_id: xavixport
+  aliases:
+  - xavixport
+ZiNc:
+  RomM Platform: ZiNc
+  romm_platform_id: zinc
+  aliases:
+  - zinc

@@ -1,0 +1,17 @@
+{
+  "PluginId": "c54c25d7-3ec7-43c7-a024-9e990b1c60e2",
+  "UserId": 0,
+  "Name": "RomMBox LaunchBox Integration",
+  "Developer": "Evilperson1337",
+  "Brief": "Provides RomM Server LaunchBox support.",
+  "Description": "Allows users to connect LaunchBox to a RomM server.",
+  "Requirements": null,
+  "Credits": "Many thanks to the developers of the RomM Server Project!",
+  "OperatingSystemFamily": "Windows",
+  "InstalledVersion": "0.0.1",
+  "SourceCodeUrl": null,
+  "SupportUrl": null,
+  "HomePageUrl": "https://www.romm.app.com/",
+  "TipJarUrl": "",
+  "Tags": []
+}

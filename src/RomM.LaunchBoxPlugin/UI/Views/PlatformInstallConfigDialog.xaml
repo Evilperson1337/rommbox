@@ -1,0 +1,327 @@
+<Window x:Class="RomMbox.UI.Views.PlatformInstallConfigDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:converters="clr-namespace:RomMbox.UI.Converters"
+        Title="Platform Install Options"
+        Width="520"
+        Height="460"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        WindowStyle="ToolWindow"
+        Background="#141822">
+    <Window.Resources>
+        <converters:BoolToVisibilityConverter x:Key="BoolToVisibility" />
+        <Style x:Key="DarkComboBoxItem" TargetType="ComboBoxItem">
+            <Setter Property="Background" Value="#1C2230"/>
+            <Setter Property="Foreground" Value="#E6EBF5"/>
+            <Setter Property="Padding" Value="6,4"/>
+            <Setter Property="BorderBrush" Value="#2D374B"/>
+            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBoxItem">
+                        <Border x:Name="ItemBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background" Value="#283042"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background" Value="#2D374B"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="DarkComboBox" TargetType="ComboBox">
+            <Setter Property="Foreground" Value="#E6EBF5"/>
+            <Setter Property="Background" Value="#1C2230"/>
+            <Setter Property="BorderBrush" Value="#2D374B"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="MinHeight" Value="30"/>
+            <Setter Property="ItemContainerStyle" Value="{StaticResource DarkComboBoxItem}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition/>
+                                <ColumnDefinition Width="32"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Border x:Name="Bd"
+                                    Grid.ColumnSpan="2"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="4"/>
+
+                            <ContentPresenter Margin="{TemplateBinding Padding}"
+                                              VerticalAlignment="Center"
+                                              HorizontalAlignment="Left"
+                                              Content="{TemplateBinding SelectionBoxItem}"
+                                              ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                              ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"/>
+
+                            <ToggleButton Grid.Column="1"
+                                          Background="#1C2230"
+                                          BorderBrush="{TemplateBinding BorderBrush}"
+                                          BorderThickness="1,0,0,0"
+                                          IsChecked="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                                          Focusable="False"
+                                          ClickMode="Press">
+                                <Border Background="#1C2230"
+                                        BorderBrush="{TemplateBinding BorderBrush}"
+                                        BorderThickness="1,0,0,0"
+                                        CornerRadius="0,4,4,0">
+                                    <TextBlock Text="▾"
+                                               Foreground="#AAB4C8"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"/>
+                                </Border>
+                            </ToggleButton>
+
+                            <Popup x:Name="PART_Popup"
+                                   Placement="Bottom"
+                                   AllowsTransparency="True"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}">
+                                <Border Background="#141822"
+                                        Width="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
+                                        BorderBrush="#2D374B"
+                                        BorderThickness="1"
+                                        CornerRadius="6"
+                                        Margin="0,6,0,0"
+                                        Padding="6">
+                                    <ScrollViewer MaxHeight="300">
+                                        <ItemsPresenter/>
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#4A6EDC"/>
+                            </Trigger>
+                            <Trigger Property="IsDropDownOpen" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#6D8BFF"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Opacity" Value="0.6"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ExtractionBehaviorComboBox" TargetType="ComboBox" BasedOn="{StaticResource DarkComboBox}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding ExtractAfterDownload}" Value="False">
+                    <Setter Property="Background" Value="#161C28"/>
+                    <Setter Property="Foreground" Value="#6B748A"/>
+                    <Setter Property="BorderBrush" Value="#2D374B"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </Window.Resources>
+    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled">
+        <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0"
+                   Text="Install Options"
+                   Foreground="#E6EBF5"
+                   FontSize="16"
+                   FontWeight="Bold"
+                   Margin="0,0,0,12"/>
+
+        <StackPanel Grid.Row="1" Orientation="Vertical" Margin="0,0,0,10">
+            <TextBlock Text="Install Scenario" Foreground="#AAB4C8" Margin="0,0,0,6"/>
+            <ComboBox ItemsSource="{Binding InstallScenarioOptions}"
+                      SelectedItem="{Binding InstallScenario, Mode=TwoWay}"
+                      ItemContainerStyle="{StaticResource DarkComboBoxItem}"
+                      Style="{StaticResource DarkComboBox}"/>
+        </StackPanel>
+
+        <StackPanel Grid.Row="2" Orientation="Vertical" Margin="0,0,0,10">
+            <CheckBox Content="Disable auto-import for this platform"
+                      IsChecked="{Binding DisableAutoImport, Mode=TwoWay}"
+                      Foreground="#E6EBF5"/>
+            <TextBlock Text="Manual imports remain available."
+                       Foreground="#6B748A"
+                       Margin="24,4,0,0"/>
+        </StackPanel>
+
+        <StackPanel Grid.Row="3" Orientation="Vertical" Margin="0,0,0,10">
+            <CheckBox Content="Extract archive after download"
+                      IsChecked="{Binding ExtractAfterDownload, Mode=TwoWay}"
+                      Foreground="#E6EBF5"/>
+        </StackPanel>
+
+        <StackPanel Grid.Row="4" Orientation="Vertical" Margin="0,0,0,10">
+            <TextBlock Text="Extraction Behavior" Foreground="#AAB4C8" Margin="0,0,0,6"/>
+            <ComboBox ItemsSource="{Binding ExtractionBehaviorOptions}"
+                      SelectedItem="{Binding ExtractionBehavior, Mode=TwoWay}"
+                      IsEnabled="{Binding ExtractAfterDownload}"
+                      Style="{StaticResource ExtractionBehaviorComboBox}"/>
+        </StackPanel>
+
+        <StackPanel Grid.Row="5" Orientation="Vertical" Margin="0,0,0,10">
+            <TextBlock Text="Game Directory" Foreground="#AAB4C8" Margin="0,0,0,6"/>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+            <TextBox Background="#1C2230"
+                     Foreground="#E6EBF5"
+                     BorderBrush="#2D374B"
+                     BorderThickness="1"
+                     Padding="6,2">
+                <TextBox.Style>
+                    <Style TargetType="TextBox">
+                        <Setter Property="Text" Value="{Binding CustomInstallDirectory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding HasCustomInstallDirectory}" Value="False">
+                                <Setter Property="Text" Value="{Binding DefaultInstallDirectory}"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBox.Style>
+            </TextBox>
+                <Button Grid.Column="1"
+                        Content="Browse"
+                        Margin="8,0,0,0"
+                        Width="90"
+                        Click="BrowseFolder_Click"/>
+            </Grid>
+            <TextBlock Text="Default: {Binding DefaultInstallDirectory}"
+                       Foreground="#6B748A"
+                       Margin="0,6,0,0"/>
+        </StackPanel>
+
+        <StackPanel Grid.Row="6" Orientation="Vertical" Margin="0,0,0,10" Visibility="{Binding IsWindowsPlatform, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock Text="Installer Mode" Foreground="#AAB4C8" Margin="0,0,0,6"/>
+            <ComboBox ItemsSource="{Binding InstallerModeOptions}"
+                      SelectedItem="{Binding InstallerMode, Mode=TwoWay}"
+                      ItemContainerStyle="{StaticResource DarkComboBoxItem}"
+                      Style="{StaticResource DarkComboBox}"/>
+        </StackPanel>
+
+        <StackPanel Grid.Row="7" Orientation="Vertical" Margin="0,0,0,10" Visibility="{Binding IsWindowsPlatform, Converter={StaticResource BoolToVisibility}}">
+            <CheckBox Content="Install OST content"
+                      IsChecked="{Binding InstallOst, Mode=TwoWay}"
+                      Foreground="#E6EBF5"
+                      Margin="0,0,0,6"/>
+            <TextBlock Text="Music Root Path" Foreground="#AAB4C8" Margin="0,0,0,6"/>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBox Text="{Binding MusicRootPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         Background="#1C2230"
+                         Foreground="#E6EBF5"
+                         BorderBrush="#2D374B"
+                         BorderThickness="1"
+                         Padding="6,2"/>
+                <Button Grid.Column="1"
+                        Content="Browse"
+                        Margin="8,0,0,0"
+                        Width="90"
+                        Click="BrowseMusicRoot_Click"/>
+            </Grid>
+        </StackPanel>
+
+        <StackPanel Grid.Row="8" Orientation="Vertical" Margin="0,0,0,10" Visibility="{Binding IsWindowsPlatform, Converter={StaticResource BoolToVisibility}}">
+            <CheckBox Content="Install bonus content"
+                      IsChecked="{Binding InstallBonus, Mode=TwoWay}"
+                      Foreground="#E6EBF5"
+                      Margin="0,0,0,6"/>
+            <TextBlock Text="Bonus Root Path" Foreground="#AAB4C8" Margin="0,0,0,6"/>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBox Text="{Binding BonusRootPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         Background="#1C2230"
+                         Foreground="#E6EBF5"
+                         BorderBrush="#2D374B"
+                         BorderThickness="1"
+                         Padding="6,2"/>
+                <Button Grid.Column="1"
+                        Content="Browse"
+                        Margin="8,0,0,0"
+                        Width="90"
+                        Click="BrowseBonusRoot_Click"/>
+            </Grid>
+        </StackPanel>
+
+        <StackPanel Grid.Row="9" Orientation="Vertical" Margin="0,0,0,10" Visibility="{Binding IsWindowsPlatform, Converter={StaticResource BoolToVisibility}}">
+            <CheckBox Content="Install pre-reqs content"
+                      IsChecked="{Binding InstallPreReqs, Mode=TwoWay}"
+                      Foreground="#E6EBF5"
+                      Margin="0,0,0,6"/>
+            <TextBlock Text="Pre-Reqs Root Path" Foreground="#AAB4C8" Margin="0,0,0,6"/>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBox Text="{Binding PreReqsRootPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         Background="#1C2230"
+                         Foreground="#E6EBF5"
+                         BorderBrush="#2D374B"
+                         BorderThickness="1"
+                         Padding="6,2"/>
+                <Button Grid.Column="1"
+                        Content="Browse"
+                        Margin="8,0,0,0"
+                        Width="90"
+                        Click="BrowsePreReqsRoot_Click"/>
+            </Grid>
+        </StackPanel>
+
+        <StackPanel Grid.Row="10" Orientation="Vertical" Margin="0,0,0,10" Visibility="{Binding IsEnhanced, Converter={StaticResource BoolToVisibility}}">
+            <TextBlock Text="Target Import File" Foreground="#AAB4C8" Margin="0,0,0,6"/>
+            <TextBox Text="{Binding TargetImportFile, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     Background="#1C2230"
+                     Foreground="#E6EBF5"
+                     BorderBrush="#2D374B"
+                     BorderThickness="1"
+                     Padding="6,2"/>
+        </StackPanel>
+
+        <StackPanel Grid.Row="11" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
+            <Button Content="Cancel" Width="90" Margin="0,0,10,0" Click="Cancel_Click"/>
+            <Button Content="Save" Width="90" Click="Save_Click" Style="{StaticResource PrimaryButton}"/>
+        </StackPanel>
+
+        
+        </Grid>
+    </ScrollViewer>
+</Window>

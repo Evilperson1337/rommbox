@@ -1,0 +1,57 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <OutputType>Library</OutputType>
+    <RootNamespace>RomMbox</RootNamespace>
+    <AssemblyName>RomMbox</AssemblyName>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+    <CopyLocalSatelliteAssemblies>false</CopyLocalSatelliteAssemblies>
+    <CopyLocalTargetFrameworkDependencies>false</CopyLocalTargetFrameworkDependencies>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="Unbroken.LaunchBox.Plugins">
+      <HintPath>..\..\deps\launchbox\Unbroken.LaunchBox.Plugins.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="..\..\assets\default-mapping.yaml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>default-mapping.yaml</Link>
+    </Content>
+    <Content Include="assets\*.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Link>assets\%(Filename)%(Extension)</Link>
+    </Content>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="Plugin\Adapters\ToolsMenu\RomMSmokeTestMenuItem.cs" />
+    <Compile Remove="Plugin\Adapters\ToolsMenu\RommManageMenuItem.cs" />
+    <Compile Remove="Plugin\Adapters\ToolsMenu\RommImportMenuItem.cs" />
+    <Compile Remove="Plugin\Adapters\ToolsMenu\RommSystemMenuPlugin.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.Text.Json" Version="8.0.5" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.0" />
+    <PackageReference Include="System.Drawing.Common" Version="9.0.0" />
+    <PackageReference Include="System.ComponentModel.Composition" Version="9.0.0" />
+  </ItemGroup>
+
+
+  <ItemGroup>
+    <Folder Include="Plugin\" />
+    <Folder Include="Services\Logging\" />
+    <Folder Include="Services\Paths\" />
+    <Folder Include="Services\Settings\" />
+    <Folder Include="Utilities\" />
+  </ItemGroup>
+</Project>
