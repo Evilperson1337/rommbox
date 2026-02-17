@@ -79,3 +79,7 @@ docs/api_reference/generated/
 # Dev Tools
 tools/**
 api_reference/
+
+# Allow all contents under deps/ regardless of global ignores
+!deps/
+!deps/**
