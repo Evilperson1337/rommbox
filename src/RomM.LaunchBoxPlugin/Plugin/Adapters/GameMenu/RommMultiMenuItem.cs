@@ -118,6 +118,8 @@ namespace RomMbox.Plugin.Adapters.GameMenu
                 children.Add(new RommGameMenuItem("Play on RomM", true, ResolvePluginAssetImage("gaming.png"), () => PlayOnRomM(game)));
             }
 
+            children.Add(new RommGameMenuItem("Open RomM", true, ResolvePluginAssetImage("romm.png"), OpenRommServer));
+
             // TODO: Future deployment - re-enable save import/upload menu items when save management is implemented.
 
             return new List<IGameMenuItem>
@@ -673,6 +675,32 @@ namespace RomMbox.Plugin.Adapters.GameMenu
                     PluginEntry.Logger?.Error("Play on RomM menu failed.", ex);
                 }
             });
+        }
+
+        private static void OpenRommServer()
+        {
+            PluginEntry.EnsureInitialized();
+            try
+            {
+                var settingsManager = PluginEntry.SettingsManager ?? new SettingsManager(PluginEntry.Logger);
+                var settings = settingsManager.Load();
+                var serverUrl = settings?.ServerUrl?.Trim() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(serverUrl))
+                {
+                    PluginEntry.Logger?.Warning("Open RomM skipped: server URL not configured.");
+                    return;
+                }
+
+                var launcher = new ExternalLauncherService(PluginEntry.Logger);
+                if (!launcher.TryOpenUrl(serverUrl))
+                {
+                    PluginEntry.Logger?.Warning("Failed to launch browser for RomM server URL.");
+                }
+            }
+            catch (Exception ex)
+            {
+                PluginEntry.Logger?.Error("Open RomM menu failed.", ex);
+            }
         }
 
         /// <summary>

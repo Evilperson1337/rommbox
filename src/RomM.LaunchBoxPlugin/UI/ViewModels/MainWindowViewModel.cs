@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
 using RomMbox.UI.Infrastructure;
@@ -29,11 +30,13 @@ public sealed class MainWindowViewModel : ObservableObject
                     SelectedNavIndex = 0;
 
                 UpdateFooter();
+                SaveCommand.RaiseCanExecuteChanged();
             }
         }
     }
 
     private bool _isServerConfigured;
+    private bool _isAutoRefreshRunning;
     public bool IsServerConfigured
     {
         get => _isServerConfigured;
@@ -46,7 +49,35 @@ public sealed class MainWindowViewModel : ObservableObject
                 {
                     UpdateFooter();
                 }
+
+                SaveCommand.RaiseCanExecuteChanged();
+                if (value)
+                {
+                    // Skip background auto-refresh; tabs will lazy-load when activated.
+                }
             }
+        }
+    }
+
+    private async Task TriggerAutoRefreshAsync()
+    {
+        if (_isAutoRefreshRunning)
+        {
+            return;
+        }
+
+        _isAutoRefreshRunning = true;
+        try
+        {
+            await Application.Current.Dispatcher.InvokeAsync(async () =>
+            {
+                await Platforms.ReloadMappingsAsync().ConfigureAwait(false);
+                await Import.ReloadPlatformsAsync().ConfigureAwait(false);
+            });
+        }
+        finally
+        {
+            _isAutoRefreshRunning = false;
         }
     }
 
@@ -72,6 +103,7 @@ public sealed class MainWindowViewModel : ObservableObject
             {
                 NavigateByIndex(value);
                 UpdateFooter();
+                SaveCommand.RaiseCanExecuteChanged();
             }
         }
     }
@@ -106,10 +138,20 @@ public sealed class MainWindowViewModel : ObservableObject
         _currentPage = Connection;
         _selectedNavIndex = 0;
 
-        SaveCommand = new RelayCommand(SaveAndClose);
+        SaveCommand = new RelayCommand(SaveAndClose, CanSaveAndClose);
         SecondaryCommand = new RelayCommand(SecondaryAction);
 
         UpdateFooter();
+    }
+
+    private bool CanSaveAndClose()
+    {
+        if (SelectedNavIndex == 0)
+        {
+            return Connection?.CanSaveConnection == true;
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -131,6 +173,13 @@ public sealed class MainWindowViewModel : ObservableObject
             3 => Test,
             _ => Connection
         };
+
+        _ = idx switch
+        {
+            1 => Platforms.EnsureLoadedAsync(),
+            2 => Import.EnsureLoadedAsync(),
+            _ => Task.CompletedTask
+        };
     }
 
     /// <summary>
@@ -138,6 +187,11 @@ public sealed class MainWindowViewModel : ObservableObject
     /// </summary>
     private async void SaveAndClose()
     {
+        if (!CanSaveAndClose())
+        {
+            return;
+        }
+
         if (SelectedNavIndex == 2)
         {
             var importSucceeded = await Import.RunImportAndWaitAsync();

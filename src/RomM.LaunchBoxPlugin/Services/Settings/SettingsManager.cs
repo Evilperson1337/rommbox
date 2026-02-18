@@ -17,6 +17,9 @@ namespace RomMbox.Services.Settings
     internal sealed class SettingsManager
     {
         private static readonly TimeSpan CacheDuration = TimeSpan.FromSeconds(15);
+        private static readonly object CredentialCacheSync = new object();
+        private static string _cachedCredentialsServerUrl;
+        private static CredentialResult _cachedCredentials;
         private readonly LoggingService _logger;
         private readonly object _sync = new object();
         private readonly CredentialStore _credentialStore;
@@ -88,11 +91,13 @@ namespace RomMbox.Services.Settings
             Guard.NotNull(serverUrl, nameof(serverUrl));
             _logger?.Debug($"SettingsManager.SaveCredentials called - ServerUrl: {LoggingService.SanitizeUrl(serverUrl)}, Username: <redacted>, Password length: {password?.Length ?? 0}");
             
-            lock (_sync)
+            lock (CredentialCacheSync)
             {
                 try
                 {
                     _credentialStore.SaveCredentials(serverUrl, username, password);
+                    _cachedCredentialsServerUrl = serverUrl;
+                    _cachedCredentials = new CredentialResult(username, password);
                     _logger?.Debug("Credentials saved successfully to credential store");
                 }
                 catch (Exception ex)
@@ -111,27 +116,69 @@ namespace RomMbox.Services.Settings
         public CredentialResult GetSavedCredentials(string serverUrl)
         {
             Guard.NotNull(serverUrl, nameof(serverUrl));
-            _logger?.Debug($"SettingsManager.GetSavedCredentials called - ServerUrl: {LoggingService.SanitizeUrl(serverUrl)}");
-            
-            lock (_sync)
+
+            lock (CredentialCacheSync)
             {
+                if (!string.IsNullOrWhiteSpace(_cachedCredentialsServerUrl)
+                    && _cachedCredentials != null
+                    && string.Equals(_cachedCredentialsServerUrl, serverUrl, StringComparison.OrdinalIgnoreCase))
+                {
+                    return _cachedCredentials;
+                }
+
                 try
                 {
+                    _logger?.Debug($"SettingsManager.GetSavedCredentials called - ServerUrl: {LoggingService.SanitizeUrl(serverUrl)}");
                     var result = _credentialStore.GetCredentials(serverUrl);
                     if (result != null)
                     {
                         _logger?.Debug($"Found credentials - Username: <redacted>, Password length: {result.Password?.Length ?? 0}");
+                        _cachedCredentialsServerUrl = serverUrl;
+                        _cachedCredentials = result;
                     }
                     else
                     {
                         _logger?.Debug("No credentials found for this server URL");
+                        _cachedCredentialsServerUrl = null;
+                        _cachedCredentials = null;
                     }
                     return result;
                 }
                 catch (Exception ex)
                 {
                     _logger.Error("Failed to read credentials.", ex);
+                    _cachedCredentialsServerUrl = null;
+                    _cachedCredentials = null;
                     return null;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Attempts to retrieve any saved credentials when the server URL is unknown.
+        /// </summary>
+        public bool TryGetAnySavedCredentials(out string serverUrl, out CredentialResult credentials)
+        {
+            serverUrl = null;
+            credentials = null;
+
+            lock (CredentialCacheSync)
+            {
+                try
+                {
+                    var result = _credentialStore.TryGetAnyCredentials(out serverUrl, out credentials);
+                    if (result && !string.IsNullOrWhiteSpace(serverUrl) && credentials != null)
+                    {
+                        _cachedCredentialsServerUrl = serverUrl;
+                        _cachedCredentials = credentials;
+                    }
+
+                    return result;
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error("Failed to enumerate saved credentials.", ex);
+                    return false;
                 }
             }
         }
@@ -143,11 +190,17 @@ namespace RomMbox.Services.Settings
         public void DeleteSavedCredentials(string serverUrl)
         {
             Guard.NotNull(serverUrl, nameof(serverUrl));
-            lock (_sync)
+            lock (CredentialCacheSync)
             {
                 try
                 {
                     _credentialStore.DeleteCredentials(serverUrl);
+                    if (!string.IsNullOrWhiteSpace(_cachedCredentialsServerUrl)
+                        && string.Equals(_cachedCredentialsServerUrl, serverUrl, StringComparison.OrdinalIgnoreCase))
+                    {
+                        _cachedCredentialsServerUrl = null;
+                        _cachedCredentials = null;
+                    }
                 }
                 catch (Exception ex)
                 {

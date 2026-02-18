@@ -6,6 +6,7 @@ using System.Windows;
 using System.Windows.Media;
 using RomMbox.Plugin;
 using RomMbox.Services.Auth;
+using RomMbox.Services;
 using RomMbox.Services.Logging;
 using RomMbox.Services.Settings;
 using RomMbox.UI.Infrastructure;
@@ -45,9 +46,11 @@ public sealed class ConnectionViewModel : ObservableObject
         LoadSettings();
 
         TestConnectionCommand = new RelayCommand(async () => await TestConnectionAsync());
-        SaveCommand = new RelayCommand(async () => await SaveAsync(showMessages: true));
+        SaveCommand = new RelayCommand(async () => await SaveAsync(showMessages: true), () => CanSaveConnection);
+        OpenRommCommand = new RelayCommand(OpenRommInBrowser);
         PluginEntry.BackgroundConnectionCompleted += OnBackgroundConnectionCompleted;
         UpdateStatus();
+        CanSaveConnection = false;
 
         if (_settings.UseSavedCredentials && _settings.HasSavedCredentials)
         {
@@ -121,6 +124,27 @@ public sealed class ConnectionViewModel : ObservableObject
     /// Command that saves settings after validating the connection.
     /// </summary>
     public RelayCommand SaveCommand { get; }
+    /// <summary>
+    /// Command that opens the RomM server in a browser.
+    /// </summary>
+    public RelayCommand OpenRommCommand { get; }
+
+    private bool _canSaveConnection;
+    public bool CanSaveConnection
+    {
+        get => _canSaveConnection;
+        private set
+        {
+            if (SetProperty(ref _canSaveConnection, value))
+            {
+                SaveCommand.RaiseCanExecuteChanged();
+                if (_shell is MainWindowViewModel mainWindow)
+                {
+                    mainWindow.SaveCommand.RaiseCanExecuteChanged();
+                }
+            }
+        }
+    }
 
     /// <summary>
     /// Tests connectivity against the configured server and updates UI state.
@@ -138,7 +162,8 @@ public sealed class ConnectionViewModel : ObservableObject
                 StatusText = result.Message;
                 StatusBrush = IsConnected ? new SolidColorBrush(Color.FromRgb(70, 220, 140)) : new SolidColorBrush(Color.FromRgb(255, 86, 86));
                 StatusDotBrush = StatusBrush;
-                if (IsConnected && _shell is MainWindowViewModel mainWindow)
+                CanSaveConnection = IsConnected;
+                if (IsConnected && _settings.HasSavedCredentials && _settings.UseSavedCredentials && _shell is MainWindowViewModel mainWindow)
                 {
                     mainWindow.IsServerConfigured = true;
                 }
@@ -154,6 +179,7 @@ public sealed class ConnectionViewModel : ObservableObject
                 StatusText = "Connection failed.";
                 StatusBrush = new SolidColorBrush(Color.FromRgb(255, 86, 86));
                 StatusDotBrush = StatusBrush;
+                CanSaveConnection = false;
                 MessageBox.Show("Connection failed.", "RomM", MessageBoxButton.OK, MessageBoxImage.Error);
             });
         }
@@ -180,7 +206,8 @@ public sealed class ConnectionViewModel : ObservableObject
                 StatusText = result.Message;
                 StatusBrush = IsConnected ? new SolidColorBrush(Color.FromRgb(70, 220, 140)) : new SolidColorBrush(Color.FromRgb(255, 86, 86));
                 StatusDotBrush = StatusBrush;
-                if (IsConnected && _shell is MainWindowViewModel mainWindow)
+                CanSaveConnection = IsConnected;
+                if (IsConnected && _settings.HasSavedCredentials && _settings.UseSavedCredentials && _shell is MainWindowViewModel mainWindow)
                 {
                     mainWindow.IsServerConfigured = true;
                 }
@@ -195,6 +222,7 @@ public sealed class ConnectionViewModel : ObservableObject
                 StatusText = "Status: Not Connected";
                 StatusBrush = new SolidColorBrush(Color.FromRgb(255, 86, 86));
                 StatusDotBrush = StatusBrush;
+                CanSaveConnection = false;
             });
         }
     }
@@ -241,8 +269,8 @@ public sealed class ConnectionViewModel : ObservableObject
             StatusText = result.Message;
             StatusBrush = IsConnected ? new SolidColorBrush(Color.FromRgb(70, 220, 140)) : new SolidColorBrush(Color.FromRgb(255, 86, 86));
             StatusDotBrush = StatusBrush;
-
-            if (IsConnected && _shell is MainWindowViewModel mainWindow)
+            CanSaveConnection = IsConnected;
+            if (IsConnected && _settings.HasSavedCredentials && _settings.UseSavedCredentials && _shell is MainWindowViewModel mainWindow)
             {
                 mainWindow.IsServerConfigured = true;
             }
@@ -300,6 +328,10 @@ public sealed class ConnectionViewModel : ObservableObject
             {
                 _ = Application.Current.Dispatcher.InvokeAsync(async () =>
                 {
+                    if (_shell is MainWindowViewModel mainWindow)
+                    {
+                        mainWindow.IsServerConfigured = true;
+                    }
                     await _shell.Platforms.ReloadMappingsAsync().ConfigureAwait(false);
                     await _shell.Import.ReloadPlatformsAsync().ConfigureAwait(false);
                 });
@@ -330,6 +362,20 @@ public sealed class ConnectionViewModel : ObservableObject
     {
         _settings = _settingsManager.Load();
         var serverUrl = _settings.ServerUrl ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(serverUrl)
+            && _settingsManager.TryGetAnySavedCredentials(out var discoveredUrl, out var discoveredCredentials))
+        {
+            _settings.ServerUrl = discoveredUrl;
+            _settings.HasSavedCredentials = true;
+            _settings.UseSavedCredentials = true;
+            serverUrl = discoveredUrl;
+            if (discoveredCredentials != null)
+            {
+                Username = discoveredCredentials.Username;
+                Password = discoveredCredentials.Password;
+            }
+            _settingsManager.Save(_settings);
+        }
 
         if (Uri.TryCreate(serverUrl, UriKind.Absolute, out var uri))
         {
@@ -355,11 +401,17 @@ public sealed class ConnectionViewModel : ObservableObject
             {
                 Username = credentials.Username;
                 Password = credentials.Password;
-                if (_shell is MainWindowViewModel mainWindow)
-                {
-                    mainWindow.IsServerConfigured = _settings.HasSavedCredentials;
-                }
             }
+        }
+    }
+
+    private void OpenRommInBrowser()
+    {
+        var serverUrl = BuildServerUrl();
+        var launcher = new ExternalLauncherService(_logger);
+        if (!launcher.TryOpenUrl(serverUrl))
+        {
+            MessageBox.Show("Failed to open RomM server URL in browser.", "RomM", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 

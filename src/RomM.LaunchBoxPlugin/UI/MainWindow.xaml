@@ -46,9 +46,9 @@
                          ItemContainerStyle="{StaticResource NavListBoxItem}"
                          SelectedIndex="{Binding SelectedNavIndex, Mode=TwoWay}">
                     <ListBoxItem Content="Connection" FontSize="24" FontWeight="Bold"/>
-                    <ListBoxItem Content="Platforms" IsEnabled="{Binding IsConnected}" FontSize="24" FontWeight="Bold"/>
-                    <ListBoxItem Content="Games" IsEnabled="{Binding IsConnected}" FontSize="24" FontWeight="Bold"/>
-                    <ListBoxItem Content="Test" IsEnabled="{Binding IsConnected}" FontSize="24" FontWeight="Bold"/>
+                    <ListBoxItem Content="Platforms" IsEnabled="{Binding IsServerConfigured}" FontSize="24" FontWeight="Bold"/>
+                    <ListBoxItem Content="Games" IsEnabled="{Binding IsServerConfigured}" FontSize="24" FontWeight="Bold"/>
+                    <ListBoxItem Content="Test" IsEnabled="{Binding IsServerConfigured}" FontSize="24" FontWeight="Bold"/>
                 </ListBox>
             </DockPanel>
         </Border>

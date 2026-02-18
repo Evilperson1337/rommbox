@@ -124,20 +124,20 @@ namespace RomMbox.UI.Behaviors
 
             // Keep whatever DisplayMemberPath/TextSearch path you already use
             cb.ItemsSource = view;
-            Logger.Debug($"ContainsFilterComboBoxBehavior attached. Items={list.Count} Selected='{cb.SelectedItem ?? "<null>"}' DataContext='{cb.DataContext ?? "<null>"}' Combo='{cb.Name}'");
+            Logger.Trace($"ContainsFilterComboBoxBehavior attached. Items={list.Count} Selected='{cb.SelectedItem ?? "<null>"}' DataContext='{cb.DataContext ?? "<null>"}' Combo='{cb.Name}'");
 
             var selectionHandler = new SelectionChangedEventHandler((_, args) =>
             {
                 var removed = args.RemovedItems.Count > 0 ? args.RemovedItems[0] : null;
                 var added = args.AddedItems.Count > 0 ? args.AddedItems[0] : null;
-                Logger.Debug($"ContainsFilterComboBoxBehavior selection changed. Old='{removed ?? "<null>"}' New='{added ?? "<null>"}' DataContext='{cb.DataContext ?? "<null>"}' Combo='{cb.Name}'");
+                Logger.Trace($"ContainsFilterComboBoxBehavior selection changed. Old='{removed ?? "<null>"}' New='{added ?? "<null>"}' DataContext='{cb.DataContext ?? "<null>"}' Combo='{cb.Name}'");
             });
             cb.SelectionChanged += selectionHandler;
             SetSelectionChangedHandler(cb, selectionHandler);
 
             DependencyPropertyChangedEventHandler dataContextHandler = (_, args) =>
             {
-                Logger.Debug($"ContainsFilterComboBoxBehavior DataContextChanged. Old='{args.OldValue ?? "<null>"}' New='{args.NewValue ?? "<null>"}' Combo='{cb.Name}'");
+                Logger.Trace($"ContainsFilterComboBoxBehavior DataContextChanged. Old='{args.OldValue ?? "<null>"}' New='{args.NewValue ?? "<null>"}' Combo='{cb.Name}'");
             };
             cb.DataContextChanged += dataContextHandler;
             SetDataContextChangedHandler(cb, dataContextHandler);
@@ -162,7 +162,7 @@ namespace RomMbox.UI.Behaviors
 
             cb.DropDownClosed += (_, __) =>
             {
-                Logger.Debug($"ContainsFilterComboBoxBehavior dropdown closed. Selected='{cb.SelectedItem ?? "<null>"}' Combo='{cb.Name}'");
+                Logger.Trace($"ContainsFilterComboBoxBehavior dropdown closed. Selected='{cb.SelectedItem ?? "<null>"}' Combo='{cb.Name}'");
                 ClearFilter(cb);
             };
         }
@@ -194,7 +194,7 @@ namespace RomMbox.UI.Behaviors
                 SetDataContextChangedHandler(cb, null);
             }
 
-            Logger.Debug($"ContainsFilterComboBoxBehavior detached. Selected='{cb.SelectedItem ?? "<null>"}' DataContext='{cb.DataContext ?? "<null>"}' Combo='{cb.Name}'");
+            Logger.Trace($"ContainsFilterComboBoxBehavior detached. Selected='{cb.SelectedItem ?? "<null>"}' DataContext='{cb.DataContext ?? "<null>"}' Combo='{cb.Name}'");
         }
 
         /// <summary>
@@ -231,7 +231,7 @@ namespace RomMbox.UI.Behaviors
 
             if (!cb.IsDropDownOpen && !cb.IsKeyboardFocusWithin)
             {
-                Logger.Debug($"ContainsFilterComboBoxBehavior skip filter (combo not active). Selected='{cb.SelectedItem ?? "<null>"}' Combo='{cb.Name}'");
+                Logger.Trace($"ContainsFilterComboBoxBehavior skip filter (combo not active). Selected='{cb.SelectedItem ?? "<null>"}' Combo='{cb.Name}'");
                 ClearFilter(cb);
                 return;
             }
@@ -240,7 +240,7 @@ namespace RomMbox.UI.Behaviors
 
             if (string.IsNullOrEmpty(needle))
             {
-                Logger.Debug($"ContainsFilterComboBoxBehavior clear filter (empty text). Selected='{cb.SelectedItem ?? "<null>"}' Combo='{cb.Name}'");
+                Logger.Trace($"ContainsFilterComboBoxBehavior clear filter (empty text). Selected='{cb.SelectedItem ?? "<null>"}' Combo='{cb.Name}'");
                 view.Filter = null;
                 view.Refresh();
                 return;
@@ -258,7 +258,7 @@ namespace RomMbox.UI.Behaviors
 
             view.Refresh();
 
-            Logger.Debug($"ContainsFilterComboBoxBehavior apply filter. Text='{needle}' Items={view.Count} Selected='{cb.SelectedItem ?? "<null>"}' Combo='{cb.Name}'");
+            Logger.Trace($"ContainsFilterComboBoxBehavior apply filter. Text='{needle}' Items={view.Count} Selected='{cb.SelectedItem ?? "<null>"}' Combo='{cb.Name}'");
 
             // Keep dropdown open so results update live while typing
             if (!cb.IsDropDownOpen) cb.IsDropDownOpen = true;
@@ -277,7 +277,7 @@ namespace RomMbox.UI.Behaviors
             {
                 view.Filter = null;
                 view.Refresh();
-                Logger.Debug($"ContainsFilterComboBoxBehavior filter cleared. Selected='{cb.SelectedItem ?? "<null>"}' Combo='{cb.Name}'");
+                Logger.Trace($"ContainsFilterComboBoxBehavior filter cleared. Selected='{cb.SelectedItem ?? "<null>"}' Combo='{cb.Name}'");
             }
         }
     }

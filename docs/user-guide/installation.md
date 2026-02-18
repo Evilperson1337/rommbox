@@ -11,9 +11,11 @@ This plugin is installed by copying its files into your LaunchBox plugins folder
 ## Install the plugin
 
 1. Close LaunchBox if it is running.
-2. Copy the `RomMbox` plugin into that folder.
-3. Start LaunchBox.
-4. Verify the plugin is available under **Tools → RomM**.
+2. Copy the plugin output **including** `RomMbox.dll` **and** `RomMbox.deps.json` into:
+   - `LaunchBox\Plugins\RomMbox\`
+3. Copy the `system\` folder (settings + assets) into the same plugin folder.
+4. Start LaunchBox.
+5. Verify the plugin is available under **Tools → RomM**.
 
    <img src="../_assets/images/romm_tools_menu.png" alt="RomM Connection Screen">
 
