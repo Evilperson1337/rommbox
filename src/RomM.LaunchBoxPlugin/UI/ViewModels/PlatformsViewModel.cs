@@ -29,6 +29,7 @@ public sealed class PlatformsViewModel : ObservableObject
     private readonly SettingsManager _settingsManager;
     private PlatformMappingService _mappingService;
     private string _mappingServiceServerUrl = string.Empty;
+    private bool _hasLoaded;
     private const string UnmappedLabel = "--- Not Mapped ---";
 
     /// <summary>
@@ -51,7 +52,7 @@ public sealed class PlatformsViewModel : ObservableObject
         SaveMappingsCommand = new RelayCommand(async () => await SaveMappingsAsync());
         ConfigureCommand = new RelayCommand<Models.PlatformMapping>(OpenConfigureDialog, mapping => mapping != null && !mapping.Exclude);
 
-        _ = LoadMappingsAsync();
+        // Lazy-load when the tab is activated.
     }
 
     /// <summary>
@@ -111,12 +112,26 @@ public sealed class PlatformsViewModel : ObservableObject
     }
 
     /// <summary>
+    /// Loads mappings once when the tab is first activated.
+    /// </summary>
+    public Task EnsureLoadedAsync()
+    {
+        if (_hasLoaded)
+        {
+            return Task.CompletedTask;
+        }
+
+        return LoadMappingsAsync();
+    }
+
+    /// <summary>
     /// Loads platform mappings from RomM and populates the UI collections.
     /// </summary>
     private async Task LoadMappingsAsync()
     {
         try
         {
+            _hasLoaded = true;
             EnsureMappingService();
             if (_mappingService == null)
             {
@@ -304,7 +319,7 @@ public sealed class PlatformsViewModel : ObservableObject
             }
 
             var mappings = Mappings.ToList();
-            LogInstallSettingsForSave(mappings);
+            LogPlatformMappingChanges(mappings);
             var unmapped = mappings
                 .Where(mapping => mapping != null)
                 .Where(mapping => !mapping.Exclude)
@@ -391,11 +406,10 @@ public sealed class PlatformsViewModel : ObservableObject
     /// Logs install-related settings during save for troubleshooting.
     /// </summary>
     /// <param name="mappings">The mappings being saved.</param>
-    private void LogInstallSettingsForSave(IReadOnlyList<Models.PlatformMapping> mappings)
+    private void LogPlatformMappingChanges(IReadOnlyList<Models.PlatformMapping> mappings)
     {
         if (mappings == null || mappings.Count == 0)
         {
-            _logger?.Info("SaveMappings: no platform mappings to persist.");
             return;
         }
 
@@ -406,23 +420,35 @@ public sealed class PlatformsViewModel : ObservableObject
                 continue;
             }
 
-            var hasInstallSettings = mapping.InstallOst
-                                     || mapping.InstallBonus
-                                     || mapping.InstallPreReqs
-                                     || !string.IsNullOrWhiteSpace(mapping.MusicRootPath)
-                                     || !string.IsNullOrWhiteSpace(mapping.BonusRootPath)
-                                     || !string.IsNullOrWhiteSpace(mapping.PreReqsRootPath);
+            var saved = _settingsManager.GetPlatformMapping(mapping.RommPlatformId);
+            var mappingName = mapping.RomMPlatform ?? string.Empty;
+            var launchBoxName = mapping.LaunchBoxPlatform ?? string.Empty;
+            var savedLaunchBox = saved?.LaunchBoxPlatformName ?? string.Empty;
 
-            if (!hasInstallSettings)
+            if (mapping.Exclude)
+            {
+                _logger?.Info($"Platform excluded: {mapping.RommPlatformId}/{mappingName}.");
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(launchBoxName)
+                && !string.Equals(launchBoxName, UnmappedLabel, StringComparison.Ordinal)
+                && !string.Equals(launchBoxName, savedLaunchBox, StringComparison.OrdinalIgnoreCase))
+            {
+                _logger?.Info($"Platform mapping override: {mapping.RommPlatformId}/{mappingName} -> {launchBoxName}.");
+            }
+
+            if (string.IsNullOrWhiteSpace(mapping.CustomInstallDirectory))
             {
                 continue;
             }
 
-            _logger?.Info(
-                $"SaveMappings: {mapping.RommPlatformId}/{mapping.RomMPlatform} -> {mapping.LaunchBoxPlatform} | " +
-                $"InstallOst={mapping.InstallOst} MusicRoot='{mapping.MusicRootPath}' | " +
-                $"InstallBonus={mapping.InstallBonus} BonusRoot='{mapping.BonusRootPath}' | " +
-                $"InstallPreReqs={mapping.InstallPreReqs} PreReqsRoot='{mapping.PreReqsRootPath}'");
+            var savedInstall = saved?.CustomInstallDirectory ?? string.Empty;
+            if (!string.Equals(mapping.CustomInstallDirectory, savedInstall, StringComparison.OrdinalIgnoreCase))
+            {
+                _logger?.Info(
+                    $"Platform custom install directory: {mapping.RommPlatformId}/{mappingName} -> '{mapping.CustomInstallDirectory}'.");
+            }
         }
     }
 
@@ -487,11 +513,6 @@ public sealed class PlatformsViewModel : ObservableObject
 
         if (dialog.ShowDialog() == true && dialog.DataContext is ViewModels.PlatformInstallConfigViewModel viewModel)
         {
-            _logger?.Debug(
-                $"ConfigDialog saved for {mapping.RommPlatformId}/{mapping.RomMPlatform} -> {mapping.LaunchBoxPlatform} | " +
-                $"InstallOst={viewModel.InstallOst} MusicRoot='{viewModel.MusicRootPath}' | " +
-                $"InstallBonus={viewModel.InstallBonus} BonusRoot='{viewModel.BonusRootPath}' | " +
-                $"InstallPreReqs={viewModel.InstallPreReqs} PreReqsRoot='{viewModel.PreReqsRootPath}'");
             mapping.DisableAutoImport = viewModel.DisableAutoImport;
             mapping.InstallScenario = viewModel.InstallScenario;
             mapping.TargetImportFile = viewModel.TargetImportFile;

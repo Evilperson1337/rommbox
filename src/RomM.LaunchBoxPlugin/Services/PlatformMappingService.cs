@@ -94,7 +94,7 @@ namespace RomMbox.Services
         {
             try
             {
-                _logger?.Info("Discovering RomM platforms for mapping...");
+                _logger?.Info("Checking RomM platforms for mapping.");
                 var platforms = await GetPlatformsCachedAsync(cancellationToken).ConfigureAwait(false);
                 var mappings = new List<PlatformMapping>();
                 foreach (var platform in platforms)
@@ -119,9 +119,6 @@ namespace RomMbox.Services
                         InstallPreReqs = saved?.InstallPreReqs ?? false
                     });
                 }
-
-                _logger?.Info($"RomM platform mappings generated: {mappings.Count}");
-                _logger?.Info($"Discovered {mappings.Count} platform mappings.");
                 return new PlatformMappingResult { Mappings = mappings };
             }
             catch (Exception ex)
@@ -212,7 +209,6 @@ namespace RomMbox.Services
             var saved = _settingsManager.GetPlatformMapping(rommPlatformId ?? string.Empty);
             if (saved != null && !string.IsNullOrWhiteSpace(saved.LaunchBoxPlatformName))
             {
-                _logger?.Debug($"Using saved mapping for Romm Platform ID: {rommPlatformId} ({rommPlatformName}) -> {saved.LaunchBoxPlatformName}.");
                 return (saved.LaunchBoxPlatformName, false);
             }
 
@@ -222,7 +218,6 @@ namespace RomMbox.Services
                 return (autoMapped, true);
             }
 
-            _logger?.Debug($"No auto-mapping found for Romm Platform ID: {rommPlatformId} ({rommPlatformName}).");
             return (string.Empty, false);
         }
 
@@ -232,7 +227,7 @@ namespace RomMbox.Services
         public void SaveMapping(PlatformMapping mapping)
         {
             _settingsManager.SavePlatformMapping(mapping);
-            _logger?.Info($"Saved platform mapping: {mapping?.RommPlatformId} -> {mapping?.LaunchBoxPlatformName}");
+            _logger?.Debug($"Saved platform mapping: {mapping?.RommPlatformId} -> {mapping?.LaunchBoxPlatformName}");
         }
 
         /// <summary>
@@ -241,7 +236,7 @@ namespace RomMbox.Services
         public void SaveMappings(PlatformMapping[] mappings)
         {
             _settingsManager.SavePlatformMappings(mappings);
-            _logger?.Info("Saved platform mappings.");
+            _logger?.Debug("Saved platform mappings.");
         }
 
         /// <summary>
@@ -425,7 +420,7 @@ namespace RomMbox.Services
         public void SaveExcludedRommPlatformIds(string[] platformIds)
         {
             _settingsManager.SaveExcludedRommPlatformIds(platformIds);
-            _logger?.Info("Saved excluded RomM platforms.");
+            _logger?.Debug("Saved excluded RomM platforms.");
         }
 
         /// <summary>
@@ -434,7 +429,7 @@ namespace RomMbox.Services
         public void AddAlias(PlatformAlias alias)
         {
             _settingsManager.SavePlatformAlias(alias);
-            _logger?.Info($"Added alias: {alias?.Alias} -> {alias?.LaunchBoxPlatformName}");
+            _logger?.Debug($"Added alias: {alias?.Alias} -> {alias?.LaunchBoxPlatformName}");
         }
 
         /// <summary>
@@ -443,7 +438,7 @@ namespace RomMbox.Services
         public void RemoveAlias(string aliasId)
         {
             _settingsManager.DeletePlatformAlias(aliasId);
-            _logger?.Info($"Removed alias: {aliasId}");
+            _logger?.Debug($"Removed alias: {aliasId}");
         }
 
         /// <summary>
@@ -461,14 +456,11 @@ namespace RomMbox.Services
             var defaultMatch = TryResolveDefaultMapping(rommPlatformId, rommPlatformName);
             if (!string.IsNullOrWhiteSpace(defaultMatch))
             {
-                _logger?.Debug($"Auto-mapped (default-mapping) Romm Platform ID: {rommPlatformId} ({rommPlatformName}) to LaunchBox Platform: {defaultMatch}.");
                 return defaultMatch;
             }
-            _logger?.Debug($"Default mapping not found for Romm Platform ID: {rommPlatformId} ({rommPlatformName}).");
 
             if (PredefinedMappings.TryGetValue(normalized, out var predefined))
             {
-                _logger?.Debug($"Auto-mapped (predefined) Romm Platform ID: {rommPlatformId} ({rommPlatformName}) to LaunchBox Platform: {predefined}.");
                 return predefined;
             }
 
@@ -483,7 +475,6 @@ namespace RomMbox.Services
 
                 if (normalized.Contains(aliasNormalized) || aliasNormalized.Contains(normalized))
                 {
-                    _logger?.Debug($"Auto-mapped (alias) Romm Platform ID: {rommPlatformId} ({rommPlatformName}) to LaunchBox Platform: {alias.LaunchBoxPlatformName}.");
                     return alias.LaunchBoxPlatformName;
                 }
             }
@@ -506,7 +497,6 @@ namespace RomMbox.Services
 
             if (bestScore >= 0.8)
             {
-                _logger?.Debug($"Auto-mapped (fuzzy) Romm Platform ID: {rommPlatformId} ({rommPlatformName}) to LaunchBox Platform: {bestMatch} (score {bestScore:0.00}).");
                 return bestMatch;
             }
 
