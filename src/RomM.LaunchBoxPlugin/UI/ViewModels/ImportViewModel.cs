@@ -33,6 +33,7 @@ public sealed class ImportViewModel : ObservableObject
     private CancellationTokenSource _cts;
     private readonly MatchIgnoreStore _ignoreStore;
     private string _currentOperationId = string.Empty;
+    private bool _hasLoaded;
 
     /// <summary>
     /// Builds the import screen state, initializes services, and wires up commands.
@@ -103,7 +104,7 @@ public sealed class ImportViewModel : ObservableObject
         IsImportRunning = false;
         BulkAction = ImportAction.Import;
         AllowDuplicates = false;
-        _ = LoadPlatformsAsync();
+        // Lazy-load when the tab is activated.
     }
 
     public ObservableCollection<RommPlatformOption> RomMPlatforms { get; private set; }
@@ -291,6 +292,19 @@ public sealed class ImportViewModel : ObservableObject
     }
 
     /// <summary>
+    /// Loads platforms once when the tab is first activated.
+    /// </summary>
+    public Task EnsureLoadedAsync()
+    {
+        if (_hasLoaded)
+        {
+            return Task.CompletedTask;
+        }
+
+        return LoadPlatformsAsync();
+    }
+
+    /// <summary>
     /// Loads the list of RomM platforms and maps them to LaunchBox platforms.
     /// This method always updates ObservableCollections on the UI thread.
     /// </summary>
@@ -298,6 +312,7 @@ public sealed class ImportViewModel : ObservableObject
     {
         try
         {
+            _hasLoaded = true;
             EnsureMappingService();
             if (_mappingService == null)
             {
@@ -321,12 +336,9 @@ public sealed class ImportViewModel : ObservableObject
                 return;
             }
 
-            _logger.Debug("Loading RomM platforms for Games tab.");
             // Fetch mappings from RomM, then filter out excluded/disabled entries.
             var result = await _mappingService.DiscoverPlatformsAsync(CancellationToken.None).ConfigureAwait(false);
-            _logger.Debug($"DiscoverPlatformsAsync returned {result?.Mappings?.Count ?? 0} mappings.");
             var excluded = _mappingService.GetExcludedRommPlatformIds() ?? Array.Empty<string>();
-            _logger.Debug($"Excluded platform ids: {string.Join(", ", excluded)}");
             var options = result.Mappings
                 .Where(mapping => !string.IsNullOrWhiteSpace(mapping.RommPlatformId))
                 .Where(mapping => !excluded.Contains(mapping.RommPlatformId, StringComparer.OrdinalIgnoreCase))
@@ -341,16 +353,12 @@ public sealed class ImportViewModel : ObservableObject
                 .OrderBy(option => option.Name)
                 .ToList();
 
-            _logger.Debug($"Games tab platform options after filtering: {options.Count}.");
-
             await Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 // Update collections on the UI thread so WPF bindings stay safe.
-                _logger.Debug("Updating RomMPlatforms collection on UI thread.");
                 RomMPlatforms.Clear();
                 foreach (var option in options)
                 {
-                    _logger.Debug($"Adding platform option: {option.Name} ({option.Id}) -> {option.LaunchBoxPlatformName}");
                     RomMPlatforms.Add(option);
                 }
 
@@ -434,10 +442,8 @@ public sealed class ImportViewModel : ObservableObject
         /// </summary>
         private async Task RefreshAsync()
         {
-            _logger.Debug($"Refresh requested. IsImportRunning={IsImportRunning}, SelectedRomMPlatform={(SelectedRomMPlatform == null ? "<null>" : SelectedRomMPlatform.Name)}");
             if (IsImportRunning || SelectedRomMPlatform == null)
             {
-                _logger.Debug("Refresh aborted due to running import or no selected platform.");
                 return;
             }
 
@@ -449,6 +455,8 @@ public sealed class ImportViewModel : ObservableObject
                     "Operation", "RefreshGames",
                     "PlatformId", SelectedRomMPlatform?.Id ?? string.Empty);
             }
+
+            _logger.Info($"User selected Platform: \"{SelectedRomMPlatform.Name}\".");
 
             await Application.Current.Dispatcher.InvokeAsync(() =>
             {
@@ -462,7 +470,6 @@ public sealed class ImportViewModel : ObservableObject
             try
             {
                 var platformId = SelectedRomMPlatform.Id;
-                _logger.Debug($"RefreshAsync fetching roms for platformId={platformId} ({SelectedRomMPlatform.Name}).");
                 // Progress is reported from a background thread; marshal to UI.
                 var progress = new Progress<ImportProgress>(progressUpdate =>
                 {
@@ -479,7 +486,6 @@ public sealed class ImportViewModel : ObservableObject
                 });
 
                 var roms = await _importService.ListPlatformRomsAsync(platformId, _cts.Token, progress).ConfigureAwait(false);
-                _logger.Debug($"RomM returned {roms?.Count ?? 0} games for platform {platformId}.");
                 // Project RomM API models into rows the grid can bind to.
                 var rows = roms
                     .Select(rom => new ImportGameRow
@@ -523,7 +529,6 @@ public sealed class ImportViewModel : ObservableObject
         }
         catch (OperationCanceledException)
         {
-            _logger.Debug("RefreshAsync cancelled while loading games.");
         }
         catch (Exception ex)
         {

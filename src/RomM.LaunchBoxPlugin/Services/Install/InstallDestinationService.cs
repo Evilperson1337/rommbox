@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.IO;
+using System.Xml.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -335,6 +336,13 @@ namespace RomMbox.Services.Install
                 _logger?.Info("Platform folder is empty; attempting to resolve from existing games and LaunchBox root.");
             }
 
+            var xmlFolder = TryResolvePlatformFolderFromXml(platform.Name);
+            if (!string.IsNullOrWhiteSpace(xmlFolder))
+            {
+                _logger?.Info($"Resolved platform ROM folder from platform XML: '{xmlFolder}'.");
+                return xmlFolder;
+            }
+
             if (!IsWindowsPlatform(platform.Name)
                 && platform.GetAllGames(includeHidden: true, includeBroken: true) is { Length: > 0 } games)
             {
@@ -391,6 +399,58 @@ namespace RomMbox.Services.Install
             }
 
             return string.Empty;
+        }
+
+        private string TryResolvePlatformFolderFromXml(string platformName)
+        {
+            if (string.IsNullOrWhiteSpace(platformName))
+            {
+                return string.Empty;
+            }
+
+            try
+            {
+                var launchBoxRoot = PluginPaths.GetLaunchBoxRootDirectory();
+                if (string.IsNullOrWhiteSpace(launchBoxRoot))
+                {
+                    return string.Empty;
+                }
+
+                var platformPath = ResolvePlatformXmlPath(platformName, launchBoxRoot);
+                if (string.IsNullOrWhiteSpace(platformPath) || !File.Exists(platformPath))
+                {
+                    return string.Empty;
+                }
+
+                var doc = XDocument.Load(platformPath);
+                var folderValue = doc.Root?.Element("Folder")?.Value?.Trim();
+                if (string.IsNullOrWhiteSpace(folderValue))
+                {
+                    return string.Empty;
+                }
+
+                if (Path.IsPathRooted(folderValue))
+                {
+                    return folderValue;
+                }
+
+                return Path.Combine(launchBoxRoot, folderValue);
+            }
+            catch (Exception ex)
+            {
+                _logger?.Warning($"Failed to resolve platform folder from XML for '{platformName}': {ex.Message}");
+                return string.Empty;
+            }
+        }
+
+        private static string ResolvePlatformXmlPath(string platformName, string launchBoxRoot)
+        {
+            var invalid = Path.GetInvalidFileNameChars();
+            var sanitized = new string((platformName ?? string.Empty)
+                .Select(ch => invalid.Contains(ch) ? '_' : ch)
+                .ToArray())
+                .Trim();
+            return Path.Combine(launchBoxRoot, "Data", "Platforms", sanitized + ".xml");
         }
 
         /// <summary>

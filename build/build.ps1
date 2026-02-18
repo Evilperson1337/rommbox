@@ -19,6 +19,7 @@ function Copy-RequiredFile {
 $root = Split-Path -Parent $PSScriptRoot
 $project = Join-Path $root "src\RomM.LaunchBoxPlugin\RomMbox.csproj"
 $outputRoot = Join-Path $root "output\RomMbox"
+$buildRoot = Join-Path $root "output\.build"
 $systemDir = Join-Path $outputRoot "system"
 $assetsTargetDir = Join-Path $systemDir "assets"
 $settingsTarget = Join-Path $systemDir "settings.json"
@@ -32,23 +33,33 @@ $assetFiles = @(
     "gaming.png"
 )
 
-# Clean output directory before build
+# Clean output directories before build
 if (Test-Path -LiteralPath $outputRoot) {
     Remove-Item -LiteralPath $outputRoot -Recurse -Force
 }
 
-# Build the project
-dotnet build $project -c Release -o $outputRoot
+if (Test-Path -LiteralPath $buildRoot) {
+    Remove-Item -LiteralPath $buildRoot -Recurse -Force
+}
+
+# Build the project into a staging directory
+dotnet build $project -c Release -o $buildRoot
 
 # Validate output assembly
-$assemblyPath = Join-Path $outputRoot "RomMbox.dll"
+$assemblyPath = Join-Path $buildRoot "RomMbox.dll"
 if (-not (Test-Path -LiteralPath $assemblyPath)) {
     throw "Build did not produce RomMbox.dll at: $assemblyPath"
 }
 
+# Create output directories
+New-Item -ItemType Directory -Path $outputRoot -Force | Out-Null
+
 # Create system directories
 New-Item -ItemType Directory -Path $systemDir -Force | Out-Null
 New-Item -ItemType Directory -Path $assetsTargetDir -Force | Out-Null
+
+# Copy the plugin assembly only
+Copy-RequiredFile -Source $assemblyPath -Destination (Join-Path $outputRoot "RomMbox.dll") -Label "RomMbox.dll"
 
 # Copy the default mapping file from a single source
 Copy-RequiredFile -Source $mappingSource -Destination $mappingTarget -Label "default-mapping.yaml"
@@ -60,37 +71,7 @@ foreach ($assetFile in $assetFiles) {
 }
 
 # Create settings file
-"{`"logLevel`": `"Info`"}" | Out-File -FilePath $settingsTarget -Encoding UTF8
-
-# Ensure plugin root output has only expected files
-$pluginOutputFiles = @(
-    "RomMbox.dll"
-)
-
-Get-ChildItem -Path $outputRoot -File | Where-Object { $pluginOutputFiles -notcontains $_.Name } | ForEach-Object {
-    Remove-Item -LiteralPath $_.FullName -Force
-}
-
-# Remove any top-level assets folder from the build output
-$outputAssetsDir = Join-Path $outputRoot "assets"
-if (Test-Path -LiteralPath $outputAssetsDir) {
-    Remove-Item -LiteralPath $outputAssetsDir -Recurse -Force
-}
-
-# Clean up unnecessary files
-$unnecessaryFiles = @(
-    "*.pdb",          # Debug symbols
-    "*.deps.json",    # Dependencies file
-    "*.xml",          # Documentation files
-    "*.log"           # Log files
-)
-
-foreach ($pattern in $unnecessaryFiles) {
-    $files = Get-ChildItem -Path $outputRoot -Filter $pattern -Recurse -ErrorAction SilentlyContinue
-    if ($files) {
-        $files | Remove-Item -Force
-    }
-}
+"{`"logLevel`": `"Debug`"}" | Out-File -FilePath $settingsTarget -Encoding UTF8
 
 Write-Host "Build completed successfully. Essential files copied to $outputRoot"
 Write-Host "Files included:"
@@ -100,3 +81,8 @@ Write-Host "  - system/settings.json (plugin settings)"
 Write-Host "  - system/assets/romm.png (Plugin badge)"
 Write-Host "  - system/assets/upload.png (Upload Save icon)"
 Write-Host "  - system/assets/gaming.png (Play on RomM icon)"
+
+# Cleanup staging directory
+if (Test-Path -LiteralPath $buildRoot) {
+    Remove-Item -LiteralPath $buildRoot -Recurse -Force
+}

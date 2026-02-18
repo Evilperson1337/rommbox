@@ -13,6 +13,7 @@ namespace RomMbox.Services.Logging
     {
         private readonly object _lock = new object();
         private readonly string _path;
+        private static int _initialized;
 
         /// <summary>
         /// Creates a file log sink with the specified output path.
@@ -60,6 +61,11 @@ namespace RomMbox.Services.Logging
         /// </summary>
         public void EnsureInitialized()
         {
+            if (System.Threading.Interlocked.Exchange(ref _initialized, 1) == 1)
+            {
+                return;
+            }
+
             try
             {
                 var directory = Path.GetDirectoryName(_path);

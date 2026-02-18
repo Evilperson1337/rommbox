@@ -130,6 +130,68 @@ namespace RomMbox.Storage
         }
 
         /// <summary>
+        /// Attempts to retrieve any saved credentials for this plugin.
+        /// </summary>
+        /// <param name="serverUrl">Resolved server URL from the credential target name.</param>
+        /// <param name="credentials">The credentials, or null if none found.</param>
+        /// <returns><c>true</c> when a credential entry was found.</returns>
+        public bool TryGetAnyCredentials(out string serverUrl, out CredentialResult credentials)
+        {
+            serverUrl = null;
+            credentials = null;
+
+            try
+            {
+                var prefix = "RomM_LaunchBoxPlugin_";
+                if (!CredEnumerate(prefix + "*", 0, out var count, out var credentialArrayPtr) || count <= 0)
+                {
+                    return false;
+                }
+
+                try
+                {
+                    for (var i = 0; i < count; i++)
+                    {
+                        var credentialPtr = Marshal.ReadIntPtr(credentialArrayPtr, i * IntPtr.Size);
+                        var credential = Marshal.PtrToStructure<NativeCredential>(credentialPtr);
+                        var target = credential.TargetName ?? string.Empty;
+                        if (!target.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                        {
+                            continue;
+                        }
+
+                        var resolvedUrl = target.Substring(prefix.Length).Trim();
+                        if (string.IsNullOrWhiteSpace(resolvedUrl))
+                        {
+                            continue;
+                        }
+
+                        var username = credential.UserName ?? string.Empty;
+                        var password = string.Empty;
+                        if (credential.CredentialBlob != IntPtr.Zero && credential.CredentialBlobSize > 0)
+                        {
+                            password = Marshal.PtrToStringUni(credential.CredentialBlob, (int)credential.CredentialBlobSize / 2) ?? string.Empty;
+                        }
+
+                        serverUrl = resolvedUrl;
+                        credentials = new CredentialResult(username, password);
+                        return true;
+                    }
+                }
+                finally
+                {
+                    CredFree(credentialArrayPtr);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.Error("Failed to enumerate saved credentials.", ex);
+            }
+
+            return false;
+        }
+
+        /// <summary>
         /// Deletes saved credentials for the specified server URL.
         /// </summary>
         /// <param name="serverUrl">The server URL used to scope credentials.</param>
@@ -190,6 +252,12 @@ namespace RomMbox.Storage
         /// </summary>
         [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
         private static extern bool CredRead(string target, int type, int reservedFlag, out IntPtr credentialPtr);
+
+        /// <summary>
+        /// P/Invoke to enumerate credential entries.
+        /// </summary>
+        [DllImport("advapi32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+        private static extern bool CredEnumerate(string filter, int flags, out int count, out IntPtr pCredentials);
 
         /// <summary>
         /// P/Invoke to delete a credential entry.

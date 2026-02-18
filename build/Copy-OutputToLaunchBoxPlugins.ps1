@@ -1,13 +1,19 @@
 param(
-    [string]$SourceDir = "D:\Projects\github.com\rommbox-1\output",
+    [string]$SourceDir = "D:\Projects\github.com\rommbox\output\RomMbox",
     [string]$TargetDir = "D:\temp\launchbox\Plugins"
 )
 
 $pluginName = "RomMbox"
 $pluginRoot = Join-Path -Path $TargetDir -ChildPath $pluginName
 
+if (Test-Path -LiteralPath $pluginRoot) {
+    Write-Host "Removing existing LaunchBox plugin folder at $pluginRoot"
+    Remove-Item -LiteralPath $pluginRoot -Recurse -Force
+}
+
 $files = @(
     "system\default-mapping.yaml",
+    "system\settings.json",
     "system\assets\upload.png",
     "system\assets\gaming.png",
     "system\assets\romm.png",
