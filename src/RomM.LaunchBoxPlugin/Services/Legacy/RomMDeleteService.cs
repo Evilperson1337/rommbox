@@ -84,12 +84,8 @@ namespace RomMbox.Services.Install
                             .GetAwaiter()
                             .GetResult();
                     }
-                    _installStateService.DeleteStateAsync(game.Id, cancellationToken)
-                        .ConfigureAwait(false)
-                        .GetAwaiter()
-                        .GetResult();
-                    // Refresh LaunchBox data without blocking uninstall UI completion.
-                    RefreshLaunchBoxData(dataManager);
+                    _installStateService.TryClearRomMInstallCustomFields(game);
+                    QueueLaunchBoxSaveAndCleanup(dataManager, game.Id, cancellationToken);
                     return RomMDeleteResult.UninstallResult(stubCreated);
                 }
 
@@ -111,12 +107,8 @@ namespace RomMbox.Services.Install
                         .GetAwaiter()
                         .GetResult();
                 }
-                _installStateService.DeleteStateAsync(game.Id, cancellationToken)
-                    .ConfigureAwait(false)
-                    .GetAwaiter()
-                    .GetResult();
-                // Refresh LaunchBox data without blocking uninstall UI completion.
-                RefreshLaunchBoxData(dataManager);
+                _installStateService.TryClearRomMInstallCustomFields(game);
+                QueueLaunchBoxSaveAndCleanup(dataManager, game.Id, cancellationToken);
                 return RomMDeleteResult.UninstallResult(stubCreated: false);
             }
             catch (Exception ex)
@@ -124,6 +116,32 @@ namespace RomMbox.Services.Install
                 _logger?.Error("RomM delete/uninstall failed.", ex);
                 return RomMDeleteResult.Failed(ex.Message);
             }
+        }
+
+        private void QueueLaunchBoxSaveAndCleanup(IDataManager dataManager, string launchBoxGameId, CancellationToken cancellationToken)
+        {
+            if (dataManager == null || string.IsNullOrWhiteSpace(launchBoxGameId))
+            {
+                return;
+            }
+
+            Task.Run(() =>
+            {
+                try
+                {
+                    dataManager.Save(true);
+                    _installStateService.DeleteStateAsync(launchBoxGameId, cancellationToken)
+                        .ConfigureAwait(false)
+                        .GetAwaiter()
+                        .GetResult();
+                    RefreshLaunchBoxData(dataManager);
+                    _logger?.Info("LaunchBox data saved and install state cleaned up after uninstall.");
+                }
+                catch (Exception ex)
+                {
+                    _logger?.Warning($"LaunchBox save/cleanup failed after uninstall: {ex.Message}");
+                }
+            });
         }
 
         /// <summary>

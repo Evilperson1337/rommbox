@@ -163,11 +163,11 @@ namespace RomMbox.Plugin.Adapters.GameMenu
             progressWindow.Show();
 
             // Hard-close safety in case background work hangs.
-            ScheduleProgressWindowHardTimeout(progressWindow, 60000);
+            ScheduleProgressWindowHardTimeout(progressWindow, 60000, "Install");
             
             Task.Run(() =>
             {
-                PluginEntry.Logger?.Info($"RomM Uninstall background task started for '{game?.Title}'.");
+                PluginEntry.Logger?.Info($"RomM Install background task started for '{game?.Title}'.");
                 try
                 {
                     var logger = PluginEntry.Logger;
@@ -326,6 +326,30 @@ namespace RomMbox.Plugin.Adapters.GameMenu
             PluginEntry.EnsureInitialized();
             PluginEntry.Logger?.Info($"RomM Uninstall selected for '{game?.Title}'. ApplicationPath='{game?.ApplicationPath}', Installed={game?.Installed == true}.");
 
+            var progressWindow = new UninstallProgressWindow
+            {
+                Title = "RomM Uninstall - " + game?.Title
+            };
+            var owner = System.Windows.Application.Current?.Windows
+                ?.OfType<MainWindow>()
+                .FirstOrDefault();
+            if (owner != null && owner.IsVisible)
+            {
+                progressWindow.Owner = owner;
+            }
+            PluginEntry.Logger?.Debug($"RomM Uninstall progress window owner set. OwnerVisible={owner?.IsVisible == true}.");
+            var viewModel = new UninstallProgressViewModel
+            {
+                HeaderText = "Uninstalling Game",
+                StatusText = "Preparing uninstall...",
+                ProgressValue = 0,
+                IsIndeterminate = true
+            };
+            progressWindow.DataContext = viewModel;
+
+            progressWindow.Show();
+            ScheduleProgressWindowHardTimeout(progressWindow, 60000, "Uninstall");
+
             Task.Run(async () =>
             {
                 try
@@ -337,27 +361,74 @@ namespace RomMbox.Plugin.Adapters.GameMenu
                     {
                         logger?.Warning($"RomM Uninstall aborted: services unavailable. DataManager={dataManager != null}, InstallStateService={installStateService != null}.");
                         logger?.Warning("RomM Uninstall aborted: services unavailable.");
+                        var dispatcher = progressWindow.Dispatcher;
+                        if (dispatcher != null && !dispatcher.HasShutdownStarted)
+                        {
+                            await dispatcher.InvokeAsync(() =>
+                            {
+                                viewModel.StatusText = "Uninstall aborted: services unavailable.";
+                            });
+                            await Task.Delay(1500).ConfigureAwait(false);
+                            await dispatcher.InvokeAsync(() => progressWindow.Close());
+                        }
                         return;
                     }
 
-                    var deleteService = new RomMDeleteService(logger, installStateService);
+                    var uninstallService = new RomMUninstallService(logger, installStateService);
+                    var progress = new Progress<RomMbox.Models.Install.UninstallProgress>(update =>
+                    {
+                        System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                        {
+                            viewModel.HeaderText = update.Stage;
+                            viewModel.StatusText = update.Message;
+                            viewModel.ProgressValue = update.Percent;
+                            viewModel.IsIndeterminate = update.IsIndeterminate;
+                        });
+                    });
 
                     logger?.Info($"RomM Uninstall calling DeleteOrUninstall for '{game?.Title}'.");
-                    var deleteTask = Task.Run(() => deleteService.DeleteOrUninstall(game, dataManager, CancellationToken.None));
-                    var result = await deleteTask.ConfigureAwait(false);
+                    var result = await uninstallService.UninstallAsync(game, dataManager, CancellationToken.None, progress).ConfigureAwait(false);
                     logger?.Info($"RomM Uninstall result for '{game?.Title}': Success={result.Success}, Message='{result.Message}'.");
-                    if (result.Success)
+
+                    var resultDispatcher = progressWindow.Dispatcher;
+                    if (resultDispatcher != null && !resultDispatcher.HasShutdownStarted)
                     {
-                        logger?.Info($"RomM Uninstall completed for '{game?.Title}'. {result.Message}");
-                    }
-                    else
-                    {
-                        logger?.Warning($"RomM Uninstall failed for '{game?.Title}'. {result.Message}");
+                        await resultDispatcher.InvokeAsync(() =>
+                        {
+                            if (result.Success)
+                            {
+                                viewModel.HeaderText = "Uninstalling Game";
+                                viewModel.StatusText = "Uninstall completed successfully!";
+                                viewModel.ProgressValue = 100;
+                                viewModel.IsIndeterminate = false;
+                                logger?.Info($"RomM Uninstall completed for '{game?.Title}'. {result.Message}");
+                            }
+                            else
+                            {
+                                viewModel.HeaderText = "Uninstalling Game";
+                                viewModel.StatusText = "Uninstall failed: " + result.Message;
+                                viewModel.ProgressValue = 0;
+                                viewModel.IsIndeterminate = false;
+                                logger?.Warning($"RomM Uninstall failed for '{game?.Title}'. {result.Message}");
+                            }
+                        });
+                        await Task.Delay(1500).ConfigureAwait(false);
+                        await resultDispatcher.InvokeAsync(() => progressWindow.Close());
                     }
                 }
                 catch (Exception ex)
                 {
                     PluginEntry.Logger?.Error("RomM Uninstall menu failed.", ex);
+                    var errorDispatcher = progressWindow.Dispatcher;
+                    if (errorDispatcher != null && !errorDispatcher.HasShutdownStarted)
+                    {
+                        await errorDispatcher.InvokeAsync(() =>
+                        {
+                            viewModel.StatusText = "Uninstall failed with error.";
+                        });
+                        await Task.Delay(1500).ConfigureAwait(false);
+                        await errorDispatcher.InvokeAsync(() => progressWindow.Close());
+                    }
                 }
                 finally
                 {
@@ -366,18 +437,18 @@ namespace RomMbox.Plugin.Adapters.GameMenu
             });
         }
 
-        private static void ScheduleProgressWindowHardTimeout(InstallProgressWindow progressWindow, int delayMilliseconds)
+        private static void ScheduleProgressWindowHardTimeout(Window progressWindow, int delayMilliseconds, string operationName)
         {
             if (progressWindow == null)
             {
-                PluginEntry.Logger?.Warning("RomM Uninstall hard timeout skipped: progress window is null.");
+                PluginEntry.Logger?.Warning($"RomM {operationName} hard timeout skipped: progress window is null.");
                 return;
             }
 
             var dispatcher = progressWindow.Dispatcher;
             if (dispatcher == null || dispatcher.HasShutdownStarted)
             {
-                PluginEntry.Logger?.Warning($"RomM Uninstall hard timeout skipped: dispatcher unavailable. HasShutdownStarted={dispatcher?.HasShutdownStarted == true}.");
+                PluginEntry.Logger?.Warning($"RomM {operationName} hard timeout skipped: dispatcher unavailable. HasShutdownStarted={dispatcher?.HasShutdownStarted == true}.");
                 return;
             }
 
@@ -388,13 +459,13 @@ namespace RomMbox.Plugin.Adapters.GameMenu
                     await Task.Delay(delayMilliseconds).ConfigureAwait(true);
                     if (progressWindow.IsVisible)
                     {
-                        PluginEntry.Logger?.Warning("RomM Uninstall hard timeout reached; closing progress window.");
+                        PluginEntry.Logger?.Warning($"RomM {operationName} hard timeout reached; closing progress window.");
                         progressWindow.Close();
                     }
                 }
                 catch
                 {
-                    PluginEntry.Logger?.Warning("RomM Uninstall hard timeout close failed during shutdown.");
+                    PluginEntry.Logger?.Warning($"RomM {operationName} hard timeout close failed during shutdown.");
                 }
             });
         }

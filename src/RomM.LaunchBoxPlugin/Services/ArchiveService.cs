@@ -54,6 +54,11 @@ namespace RomMbox.Services
         }
 
         /// <summary>
+        /// Gets whether archives should be kept after extraction.
+        /// </summary>
+        public bool KeepArchivesAfterExtraction => _settings.Value.GetKeepArchivesAfterExtraction();
+
+        /// <summary>
         /// Extracts an archive into a target directory based on the requested behavior.
         /// Returns the extraction folder or an empty string when extraction is skipped.
         /// </summary>
@@ -318,10 +323,36 @@ namespace RomMbox.Services
         public void LogArchiveRetentionNote()
         {
             var settings = _settings.Value;
-            if (!settings.GetKeepArchivesAfterExtraction())
+            _logger?.Info(settings.GetKeepArchivesAfterExtraction()
+                ? "Archive retention enabled; archives will be kept after extraction."
+                : "Archive retention disabled; archives will be removed after extraction.");
+        }
+
+        /// <summary>
+        /// Attempts to delete a downloaded archive once extraction is complete.
+        /// </summary>
+        public bool TryDeleteArchive(string archivePath)
+        {
+            if (string.IsNullOrWhiteSpace(archivePath))
             {
-                _logger?.Info("Archive retention disabled, but v1 requires keeping archives. Skipping delete.");
+                return false;
             }
+
+            try
+            {
+                if (File.Exists(archivePath))
+                {
+                    File.Delete(archivePath);
+                    _logger?.Info($"Archive removed after extraction: '{LoggingService.SanitizePath(archivePath)}'.");
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.Warning($"Failed to delete archive '{LoggingService.SanitizePath(archivePath)}': {ex.Message}");
+            }
+
+            return false;
         }
     }
 }

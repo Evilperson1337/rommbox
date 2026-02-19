@@ -881,9 +881,12 @@ public sealed class ImportViewModel : ObservableObject
             }
         }
 
-        dataManager.Save(true);
-        dataManager.ReloadIfNeeded();
-        dataManager.ForceReload();
+        Task.Run(() =>
+        {
+            dataManager.Save(true);
+            dataManager.ReloadIfNeeded();
+            dataManager.ForceReload();
+        });
     }
 
     /// <summary>
@@ -936,9 +939,12 @@ public sealed class ImportViewModel : ObservableObject
             _importService.ApplyMergeTag(game, rom);
         }
 
-        dataManager.Save(true);
-        dataManager.ReloadIfNeeded();
-        dataManager.ForceReload();
+        Task.Run(() =>
+        {
+            dataManager.Save(true);
+            dataManager.ReloadIfNeeded();
+            dataManager.ForceReload();
+        });
     }
 
     /// <summary>
@@ -1059,7 +1065,29 @@ public sealed class ImportViewModel : ObservableObject
         ImportAll = CalculateAggregateState(row => row.Import);
         DownloadAll = CalculateAggregateState(row => row.Download);
         SavesAll = CalculateAggregateState(row => row.Saves);
-        _logger.Debug($"Header state updated. ImportAll={ImportAll}, DownloadAll={DownloadAll}, SavesAll={SavesAll}.");
+        var totalRows = Games?.Count ?? 0;
+        var visibleRows = !string.IsNullOrWhiteSpace(SearchText) ? FilteredGames?.Count ?? 0 : totalRows;
+        var importCount = Games?.Count(row => row?.Import == true) ?? 0;
+        var downloadCount = Games?.Count(row => row?.Download == true) ?? 0;
+        var savesCount = Games?.Count(row => row?.Saves == true) ?? 0;
+        var search = (SearchText ?? string.Empty).Trim();
+        _logger.Write(
+            LogLevel.Debug,
+            "Header state updated.",
+            null,
+            new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["ImportAll"] = ImportAll,
+                ["DownloadAll"] = DownloadAll,
+                ["SavesAll"] = SavesAll,
+                ["TotalRows"] = totalRows,
+                ["VisibleRows"] = visibleRows,
+                ["ImportSelected"] = importCount,
+                ["DownloadSelected"] = downloadCount,
+                ["SavesSelected"] = savesCount,
+                ["HideSkipped"] = HideSkipped,
+                ["Search"] = search
+            });
         _syncingHeaderState = false;
     }
 

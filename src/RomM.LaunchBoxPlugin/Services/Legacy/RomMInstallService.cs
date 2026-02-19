@@ -199,6 +199,17 @@ namespace RomMbox.Services.Install
                         .ConfigureAwait(false)
                         .GetAwaiter()
                         .GetResult();
+                    _installStateService.TryUpsertRomMIdentityCustomFields(
+                        game,
+                        rom?.Id ?? details.RommRomId,
+                        rom?.PlatformId ?? details.RommPlatformId,
+                        rom?.Md5,
+                        localMd5: null,
+                        installResult.InstallType?.ToString(),
+                        installedPath: installResult.ExecutablePath ?? finalPath,
+                        serverUrl: _settingsManager.Load().ServerUrl,
+                        fileName: rom?.Payload?.FileName ?? rom?.FsName,
+                        extension: rom?.Payload?.Extension);
 
                     ExecuteWithRetry(() =>
                     {
@@ -259,6 +270,17 @@ namespace RomMbox.Services.Install
                     .ConfigureAwait(false)
                     .GetAwaiter()
                     .GetResult();
+                _installStateService.TryUpsertRomMIdentityCustomFields(
+                    game,
+                    rom?.Id ?? details.RommRomId,
+                    rom?.PlatformId ?? details.RommPlatformId,
+                    rom?.Md5,
+                    localMd5: null,
+                    windowsInstallType: null,
+                    installedPath: finalPath,
+                    serverUrl: _settingsManager.Load().ServerUrl,
+                    fileName: rom?.Payload?.FileName ?? rom?.FsName,
+                    extension: rom?.Payload?.Extension);
 
                 ExecuteWithRetry(() =>
                 {

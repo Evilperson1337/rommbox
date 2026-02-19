@@ -130,11 +130,10 @@
             <CheckBox Content="Use 7-Zip fallback when managed extraction fails"
                       IsChecked="{Binding UseSevenZipFallback, Mode=TwoWay}"
                       Foreground="#E6EBF5"/>
-            <CheckBox Content="Keep archives after extraction (required in v1)"
+            <CheckBox Content="Keep archives after extraction"
                       Margin="0,6,0,0"
-                      IsEnabled="False"
-                      IsChecked="{Binding KeepArchivesAfterExtraction, Mode=OneWay}"
-                      Foreground="#6B748A"/>
+                      IsChecked="{Binding KeepArchivesAfterExtraction, Mode=TwoWay}"
+                      Foreground="#E6EBF5"/>
         </StackPanel>
 
         <TextBlock Text="{Binding StatusText}" Style="{StaticResource HelperText}" Margin="0,0,0,10"/>
