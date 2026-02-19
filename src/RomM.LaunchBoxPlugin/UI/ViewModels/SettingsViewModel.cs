@@ -130,7 +130,7 @@ public sealed class SettingsViewModel : ObservableObject
                 var settings = _settingsManager.Load();
                 SevenZipPath = settings.GetSevenZipPath();
                 UseSevenZipFallback = settings.GetUseSevenZipFallback();
-                KeepArchivesAfterExtraction = true;
+                KeepArchivesAfterExtraction = settings.GetKeepArchivesAfterExtraction();
 
                 StatusText = PlatformRows.Count == 0
                     ? "No mapped platforms available."
@@ -183,9 +183,9 @@ public sealed class SettingsViewModel : ObservableObject
             var settings = _settingsManager.Load();
             settings.SevenZipPath = SevenZipPath ?? string.Empty;
             settings.UseSevenZipFallback = UseSevenZipFallback;
-            settings.KeepArchivesAfterExtraction = true;
+            settings.KeepArchivesAfterExtraction = KeepArchivesAfterExtraction;
             _settingsManager.Save(settings);
-            KeepArchivesAfterExtraction = true;
+            KeepArchivesAfterExtraction = settings.GetKeepArchivesAfterExtraction();
             StatusText = "Settings saved.";
         }
         catch (Exception ex)

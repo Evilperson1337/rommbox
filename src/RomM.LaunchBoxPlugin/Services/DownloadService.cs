@@ -108,8 +108,10 @@ namespace RomMbox.Services
 
                 _logger?.Info($"RomM download saved to {LoggingService.SanitizePath(archivePath)}.");
 
+                var extractedArchive = false;
                 if (extractAfterDownload && _archiveService.IsSupportedArchive(archivePath))
                 {
+                    extractedArchive = true;
                     extractionProgress?.Report(new Models.Download.DownloadProgress(0, 1));
                     var extracted = await _archiveService.ExtractAsync(archivePath, tempExtractDir, behavior, cancellationToken, extractionProgress).ConfigureAwait(false);
                     result.ExtractedPath = extracted;
@@ -117,7 +119,14 @@ namespace RomMbox.Services
                     _logger?.Info($"RomM extraction completed. InstallType={result.InstallType}.");
                     extractionProgress?.Report(new Models.Download.DownloadProgress(1, 1));
 
-                    _archiveService.LogArchiveRetentionNote();
+                    if (_archiveService.KeepArchivesAfterExtraction)
+                    {
+                        _archiveService.LogArchiveRetentionNote();
+                    }
+                    else
+                    {
+                        _archiveService.TryDeleteArchive(archivePath);
+                    }
                 }
                 else
                 {
@@ -130,12 +139,16 @@ namespace RomMbox.Services
                     result.ExtractedPath = null;
                 }
 
-                if (string.IsNullOrWhiteSpace(result.ArchivePath))
+                if (string.IsNullOrWhiteSpace(result.ArchivePath) && _archiveService.KeepArchivesAfterExtraction)
                 {
                     result.ArchivePath = archivePath;
                 }
 
                 result.Success = true;
+                if (extractedArchive && !_archiveService.KeepArchivesAfterExtraction)
+                {
+                    result.ArchivePath = null;
+                }
                 result.TempRoot = tempRoot;
                 return result;
             }
@@ -177,6 +190,7 @@ namespace RomMbox.Services
                 _logger?.Warning($"Failed to clean up temp download root '{LoggingService.SanitizePath(tempRoot)}': {ex.Message}");
             }
         }
+
 
 
         /// <summary>

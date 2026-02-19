@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.Data.Sqlite;
 using RomMbox.Models;
@@ -18,6 +19,15 @@ namespace RomMbox.Services
     /// </summary>
     internal sealed class InstallStateService
     {
+        private const string RommRomIdField = "RomM.RomId";
+        private const string RommPlatformIdField = "RomM.PlatformId";
+        private const string RommRemoteMd5Field = "RomM.MD5Hash";
+        private const string RommLocalMd5Field = "RomM.LocalMd5";
+        private const string RommWindowsInstallTypeField = "RomM.WindowsInstallType";
+        private const string RommInstalledPathField = "RomM.InstalledPath";
+        private const string RommServerUrlField = "RomM.ServerUrl";
+        private const string RommFileNameField = "RomM.Filename";
+        private const string RommExtensionField = "RomM.Extension";
         private const string DatabaseFileName = "romm.db";
         private const string LegacyDatabaseFileName = "romm_install_state.db";
         private const string MigrationMarkerKey = "romm_identity_backfill_v1";
@@ -85,6 +95,7 @@ CREATE TABLE IF NOT EXISTS InstallStateMetadata (
                 var hasRemoteMd5 = false;
                 var hasLocalMd5 = false;
                 var hasWindowsInstallType = false;
+                var hasServerUrl = false;
                 using (var reader = await migrateCommand.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
                 {
                     while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
@@ -109,6 +120,11 @@ CREATE TABLE IF NOT EXISTS InstallStateMetadata (
                         if (string.Equals(columnName, "WindowsInstallType", StringComparison.OrdinalIgnoreCase))
                         {
                             hasWindowsInstallType = true;
+                        }
+
+                        if (string.Equals(columnName, "ServerUrl", StringComparison.OrdinalIgnoreCase))
+                        {
+                            hasServerUrl = true;
                         }
                     }
                 }
@@ -138,6 +154,13 @@ CREATE TABLE IF NOT EXISTS InstallStateMetadata (
                 {
                     var alter = connection.CreateCommand();
                     alter.CommandText = "ALTER TABLE InstallState ADD COLUMN WindowsInstallType TEXT";
+                    await alter.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+                }
+
+                if (!hasServerUrl)
+                {
+                    var alter = connection.CreateCommand();
+                    alter.CommandText = "ALTER TABLE InstallState ADD COLUMN ServerUrl TEXT";
                     await alter.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
                 }
                 _logger?.Info("InstallState database initialized.");
@@ -478,18 +501,18 @@ ON CONFLICT(LaunchBoxGameId) DO UPDATE SET
             var state = await GetStateAsync(game.Id, cancellationToken).ConfigureAwait(false);
             if (state != null && !string.IsNullOrWhiteSpace(state.RommRomId) && !string.IsNullOrWhiteSpace(state.RommPlatformId))
             {
-                var serverUrl = _settingsManager?.Load()?.ServerUrl ?? string.Empty;
+                var serverUrl = ResolveServerUrl(null);
                 return (state.RommRomId, state.RommPlatformId, serverUrl);
             }
 
             var fallback = ReadCustomFieldIdentity(game);
             if (!string.IsNullOrWhiteSpace(fallback.RommRomId) && !string.IsNullOrWhiteSpace(fallback.RommPlatformId))
             {
-                var serverUrl = _settingsManager?.Load()?.ServerUrl ?? string.Empty;
+                var serverUrl = ResolveServerUrl(null);
                 return (fallback.RommRomId, fallback.RommPlatformId, serverUrl);
             }
 
-            return (null, null, _settingsManager?.Load()?.ServerUrl ?? string.Empty);
+            return (null, null, ResolveServerUrl(null));
         }
 
         /// <summary>
@@ -558,7 +581,7 @@ ON CONFLICT(LaunchBoxGameId) DO UPDATE SET
                 command.Parameters.AddWithValue("$gameId", launchBoxGameId);
                 command.Parameters.AddWithValue("$romId", rommRomId ?? string.Empty);
                 command.Parameters.AddWithValue("$platformId", rommPlatformId ?? string.Empty);
-                command.Parameters.AddWithValue("$serverUrl", _settingsManager?.Load()?.ServerUrl ?? string.Empty);
+                command.Parameters.AddWithValue("$serverUrl", ResolveServerUrl(null));
                 command.Parameters.AddWithValue("$remoteMd5", remoteMd5 ?? string.Empty);
                 command.Parameters.AddWithValue("$localMd5", localMd5 ?? string.Empty);
                 command.Parameters.AddWithValue("$windowsInstallType", windowsInstallType ?? string.Empty);
@@ -572,6 +595,16 @@ ON CONFLICT(LaunchBoxGameId) DO UPDATE SET
             {
                 _sync.Release();
             }
+        }
+
+        private string ResolveServerUrl(string stateServerUrl)
+        {
+            if (!string.IsNullOrWhiteSpace(stateServerUrl))
+            {
+                return stateServerUrl;
+            }
+
+            return _settingsManager?.Load()?.ServerUrl ?? string.Empty;
         }
 
         /// <summary>
@@ -611,6 +644,78 @@ WHERE LaunchBoxGameId = $gameId;
         }
 
         /// <summary>
+        /// Updates only the installed path for a game (used during custom-field backfill).
+        /// </summary>
+        public async Task UpdateInstalledPathAsync(string launchBoxGameId, string installedPath, CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(launchBoxGameId))
+            {
+                return;
+            }
+
+            await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+            await _sync.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                using var connection = new SqliteConnection(BuildConnectionString());
+                await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+                var command = connection.CreateCommand();
+                command.CommandText = @"
+UPDATE InstallState
+SET InstalledPath = $installedPath
+WHERE LaunchBoxGameId = $gameId;
+";
+                command.Parameters.AddWithValue("$gameId", launchBoxGameId);
+                command.Parameters.AddWithValue("$installedPath", installedPath ?? string.Empty);
+                await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger?.Error("Failed to update installed path.", ex);
+            }
+            finally
+            {
+                _sync.Release();
+            }
+        }
+
+        /// <summary>
+        /// Updates only the server URL for a game (used during backfill from custom fields).
+        /// </summary>
+        public async Task UpdateServerUrlAsync(string launchBoxGameId, string serverUrl, CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(launchBoxGameId))
+            {
+                return;
+            }
+
+            await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+            await _sync.WaitAsync(cancellationToken).ConfigureAwait(false);
+            try
+            {
+                using var connection = new SqliteConnection(BuildConnectionString());
+                await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+                var command = connection.CreateCommand();
+                command.CommandText = @"
+UPDATE InstallState
+SET ServerUrl = $serverUrl
+WHERE LaunchBoxGameId = $gameId;
+";
+                command.Parameters.AddWithValue("$gameId", launchBoxGameId);
+                command.Parameters.AddWithValue("$serverUrl", serverUrl ?? string.Empty);
+                await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger?.Error("Failed to update server URL.", ex);
+            }
+            finally
+            {
+                _sync.Release();
+            }
+        }
+
+        /// <summary>
         /// One-time migration from custom fields into the install state database.
         /// </summary>
         public async Task EnsureIdentityBackfillAsync(IDataManager dataManager, CancellationToken cancellationToken)
@@ -640,7 +745,8 @@ WHERE LaunchBoxGameId = $gameId;
                 var identity = ReadCustomFieldIdentity(game);
                 if (string.IsNullOrWhiteSpace(identity.RommRomId) && string.IsNullOrWhiteSpace(identity.RommPlatformId)
                     && string.IsNullOrWhiteSpace(identity.RemoteMd5) && string.IsNullOrWhiteSpace(identity.LocalMd5)
-                    && string.IsNullOrWhiteSpace(identity.WindowsInstallType))
+                    && string.IsNullOrWhiteSpace(identity.WindowsInstallType) && string.IsNullOrWhiteSpace(identity.InstalledPath)
+                    && string.IsNullOrWhiteSpace(identity.ServerUrl))
                 {
                     continue;
                 }
@@ -653,11 +759,102 @@ WHERE LaunchBoxGameId = $gameId;
                     identity.LocalMd5,
                     identity.WindowsInstallType,
                     cancellationToken).ConfigureAwait(false);
+                await UpdateServerUrlAsync(game.Id, identity.ServerUrl, cancellationToken).ConfigureAwait(false);
+                if (!string.IsNullOrWhiteSpace(identity.InstalledPath))
+                {
+                    await UpdateInstalledPathAsync(game.Id, identity.InstalledPath, cancellationToken).ConfigureAwait(false);
+                }
                 updated++;
             }
 
             await MarkMigrationCompleteAsync(cancellationToken).ConfigureAwait(false);
             _logger?.Info($"RomM identity backfill completed. Updated={updated}.");
+        }
+
+        /// <summary>
+        /// One-time migration from install state database into custom fields.
+        /// </summary>
+        public async Task EnsureCustomFieldBackfillAsync(IDataManager dataManager, CancellationToken cancellationToken)
+        {
+            if (dataManager == null)
+            {
+                return;
+            }
+
+            await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+
+            var updated = 0;
+            try
+            {
+                using var connection = new SqliteConnection(BuildConnectionString());
+                await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+                var command = connection.CreateCommand();
+                command.CommandText = @"
+SELECT LaunchBoxGameId, RommRomId, RommPlatformId, ServerUrl, RemoteMd5, LocalMd5, WindowsInstallType, InstalledPath
+FROM InstallState
+WHERE RommRomId != '' AND RommPlatformId != '';
+";
+                using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+                while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    var gameId = reader.IsDBNull(0) ? null : reader.GetString(0);
+                    if (string.IsNullOrWhiteSpace(gameId))
+                    {
+                        continue;
+                    }
+
+                    var game = dataManager.GetGameById(gameId);
+                    if (game == null)
+                    {
+                        continue;
+                    }
+
+                var identity = ReadCustomFieldIdentity(game);
+                if (!string.IsNullOrWhiteSpace(identity.RommRomId)
+                    || !string.IsNullOrWhiteSpace(identity.RommPlatformId)
+                    || !string.IsNullOrWhiteSpace(identity.RemoteMd5)
+                    || !string.IsNullOrWhiteSpace(identity.LocalMd5)
+                    || !string.IsNullOrWhiteSpace(identity.WindowsInstallType)
+                    || !string.IsNullOrWhiteSpace(identity.InstalledPath)
+                    || !string.IsNullOrWhiteSpace(identity.ServerUrl))
+                {
+                    continue;
+                }
+
+                    var changed = TryUpsertRomMIdentityCustomFields(
+                        game,
+                        reader.IsDBNull(1) ? null : reader.GetString(1),
+                        reader.IsDBNull(2) ? null : reader.GetString(2),
+                        reader.IsDBNull(4) ? null : reader.GetString(4),
+                        reader.IsDBNull(5) ? null : reader.GetString(5),
+                        reader.IsDBNull(6) ? null : reader.GetString(6),
+                        reader.IsDBNull(7) ? null : reader.GetString(7),
+                        serverUrl: ResolveServerUrl(reader.IsDBNull(3) ? null : reader.GetString(3)),
+                        fileName: null,
+                        extension: null);
+                    if (changed)
+                    {
+                        updated++;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.Warning($"RomM custom field backfill failed. {ex.Message}");
+            }
+            finally
+            {
+            }
+
+            if (updated > 0)
+            {
+                dataManager.Save(true);
+                dataManager.ReloadIfNeeded();
+                dataManager.ForceReload();
+            }
+
+            _logger?.Info($"RomM custom field backfill completed. Updated={updated}.");
         }
 
         private async Task<bool> IsMigrationCompleteAsync(CancellationToken cancellationToken)
@@ -727,11 +924,11 @@ ON CONFLICT(Key) DO UPDATE SET Value = excluded.Value;
                 && !string.IsNullOrWhiteSpace(serverUrl);
         }
 
-        private static (string RommRomId, string RommPlatformId, string RemoteMd5, string LocalMd5, string WindowsInstallType) ReadCustomFieldIdentity(IGame game)
+        private static (string RommRomId, string RommPlatformId, string RemoteMd5, string LocalMd5, string WindowsInstallType, string InstalledPath, string ServerUrl) ReadCustomFieldIdentity(IGame game)
         {
             if (game == null)
             {
-                return (null, null, null, null, null);
+                return (null, null, null, null, null, null, null);
             }
 
             string romId = null;
@@ -739,37 +936,170 @@ ON CONFLICT(Key) DO UPDATE SET Value = excluded.Value;
             string remoteMd5 = null;
             string localMd5 = null;
             string windowsInstallType = null;
+            string installedPath = null;
+            string serverUrl = null;
             var fields = game.GetAllCustomFields();
             if (fields == null)
             {
-                return (null, null, null, null, null);
+                return (null, null, null, null, null, null, null);
             }
 
             foreach (var field in fields)
             {
-                if (string.Equals(field?.Name, "RomM.RomId", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(field?.Name, RommRomIdField, StringComparison.OrdinalIgnoreCase))
                 {
                     romId = field.Value;
                 }
-                else if (string.Equals(field?.Name, "RomM.PlatformId", StringComparison.OrdinalIgnoreCase))
+                else if (string.Equals(field?.Name, RommPlatformIdField, StringComparison.OrdinalIgnoreCase))
                 {
                     platformId = field.Value;
                 }
-                else if (string.Equals(field?.Name, "RomM.MD5Hash", StringComparison.OrdinalIgnoreCase))
+                else if (string.Equals(field?.Name, RommRemoteMd5Field, StringComparison.OrdinalIgnoreCase))
                 {
                     remoteMd5 = field.Value;
                 }
-                else if (string.Equals(field?.Name, "RomM.LocalMd5", StringComparison.OrdinalIgnoreCase))
+                else if (string.Equals(field?.Name, RommLocalMd5Field, StringComparison.OrdinalIgnoreCase))
                 {
                     localMd5 = field.Value;
                 }
-                else if (string.Equals(field?.Name, "RomM.WindowsInstallType", StringComparison.OrdinalIgnoreCase))
+                else if (string.Equals(field?.Name, RommWindowsInstallTypeField, StringComparison.OrdinalIgnoreCase))
                 {
                     windowsInstallType = field.Value;
                 }
+                else if (string.Equals(field?.Name, RommInstalledPathField, StringComparison.OrdinalIgnoreCase))
+                {
+                    installedPath = field.Value;
+                }
+                else if (string.Equals(field?.Name, RommServerUrlField, StringComparison.OrdinalIgnoreCase))
+                {
+                    serverUrl = field.Value;
+                }
             }
 
-            return (romId, platformId, remoteMd5, localMd5, windowsInstallType);
+            return (romId, platformId, remoteMd5, localMd5, windowsInstallType, installedPath, serverUrl);
+        }
+
+        /// <summary>
+        /// Writes RomM identity custom fields onto the LaunchBox game.
+        /// </summary>
+        public bool TryUpsertRomMIdentityCustomFields(
+            IGame game,
+            string rommRomId,
+            string rommPlatformId,
+            string remoteMd5,
+            string localMd5,
+            string windowsInstallType,
+            string installedPath,
+            string serverUrl,
+            string fileName,
+            string extension)
+        {
+            if (game == null)
+            {
+                return false;
+            }
+
+            var changed = false;
+            changed |= UpsertCustomField(game, RommRomIdField, rommRomId);
+            changed |= UpsertCustomField(game, RommPlatformIdField, rommPlatformId);
+            changed |= UpsertCustomField(game, RommRemoteMd5Field, remoteMd5);
+            changed |= UpsertCustomField(game, RommLocalMd5Field, localMd5);
+            changed |= UpsertCustomField(game, RommWindowsInstallTypeField, windowsInstallType);
+            changed |= UpsertCustomField(game, RommInstalledPathField, installedPath);
+            changed |= UpsertCustomField(game, RommServerUrlField, serverUrl);
+            changed |= UpsertCustomField(game, RommFileNameField, fileName);
+            changed |= UpsertCustomField(game, RommExtensionField, extension);
+            return changed;
+        }
+
+        /// <summary>
+        /// Clears install-specific custom fields while keeping RomM identity fields intact.
+        /// </summary>
+        public bool TryClearRomMInstallCustomFields(IGame game)
+        {
+            if (game == null)
+            {
+                return false;
+            }
+
+            var changed = false;
+            changed |= UpsertCustomField(game, RommLocalMd5Field, string.Empty);
+            changed |= UpsertCustomField(game, RommInstalledPathField, string.Empty);
+            changed |= UpsertCustomField(game, RommServerUrlField, string.Empty);
+            return changed;
+        }
+
+        private static bool UpsertCustomField(IGame game, string name, string value)
+        {
+            if (game == null || string.IsNullOrWhiteSpace(name))
+            {
+                return false;
+            }
+
+            var fields = game.GetAllCustomFields();
+            var normalized = value ?? string.Empty;
+            if (fields != null)
+            {
+                var existing = fields.FirstOrDefault(field => string.Equals(field?.Name, name, StringComparison.OrdinalIgnoreCase));
+                if (existing != null)
+                {
+                    if (string.Equals(existing.Value ?? string.Empty, normalized, StringComparison.Ordinal))
+                    {
+                        return false;
+                    }
+
+                    existing.Value = normalized;
+                    return true;
+                }
+            }
+
+            // Prefer SDK method when available.
+            try
+            {
+                var customField = game.AddNewCustomField();
+                if (customField != null)
+                {
+                    customField.GameId = game.Id;
+                    customField.Name = name;
+                    customField.Value = normalized;
+                    return true;
+                }
+            }
+            catch
+            {
+                // Fall back to reflection-based add below.
+            }
+
+            // Custom field collections are exposed by LaunchBox for writes; attempt to add via IGame.CustomFields when available.
+            try
+            {
+                var customFieldsProperty = game.GetType().GetProperty("CustomFields");
+                var customFields = customFieldsProperty?.GetValue(game) as System.Collections.IList;
+                if (customFields != null)
+                {
+                    var fieldType = customFields.GetType().GetGenericArguments().FirstOrDefault()
+                        ?? customFields.GetType().GetElementType()
+                        ?? Type.GetType("Unbroken.LaunchBox.Plugins.Data.CustomField, Unbroken.LaunchBox.Plugins");
+                    if (fieldType != null)
+                    {
+                        var instance = Activator.CreateInstance(fieldType);
+                        var nameProp = fieldType.GetProperty("Name");
+                        var valueProp = fieldType.GetProperty("Value");
+                        var gameIdProp = fieldType.GetProperty("GameId");
+                        nameProp?.SetValue(instance, name);
+                        valueProp?.SetValue(instance, normalized);
+                        gameIdProp?.SetValue(instance, game.Id);
+                        customFields.Add(instance);
+                        return true;
+                    }
+                }
+            }
+            catch
+            {
+                // Ignore add failures; existing custom fields are still readable.
+            }
+
+            return false;
         }
 
         /// <summary>

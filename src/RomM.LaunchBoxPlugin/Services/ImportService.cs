@@ -946,6 +946,19 @@ namespace RomMbox.Services
                 .GetAwaiter()
                 .GetResult();
 
+            _installStateService.TryUpsertRomMIdentityCustomFields(
+                game,
+                rom.Id,
+                rom.PlatformId,
+                rom.Md5,
+                localMd5,
+                windowsInstallType: null,
+                installedPath: game.ApplicationPath,
+                serverUrl: _settingsManager.Load().ServerUrl,
+                fileName: rom.Payload?.FileName ?? rom.FsName,
+                extension: rom.Payload?.Extension);
+            SaveAndReloadDataManager(_dataManager ?? PluginHelper.DataManager);
+
             _logger?.Debug($"ApplyRomMIdentity local MD5 for '{game.Title}': LocalMd5={(string.IsNullOrWhiteSpace(localMd5) ? "<empty>" : localMd5)}.");
         }
 
@@ -1504,6 +1517,19 @@ namespace RomMbox.Services
                         _logger?.Info($"Set RomM.WindowsInstallType='{installResult.InstallType.Value}' for '{game.Title}' (DB).");
                     }
 
+                    _installStateService.TryUpsertRomMIdentityCustomFields(
+                        game,
+                        rom?.Id,
+                        rom?.PlatformId,
+                        rom?.Md5,
+                        localMd5: null,
+                        windowsInstallType: installResult.InstallType?.ToString(),
+                        installedPath: installResult.ExecutablePath ?? finalPath,
+                        serverUrl: _settingsManager.Load().ServerUrl,
+                        fileName: rom?.Payload?.FileName ?? rom?.FsName,
+                        extension: rom?.Payload?.Extension);
+                    SaveAndReloadDataManager(_dataManager ?? PluginHelper.DataManager);
+
                     var installState = new InstallState
                     {
                         LaunchBoxGameId = game.Id,
@@ -1868,10 +1894,12 @@ namespace RomMbox.Services
             {
                 return;
             }
-
-            dataManager.Save(true);
-            dataManager.ReloadIfNeeded();
-            dataManager.ForceReload();
+            Task.Run(() =>
+            {
+                dataManager.Save(true);
+                dataManager.ReloadIfNeeded();
+                dataManager.ForceReload();
+            });
         }
 
         internal MatchIndex BuildMatchIndexForUi(IDataManager dataManager, IPlatform platform, bool includeMd5)

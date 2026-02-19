@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using RomMbox.Services.Auth;
+using Unbroken.LaunchBox.Plugins;
 using RomMbox.Services;
 using RomMbox.Services.Logging;
 using RomMbox.Services.Settings;
@@ -60,6 +61,12 @@ namespace RomMbox.Plugin
                     Logger = logger;
                     _settingsManager = settingsManager;
                     _installStateService = new InstallStateService(logger, settingsManager);
+                    var dataManager = PluginHelper.DataManager;
+                    if (dataManager != null)
+                    {
+                        _ = _installStateService.EnsureIdentityBackfillAsync(dataManager, CancellationToken.None);
+                        _ = _installStateService.EnsureCustomFieldBackfillAsync(dataManager, CancellationToken.None);
+                    }
                     _ = new StubApplicationPathService(logger, _installStateService)
                         .EnsureStubApplicationPathsAsync(System.Threading.CancellationToken.None);
                     // Start a background connection test so UI can reflect status quickly.

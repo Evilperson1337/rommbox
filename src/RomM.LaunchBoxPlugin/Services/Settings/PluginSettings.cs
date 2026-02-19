@@ -123,7 +123,7 @@ namespace RomMbox.Services.Settings
         /// <summary>
         /// Gets whether archives should be kept after extraction.
         /// </summary>
-        public bool GetKeepArchivesAfterExtraction() => KeepArchivesAfterExtraction ?? true;
+        public bool GetKeepArchivesAfterExtraction() => KeepArchivesAfterExtraction ?? false;
 
         /// <summary>
         /// Gets whether the user should be prompted for Windows install directories.
@@ -179,7 +179,7 @@ namespace RomMbox.Services.Settings
 
             if (KeepArchivesAfterExtraction == null)
             {
-                KeepArchivesAfterExtraction = true;
+                KeepArchivesAfterExtraction = false;
             }
 
             if (PromptForWindowsInstallDirectory == null)
