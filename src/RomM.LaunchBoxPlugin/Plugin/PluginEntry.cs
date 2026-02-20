@@ -49,6 +49,7 @@ namespace RomMbox.Plugin
                     var settingsManager = new SettingsManager(new LoggingService(LogLevel.Debug, sink));
                     var settings = settingsManager.Load();
                     var logger = new LoggingService(settings.GetLogLevel(), sink);
+                    TrySyncSettingsWithSavedCredentials(settingsManager, settings, logger);
 
                     var operationId = Guid.NewGuid().ToString("N");
                     using (logger.BeginOperation(operationId))
@@ -64,8 +65,7 @@ namespace RomMbox.Plugin
                     var dataManager = PluginHelper.DataManager;
                     if (dataManager != null)
                     {
-                        _ = _installStateService.EnsureIdentityBackfillAsync(dataManager, CancellationToken.None);
-                        _ = _installStateService.EnsureCustomFieldBackfillAsync(dataManager, CancellationToken.None);
+                        _ = _installStateService.InitializeAsync(CancellationToken.None);
                     }
                     _ = new StubApplicationPathService(logger, _installStateService)
                         .EnsureStubApplicationPathsAsync(System.Threading.CancellationToken.None);
@@ -199,6 +199,64 @@ namespace RomMbox.Plugin
                 }
                 BackgroundConnectionCompleted?.Invoke(null, result);
             });
+        }
+
+        private static void TrySyncSettingsWithSavedCredentials(SettingsManager settingsManager, PluginSettings settings, LoggingService logger)
+        {
+            if (settingsManager == null || settings == null)
+            {
+                return;
+            }
+
+            var serverUrl = settings.ServerUrl?.Trim() ?? string.Empty;
+            var hasValidServerUrl = !string.IsNullOrWhiteSpace(serverUrl)
+                && Uri.IsWellFormedUriString(serverUrl, UriKind.Absolute);
+            var needsDiscovery = !hasValidServerUrl || !settings.HasSavedCredentials || !settings.UseSavedCredentials;
+            if (!needsDiscovery)
+            {
+                return;
+            }
+
+            if (!settingsManager.TryGetAnySavedCredentials(out var discoveredUrl, out var discoveredCredentials))
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(discoveredUrl))
+            {
+                return;
+            }
+
+            var normalizedUrl = discoveredUrl.TrimEnd('/');
+            var updated = false;
+            if (!string.Equals(settings.ServerUrl?.TrimEnd('/'), normalizedUrl, StringComparison.OrdinalIgnoreCase))
+            {
+                settings.ServerUrl = normalizedUrl;
+                updated = true;
+            }
+
+            if (!settings.HasSavedCredentials)
+            {
+                settings.HasSavedCredentials = true;
+                updated = true;
+            }
+
+            if (!settings.UseSavedCredentials)
+            {
+                settings.UseSavedCredentials = true;
+                updated = true;
+            }
+
+            if (updated)
+            {
+                settingsManager.Save(settings);
+                logger?.Info("Saved credentials detected during startup. Settings updated to enable automatic connection.");
+            }
+
+            if (discoveredCredentials == null)
+            {
+                logger?.Warning("Saved credential entry found without credentials payload.");
+            }
         }
     }
 }

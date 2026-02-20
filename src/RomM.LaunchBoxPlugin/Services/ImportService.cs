@@ -76,10 +76,6 @@ namespace RomMbox.Services
             CancellationToken cancellationToken)
         {
             var dataManager = _dataManager ?? PluginHelper.DataManager;
-            if (dataManager != null)
-            {
-                await _installStateService.EnsureIdentityBackfillAsync(dataManager, cancellationToken).ConfigureAwait(false);
-            }
 
             return await ImportPlatformCatalogAsync(platformId, true, true, true, true, true, true, cancellationToken, null).ConfigureAwait(false);
         }
@@ -129,8 +125,6 @@ namespace RomMbox.Services
             {
                 throw new InvalidOperationException("LaunchBox DataManager is unavailable.");
             }
-
-            await _installStateService.EnsureIdentityBackfillAsync(dataManager, cancellationToken).ConfigureAwait(false);
 
             // Resolve the LaunchBox platform once and build a fast lookup index
             // so the inner import loop stays O(1) for common match strategies.
@@ -934,32 +928,32 @@ namespace RomMbox.Services
                 localMd5 = rom.Md5;
             }
 
-            _installStateService.UpsertIdentityAsync(
-                game.Id,
-                rom.Id,
-                rom.PlatformId,
-                rom.Md5,
-                localMd5,
-                windowsInstallType: null,
-                CancellationToken.None)
-                .ConfigureAwait(false)
-                .GetAwaiter()
-                .GetResult();
-
-            _installStateService.TryUpsertRomMIdentityCustomFields(
-                game,
-                rom.Id,
-                rom.PlatformId,
-                rom.Md5,
-                localMd5,
-                windowsInstallType: null,
-                installedPath: game.ApplicationPath,
-                serverUrl: _settingsManager.Load().ServerUrl,
-                fileName: rom.Payload?.FileName ?? rom.FsName,
-                extension: rom.Payload?.Extension);
-            SaveAndReloadDataManager(_dataManager ?? PluginHelper.DataManager);
+            QueueIdentityWrite(game.Id, rom.Id, rom.PlatformId, rom.Md5, localMd5);
 
             _logger?.Debug($"ApplyRomMIdentity local MD5 for '{game.Title}': LocalMd5={(string.IsNullOrWhiteSpace(localMd5) ? "<empty>" : localMd5)}.");
+        }
+
+        private void QueueIdentityWrite(string gameId, string romId, string platformId, string remoteMd5, string localMd5)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _installStateService.UpsertIdentityAsync(
+                            gameId,
+                            romId,
+                            platformId,
+                            remoteMd5,
+                            localMd5,
+                            windowsInstallType: null,
+                            CancellationToken.None)
+                        .ConfigureAwait(false);
+                }
+                catch (Exception ex)
+                {
+                    _logger?.Warning($"Failed to persist RomM identity for '{gameId ?? "<unknown>"}': {ex.Message}");
+                }
+            });
         }
 
         private void ApplyMatchMetadata(IGame game, RommRom rom, GameMatch match)
@@ -1437,7 +1431,7 @@ namespace RomMbox.Services
 
             try
             {
-                var mapping = _settingsManager.GetPlatformMapping(rom.PlatformId ?? string.Empty);
+                var mapping = _mappingService.GetMapping(rom.PlatformId ?? string.Empty);
                 var extractAfterDownload = mapping?.ExtractAfterDownload ?? false;
                 var extractionBehavior = mapping?.ExtractionBehavior ?? ExtractionBehavior.Subfolder;
                 var installScenario = mapping?.InstallScenario ?? InstallScenario.Basic;
@@ -1517,17 +1511,6 @@ namespace RomMbox.Services
                         _logger?.Info($"Set RomM.WindowsInstallType='{installResult.InstallType.Value}' for '{game.Title}' (DB).");
                     }
 
-                    _installStateService.TryUpsertRomMIdentityCustomFields(
-                        game,
-                        rom?.Id,
-                        rom?.PlatformId,
-                        rom?.Md5,
-                        localMd5: null,
-                        windowsInstallType: installResult.InstallType?.ToString(),
-                        installedPath: installResult.ExecutablePath ?? finalPath,
-                        serverUrl: _settingsManager.Load().ServerUrl,
-                        fileName: rom?.Payload?.FileName ?? rom?.FsName,
-                        extension: rom?.Payload?.Extension);
                     SaveAndReloadDataManager(_dataManager ?? PluginHelper.DataManager);
 
                     var installState = new InstallState
@@ -1894,12 +1877,9 @@ namespace RomMbox.Services
             {
                 return;
             }
-            Task.Run(() =>
-            {
-                dataManager.Save(true);
-                dataManager.ReloadIfNeeded();
-                dataManager.ForceReload();
-            });
+            dataManager.Save(true);
+            dataManager.ReloadIfNeeded();
+            dataManager.ForceReload();
         }
 
         internal MatchIndex BuildMatchIndexForUi(IDataManager dataManager, IPlatform platform, bool includeMd5)
@@ -2316,7 +2296,7 @@ namespace RomMbox.Services
                     var extension = GetFileExtension(coverUrl);
                     var path = game.GetNextAvailableImageFilePath(extension, ImageTypes.BoxFront, game.Region ?? string.Empty);
                     _logger?.Info($"Writing cover art to: {path}");
-                    await Task.Run(() => File.WriteAllBytes(path, bytes), cancellationToken).ConfigureAwait(false);
+                    await File.WriteAllBytesAsync(path, bytes, cancellationToken).ConfigureAwait(false);
                     // FrontImagePath is read-only on IGame; rely on file placement.
                     var platformFolder = platform?.FrontImagesFolder;
                     if (!string.IsNullOrWhiteSpace(platformFolder))
@@ -2342,7 +2322,7 @@ namespace RomMbox.Services
                     var extension = GetFileExtension(screenshotUrl);
                     var path = game.GetNextAvailableImageFilePath(extension, ImageTypes.ScreenshotGameplay, game.Region ?? string.Empty);
                     _logger?.Info($"Writing screenshot to: {path}");
-                    await Task.Run(() => File.WriteAllBytes(path, bytes), cancellationToken).ConfigureAwait(false);
+                    await File.WriteAllBytesAsync(path, bytes, cancellationToken).ConfigureAwait(false);
                     // ScreenshotImagePath is read-only on IGame; rely on file placement.
                     var platformFolder = platform?.ScreenshotImagesFolder;
                     if (!string.IsNullOrWhiteSpace(platformFolder))
@@ -2544,13 +2524,13 @@ namespace RomMbox.Services
                     var fileName = BuildSaveFileName(save, gameTitle);
                     var targetPath = EnsureUniqueFilePath(saveRoot, fileName);
                     var bytes = await _client.DownloadSaveAsync(save.DownloadPath, cancellationToken).ConfigureAwait(false);
-                    File.WriteAllBytes(targetPath, bytes);
+                    await File.WriteAllBytesAsync(targetPath, bytes, cancellationToken).ConfigureAwait(false);
                     var rootCopyPath = string.IsNullOrWhiteSpace(rootSavePath)
                         ? targetPath
                         : EnsureUniqueFilePath(rootSavePath, fileName);
                     if (!string.Equals(rootCopyPath, targetPath, StringComparison.OrdinalIgnoreCase))
                     {
-                        File.WriteAllBytes(rootCopyPath, bytes);
+                        await File.WriteAllBytesAsync(rootCopyPath, bytes, cancellationToken).ConfigureAwait(false);
                     }
                     var relativePath = BuildLaunchBoxSaveRelativePath(platformName, Path.GetFileName(rootCopyPath));
                     saveEntries.Add(new GameSaveEntry

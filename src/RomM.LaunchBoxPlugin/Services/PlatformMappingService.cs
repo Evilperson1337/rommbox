@@ -74,7 +74,7 @@ namespace RomMbox.Services
         private static readonly Lazy<List<DefaultMappingEntry>> DefaultMappings = new Lazy<List<DefaultMappingEntry>>(LoadDefaultMappings);
 
         private readonly LoggingService _logger;
-        private readonly SettingsManager _settingsManager;
+        private readonly PlatformMappingStore _mappingStore;
         private readonly IRommClient _rommClient;
 
         /// <summary>
@@ -83,7 +83,7 @@ namespace RomMbox.Services
         public PlatformMappingService(LoggingService logger, SettingsManager settingsManager, IRommClient rommClient)
         {
             _logger = logger;
-            _settingsManager = settingsManager;
+            _mappingStore = new PlatformMappingStore(logger);
             _rommClient = rommClient;
         }
 
@@ -100,7 +100,10 @@ namespace RomMbox.Services
                 foreach (var platform in platforms)
                 {
                     var mappingResult = ResolveLaunchBoxPlatform(platform.Id, platform.Name);
-                    var saved = _settingsManager.GetPlatformMapping(platform.Id ?? string.Empty);
+                    var saved = _mappingStore.GetPlatformMappingAsync(platform.Id ?? string.Empty, cancellationToken)
+                        .ConfigureAwait(false)
+                        .GetAwaiter()
+                        .GetResult();
                     mappings.Add(new PlatformMapping
                     {
                         RommPlatformId = platform.Id ?? string.Empty,
@@ -196,6 +199,14 @@ namespace RomMbox.Services
             return ResolveLaunchBoxPlatform(rommPlatformId, rommPlatformName).Name ?? string.Empty;
         }
 
+        public PlatformMapping GetMapping(string rommPlatformId)
+        {
+            return _mappingStore.GetPlatformMappingAsync(rommPlatformId ?? string.Empty, CancellationToken.None)
+                .ConfigureAwait(false)
+                .GetAwaiter()
+                .GetResult();
+        }
+
         /// <summary>
         /// Resolves the LaunchBox platform name and whether it was auto-mapped.
         /// </summary>
@@ -206,7 +217,10 @@ namespace RomMbox.Services
                 return (string.Empty, false);
             }
 
-            var saved = _settingsManager.GetPlatformMapping(rommPlatformId ?? string.Empty);
+            var saved = _mappingStore.GetPlatformMappingAsync(rommPlatformId ?? string.Empty, CancellationToken.None)
+                .ConfigureAwait(false)
+                .GetAwaiter()
+                .GetResult();
             if (saved != null && !string.IsNullOrWhiteSpace(saved.LaunchBoxPlatformName))
             {
                 return (saved.LaunchBoxPlatformName, false);
@@ -226,7 +240,10 @@ namespace RomMbox.Services
         /// </summary>
         public void SaveMapping(PlatformMapping mapping)
         {
-            _settingsManager.SavePlatformMapping(mapping);
+            _mappingStore.SavePlatformMappingAsync(mapping, CancellationToken.None)
+                .ConfigureAwait(false)
+                .GetAwaiter()
+                .GetResult();
             _logger?.Debug($"Saved platform mapping: {mapping?.RommPlatformId} -> {mapping?.LaunchBoxPlatformName}");
         }
 
@@ -235,7 +252,10 @@ namespace RomMbox.Services
         /// </summary>
         public void SaveMappings(PlatformMapping[] mappings)
         {
-            _settingsManager.SavePlatformMappings(mappings);
+            _mappingStore.SavePlatformMappingsAsync(mappings, CancellationToken.None)
+                .ConfigureAwait(false)
+                .GetAwaiter()
+                .GetResult();
             _logger?.Debug("Saved platform mappings.");
         }
 
@@ -411,7 +431,10 @@ namespace RomMbox.Services
         /// </summary>
         public string[] GetExcludedRommPlatformIds()
         {
-            return _settingsManager.GetExcludedRommPlatformIds();
+            return _mappingStore.GetExcludedRommPlatformIdsAsync(CancellationToken.None)
+                .ConfigureAwait(false)
+                .GetAwaiter()
+                .GetResult();
         }
 
         /// <summary>
@@ -419,7 +442,10 @@ namespace RomMbox.Services
         /// </summary>
         public void SaveExcludedRommPlatformIds(string[] platformIds)
         {
-            _settingsManager.SaveExcludedRommPlatformIds(platformIds);
+            _mappingStore.SaveExcludedRommPlatformIdsAsync(platformIds, CancellationToken.None)
+                .ConfigureAwait(false)
+                .GetAwaiter()
+                .GetResult();
             _logger?.Debug("Saved excluded RomM platforms.");
         }
 
@@ -428,7 +454,10 @@ namespace RomMbox.Services
         /// </summary>
         public void AddAlias(PlatformAlias alias)
         {
-            _settingsManager.SavePlatformAlias(alias);
+            _mappingStore.SavePlatformAliasAsync(alias, CancellationToken.None)
+                .ConfigureAwait(false)
+                .GetAwaiter()
+                .GetResult();
             _logger?.Debug($"Added alias: {alias?.Alias} -> {alias?.LaunchBoxPlatformName}");
         }
 
@@ -437,7 +466,10 @@ namespace RomMbox.Services
         /// </summary>
         public void RemoveAlias(string aliasId)
         {
-            _settingsManager.DeletePlatformAlias(aliasId);
+            _mappingStore.DeletePlatformAliasAsync(aliasId, CancellationToken.None)
+                .ConfigureAwait(false)
+                .GetAwaiter()
+                .GetResult();
             _logger?.Debug($"Removed alias: {aliasId}");
         }
 
@@ -464,7 +496,10 @@ namespace RomMbox.Services
                 return predefined;
             }
 
-            var aliases = _settingsManager.GetPlatformAliases();
+            var aliases = _mappingStore.GetPlatformAliasesAsync(CancellationToken.None)
+                .ConfigureAwait(false)
+                .GetAwaiter()
+                .GetResult();
             foreach (var alias in aliases)
             {
                 var aliasNormalized = NormalizePlatformName(alias.Alias);
@@ -508,7 +543,10 @@ namespace RomMbox.Services
         /// </summary>
         public PlatformAlias[] GetAliases()
         {
-            return _settingsManager.GetPlatformAliases();
+            return _mappingStore.GetPlatformAliasesAsync(CancellationToken.None)
+                .ConfigureAwait(false)
+                .GetAwaiter()
+                .GetResult();
         }
 
         /// <summary>

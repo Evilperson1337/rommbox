@@ -170,19 +170,7 @@ namespace RomMbox.Services
                 return string.Empty;
             }
 
-            var fileName = GetCustomField(game, "RomM.Filename");
-            var extension = GetCustomField(game, "RomM.Extension");
-            if (string.IsNullOrWhiteSpace(fileName))
-            {
-                if (!string.IsNullOrWhiteSpace(extension))
-                {
-                    fileName = SanitizeFileName(game.Title) + NormalizeExtension(extension);
-                }
-                else
-                {
-                    fileName = "romm.stub";
-                }
-            }
+            var fileName = "romm.stub";
 
             var normalizedTitle = NormalizePathSegment(game.Title);
             var normalizedPlatform = NormalizePathSegment(game.Platform);
@@ -215,21 +203,6 @@ namespace RomMbox.Services
             }
 
             return false;
-        }
-
-        /// <summary>
-        /// Reads a custom field value for a game.
-        /// </summary>
-        private static string GetCustomField(IGame game, string name)
-        {
-            var fields = game?.GetAllCustomFields();
-            if (fields == null)
-            {
-                return string.Empty;
-            }
-
-            var match = fields.FirstOrDefault(field => string.Equals(field?.Name, name, StringComparison.OrdinalIgnoreCase));
-            return match?.Value ?? string.Empty;
         }
 
         /// <summary>

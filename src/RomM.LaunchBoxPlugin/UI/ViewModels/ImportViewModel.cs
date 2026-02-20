@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Windows;
 using RomMbox.Models.Import;
 using RomMbox.Services;
@@ -23,6 +24,7 @@ namespace RomMbox.UI.ViewModels;
 /// </summary>
 public sealed class ImportViewModel : ObservableObject
 {
+    private static readonly long ProgressThrottleTicks = Stopwatch.Frequency / 10;
     private readonly MainWindowViewModel _shell;
     private readonly LoggingService _logger;
     private readonly SettingsManager _settingsManager;
@@ -34,6 +36,10 @@ public sealed class ImportViewModel : ObservableObject
     private readonly MatchIgnoreStore _ignoreStore;
     private string _currentOperationId = string.Empty;
     private bool _hasLoaded;
+    private long _lastRefreshProgressTicks;
+    private int _lastRefreshProcessed;
+    private long _lastImportProgressTicks;
+    private int _lastImportProcessed;
 
     /// <summary>
     /// Builds the import screen state, initializes services, and wires up commands.
@@ -464,6 +470,8 @@ public sealed class ImportViewModel : ObservableObject
                 ImportStatusText = "Loading games...";
                 ImportProgressPercent = 0;
             });
+            _lastRefreshProgressTicks = 0;
+            _lastRefreshProcessed = 0;
             _cts?.Cancel();
             _cts = new CancellationTokenSource();
 
@@ -475,6 +483,11 @@ public sealed class ImportViewModel : ObservableObject
                 {
                     var total = progressUpdate.Total;
                     var processed = progressUpdate.Processed;
+                    var now = Stopwatch.GetTimestamp();
+                    if (!ShouldReportProgress(now, ref _lastRefreshProgressTicks, processed, ref _lastRefreshProcessed))
+                    {
+                        return;
+                    }
                     var percent = total > 0 ? (double)processed / total * 100d : 0d;
                     Application.Current.Dispatcher.Invoke(() =>
                     {
@@ -638,6 +651,8 @@ public sealed class ImportViewModel : ObservableObject
             ImportStatusText = "Importing selected games...";
             ImportProgressPercent = 0;
         });
+        _lastImportProgressTicks = 0;
+        _lastImportProcessed = 0;
         _cts?.Cancel();
         _cts = new CancellationTokenSource();
 
@@ -646,6 +661,11 @@ public sealed class ImportViewModel : ObservableObject
         {
             var total = progressUpdate.Total;
             var processed = progressUpdate.Processed;
+            var now = Stopwatch.GetTimestamp();
+            if (!ShouldReportProgress(now, ref _lastImportProgressTicks, processed, ref _lastImportProcessed))
+            {
+                return;
+            }
             var percent = total > 0 ? (double)processed / total * 100d : 0d;
             Application.Current.Dispatcher.Invoke(() =>
             {
@@ -1033,6 +1053,18 @@ public sealed class ImportViewModel : ObservableObject
     private bool _isApplyingBulkAction;
     private bool _isRefreshingRows;
     private bool _importCompletedSinceLastChange;
+
+    private static bool ShouldReportProgress(long nowTicks, ref long lastTicks, int processed, ref int lastProcessed)
+    {
+        if (processed == lastProcessed && nowTicks - Interlocked.Read(ref lastTicks) < ProgressThrottleTicks)
+        {
+            return false;
+        }
+
+        lastProcessed = processed;
+        Interlocked.Exchange(ref lastTicks, nowTicks);
+        return true;
+    }
 
     /// <summary>
     /// Applies a header checkbox state (all/none) to row-level flags.

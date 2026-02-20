@@ -84,7 +84,6 @@ namespace RomMbox.Services.Install
                             .GetAwaiter()
                             .GetResult();
                     }
-                    _installStateService.TryClearRomMInstallCustomFields(game);
                     QueueLaunchBoxSaveAndCleanup(dataManager, game.Id, cancellationToken);
                     return RomMDeleteResult.UninstallResult(stubCreated);
                 }
@@ -107,7 +106,6 @@ namespace RomMbox.Services.Install
                         .GetAwaiter()
                         .GetResult();
                 }
-                _installStateService.TryClearRomMInstallCustomFields(game);
                 QueueLaunchBoxSaveAndCleanup(dataManager, game.Id, cancellationToken);
                 return RomMDeleteResult.UninstallResult(stubCreated: false);
             }

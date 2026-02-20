@@ -102,21 +102,19 @@ namespace RomMbox.Services.Install
 
                 _logger?.Info("Install check bypassed because content was just extracted for this install run.");
 
-                var baseResult = await InstallBaseAsync(baseRoot, installDir, mapping, gameName, skipAlreadyInstalled: true, cancellationToken, archiveInstallType)
-                    .ConfigureAwait(false);
-                if (!baseResult.Success)
-                {
-                    return baseResult;
-                }
+            var baseResult = await InstallBaseAsync(baseRoot, installDir, mapping, gameName, skipAlreadyInstalled: true, cancellationToken, archiveInstallType)
+                .ConfigureAwait(false);
+            if (!baseResult.Success)
+            {
+                return baseResult;
+            }
 
-                await InstallUpdateAndDlcAsync(contentRoots.Update, installDir, mapping, "UPDATE", cancellationToken).ConfigureAwait(false);
-                await InstallUpdateAndDlcAsync(contentRoots.Dlc, installDir, mapping, "DLC", cancellationToken).ConfigureAwait(false);
-                await InstallOptionalContentAsync(contentRoots.Ost, mapping?.MusicRootPath, mapping?.InstallOst == true, gameName, "OST", cancellationToken)
-                    .ConfigureAwait(false);
-                await InstallOptionalContentAsync(contentRoots.Bonus, mapping?.BonusRootPath, mapping?.InstallBonus == true, gameName, "Bonus", cancellationToken)
-                    .ConfigureAwait(false);
-                await InstallOptionalContentAsync(contentRoots.PreReqs, mapping?.PreReqsRootPath, mapping?.InstallPreReqs == true, gameName, "Pre-Reqs", cancellationToken, deleteSource: true, perGame: false)
-                    .ConfigureAwait(false);
+            var updateTask = InstallUpdateAndDlcAsync(contentRoots.Update, installDir, mapping, "UPDATE", cancellationToken);
+            var dlcTask = InstallUpdateAndDlcAsync(contentRoots.Dlc, installDir, mapping, "DLC", cancellationToken);
+            var ostTask = InstallOptionalContentAsync(contentRoots.Ost, mapping?.MusicRootPath, mapping?.InstallOst == true, gameName, "OST", cancellationToken);
+            var bonusTask = InstallOptionalContentAsync(contentRoots.Bonus, mapping?.BonusRootPath, mapping?.InstallBonus == true, gameName, "Bonus", cancellationToken);
+            var preReqsTask = InstallOptionalContentAsync(contentRoots.PreReqs, mapping?.PreReqsRootPath, mapping?.InstallPreReqs == true, gameName, "Pre-Reqs", cancellationToken, deleteSource: true, perGame: false);
+            await Task.WhenAll(updateTask, dlcTask, ostTask, bonusTask, preReqsTask).ConfigureAwait(false);
 
                 return baseResult;
             }

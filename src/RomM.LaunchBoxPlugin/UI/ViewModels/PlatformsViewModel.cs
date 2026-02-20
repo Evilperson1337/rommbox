@@ -351,7 +351,7 @@ public sealed class PlatformsViewModel : ObservableObject
                 .Where(mapping => !mapping.Exclude)
                 .Select(mapping =>
                 {
-                    var saved = _settingsManager.GetPlatformMapping(mapping.RommPlatformId);
+                    var saved = _mappingService.GetMapping(mapping.RommPlatformId);
                     return new RomMbox.Models.PlatformMapping.PlatformMapping
                     {
                         RommPlatformId = mapping.RommPlatformId,
@@ -420,7 +420,7 @@ public sealed class PlatformsViewModel : ObservableObject
                 continue;
             }
 
-            var saved = _settingsManager.GetPlatformMapping(mapping.RommPlatformId);
+            var saved = _mappingService.GetMapping(mapping.RommPlatformId);
             var mappingName = mapping.RomMPlatform ?? string.Empty;
             var launchBoxName = mapping.LaunchBoxPlatform ?? string.Empty;
             var savedLaunchBox = saved?.LaunchBoxPlatformName ?? string.Empty;

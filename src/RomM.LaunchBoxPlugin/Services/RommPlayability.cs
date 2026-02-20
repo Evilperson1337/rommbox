@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
+using RomMbox.Services.Logging;
 using RomMbox.Services.Settings;
 
 namespace RomMbox.Services
@@ -94,7 +96,12 @@ namespace RomMbox.Services
                 return IsPlayablePlatform(rommPlatformName);
             }
 
-            var mapping = settingsManager.GetPlatformMapping(rommPlatformId ?? string.Empty);
+            var mappingStore = new PlatformMappingStore(LoggingServiceFactory.Create());
+            var mapping = mappingStore
+                .GetPlatformMappingAsync(rommPlatformId ?? string.Empty, CancellationToken.None)
+                .ConfigureAwait(false)
+                .GetAwaiter()
+                .GetResult();
             if (mapping != null && !string.IsNullOrWhiteSpace(mapping.LaunchBoxPlatformName))
             {
                 return IsPlayablePlatform(mapping.LaunchBoxPlatformName);

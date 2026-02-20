@@ -56,6 +56,7 @@ namespace RomMbox.Models.Import
         /// </summary>
         public bool DownloadSaves { get; }
 
+
         /// <summary>
         /// Import action chosen for this ROM.
         /// </summary>

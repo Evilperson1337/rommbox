@@ -87,7 +87,11 @@ namespace RomMbox.Services.Install
                     return RomMInstallResult.Failed("Failed to resolve RomM details.");
                 }
 
-                var mapping = _settingsManager.GetPlatformMapping(rom.PlatformId ?? string.Empty);
+                var mapping = new PlatformMappingStore(_logger)
+                    .GetPlatformMappingAsync(rom.PlatformId ?? string.Empty, cancellationToken)
+                    .ConfigureAwait(false)
+                    .GetAwaiter()
+                    .GetResult();
                 var extractAfterDownload = mapping?.ExtractAfterDownload ?? false;
                 var extractionBehavior = mapping?.ExtractionBehavior ?? ExtractionBehavior.Subfolder;
                 var installScenario = mapping?.InstallScenario ?? InstallScenario.Basic;
@@ -199,18 +203,6 @@ namespace RomMbox.Services.Install
                         .ConfigureAwait(false)
                         .GetAwaiter()
                         .GetResult();
-                    _installStateService.TryUpsertRomMIdentityCustomFields(
-                        game,
-                        rom?.Id ?? details.RommRomId,
-                        rom?.PlatformId ?? details.RommPlatformId,
-                        rom?.Md5,
-                        localMd5: null,
-                        installResult.InstallType?.ToString(),
-                        installedPath: installResult.ExecutablePath ?? finalPath,
-                        serverUrl: _settingsManager.Load().ServerUrl,
-                        fileName: rom?.Payload?.FileName ?? rom?.FsName,
-                        extension: rom?.Payload?.Extension);
-
                     ExecuteWithRetry(() =>
                     {
                         dataManager.Save(true);
@@ -270,18 +262,6 @@ namespace RomMbox.Services.Install
                     .ConfigureAwait(false)
                     .GetAwaiter()
                     .GetResult();
-                _installStateService.TryUpsertRomMIdentityCustomFields(
-                    game,
-                    rom?.Id ?? details.RommRomId,
-                    rom?.PlatformId ?? details.RommPlatformId,
-                    rom?.Md5,
-                    localMd5: null,
-                    windowsInstallType: null,
-                    installedPath: finalPath,
-                    serverUrl: _settingsManager.Load().ServerUrl,
-                    fileName: rom?.Payload?.FileName ?? rom?.FsName,
-                    extension: rom?.Payload?.Extension);
-
                 ExecuteWithRetry(() =>
                 {
                     dataManager.Save(true);
