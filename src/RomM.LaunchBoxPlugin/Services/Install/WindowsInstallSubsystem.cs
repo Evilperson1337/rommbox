@@ -111,9 +111,9 @@ namespace RomMbox.Services.Install
 
             var updateTask = InstallUpdateAndDlcAsync(contentRoots.Update, installDir, mapping, "UPDATE", cancellationToken);
             var dlcTask = InstallUpdateAndDlcAsync(contentRoots.Dlc, installDir, mapping, "DLC", cancellationToken);
-            var ostTask = InstallOptionalContentAsync(contentRoots.Ost, mapping?.MusicRootPath, mapping?.InstallOst == true, gameName, "OST", cancellationToken);
-            var bonusTask = InstallOptionalContentAsync(contentRoots.Bonus, mapping?.BonusRootPath, mapping?.InstallBonus == true, gameName, "Bonus", cancellationToken);
-            var preReqsTask = InstallOptionalContentAsync(contentRoots.PreReqs, mapping?.PreReqsRootPath, mapping?.InstallPreReqs == true, gameName, "Pre-Reqs", cancellationToken, deleteSource: true, perGame: false);
+            var ostTask = InstallOptionalContentAsync(contentRoots.Ost, installDir, mapping, mapping?.MusicRootPath, mapping?.InstallOst == true, gameName, "OST", cancellationToken);
+            var bonusTask = InstallOptionalContentAsync(contentRoots.Bonus, installDir, mapping, mapping?.BonusRootPath, mapping?.InstallBonus == true, gameName, "Bonus", cancellationToken);
+            var preReqsTask = InstallOptionalContentAsync(contentRoots.PreReqs, installDir, mapping, mapping?.PreReqsRootPath, mapping?.InstallPreReqs == true, gameName, "Pre-Reqs", cancellationToken, deleteSource: true, perGame: false);
             await Task.WhenAll(updateTask, dlcTask, ostTask, bonusTask, preReqsTask).ConfigureAwait(false);
 
                 return baseResult;
@@ -498,7 +498,17 @@ namespace RomMbox.Services.Install
         /// <summary>
         /// Installs optional content such as OST, bonus, or prerequisites.
         /// </summary>
-        private async Task InstallOptionalContentAsync(string root, string targetRoot, bool enabled, string gameName, string label, CancellationToken cancellationToken, bool deleteSource = false, bool perGame = true)
+        private async Task InstallOptionalContentAsync(
+            string root,
+            string installDir,
+            PlatformMapping mapping,
+            string targetRoot,
+            bool enabled,
+            string gameName,
+            string label,
+            CancellationToken cancellationToken,
+            bool deleteSource = false,
+            bool perGame = true)
         {
             if (!enabled || string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
             {
@@ -513,15 +523,16 @@ namespace RomMbox.Services.Install
                 return;
             }
 
-            if (string.IsNullOrWhiteSpace(targetRoot))
+            var resolvedTargetRoot = ResolveOptionalContentRoot(installDir, mapping, targetRoot, label, perGame);
+            if (string.IsNullOrWhiteSpace(resolvedTargetRoot))
             {
                 _logger?.Warning($"{label} install skipped: target root not configured.");
                 return;
             }
 
             var destination = perGame
-                ? Path.Combine(targetRoot, NormalizeGameFolderName(gameName, "Game"))
-                : targetRoot;
+                ? Path.Combine(resolvedTargetRoot, NormalizeGameFolderName(gameName, "Game"))
+                : resolvedTargetRoot;
             Directory.CreateDirectory(destination);
 
             foreach (var entry in Directory.EnumerateFileSystemEntries(root))
@@ -553,6 +564,35 @@ namespace RomMbox.Services.Install
                     _logger?.Warning($"Failed to remove {label} source '{root}': {ex.Message}");
                 }
             }
+        }
+
+        private string ResolveOptionalContentRoot(string installDir, PlatformMapping mapping, string targetRoot, string label, bool perGame)
+        {
+            if (string.IsNullOrWhiteSpace(installDir))
+            {
+                return targetRoot;
+            }
+
+            if (mapping == null)
+            {
+                return targetRoot;
+            }
+
+            if (label.Equals("Pre-Reqs", StringComparison.OrdinalIgnoreCase))
+            {
+                return targetRoot;
+            }
+
+            var location = label.Equals("OST", StringComparison.OrdinalIgnoreCase)
+                ? mapping.OstInstallLocation
+                : mapping.BonusInstallLocation;
+
+            if (location == OptionalContentLocation.GameFolder)
+            {
+                return Path.Combine(installDir, label == "OST" ? "Soundtracks" : "Bonus Content");
+            }
+
+            return targetRoot;
         }
 
         /// <summary>

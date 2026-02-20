@@ -1,61 +1,37 @@
 using System;
 using System.Windows;
 using System.Windows.Forms;
-using RomMbox.UI.Infrastructure;
 
 namespace RomMbox.UI.Views;
 
-/// <summary>
-/// Dialog for configuring platform-specific install directories.
-/// </summary>
-public partial class PlatformInstallConfigDialog : Window
-{
     /// <summary>
-    /// Initializes the dialog and applies custom chrome styling.
+    /// View for configuring platform-specific install behavior.
     /// </summary>
-    public PlatformInstallConfigDialog()
+    public partial class PlatformInstallConfigDialog : System.Windows.Controls.UserControl
     {
-        InitializeComponent();
-        WindowChromeService.Apply(this, Title);
-    }
-
-    /// <summary>
-    /// Saves changes and closes the dialog with a <c>true</c> result.
-    /// </summary>
-    /// <param name="sender">The event sender.</param>
-    /// <param name="e">The routed event arguments.</param>
-    private void Save_Click(object sender, RoutedEventArgs e)
-    {
-        DialogResult = true;
-        Close();
-    }
-
-    /// <summary>
-    /// Cancels changes and closes the dialog with a <c>false</c> result.
-    /// </summary>
-    /// <param name="sender">The event sender.</param>
-    /// <param name="e">The routed event arguments.</param>
-    private void Cancel_Click(object sender, RoutedEventArgs e)
-    {
-        DialogResult = false;
-        Close();
-    }
-
-    /// <summary>
-    /// Opens a folder picker for the main install directory.
-    /// </summary>
-    /// <param name="sender">The event sender.</param>
-    /// <param name="e">The routed event arguments.</param>
-    private void BrowseFolder_Click(object sender, RoutedEventArgs e)
-    {
-        BrowseForFolder("Select game install directory", selectedPath =>
+        /// <summary>
+        /// Initializes the view.
+        /// </summary>
+        public PlatformInstallConfigDialog()
         {
-            if (DataContext is ViewModels.PlatformInstallConfigViewModel viewModel)
+            InitializeComponent();
+        }
+
+    /// <summary>
+    /// Opens a folder picker for the games directory.
+    /// </summary>
+    /// <param name="sender">The event sender.</param>
+    /// <param name="e">The routed event arguments.</param>
+        private void BrowseFolder_Click(object sender, RoutedEventArgs e)
+        {
+            BrowseForFolder("Select games directory", selectedPath =>
             {
-                viewModel.CustomInstallDirectory = selectedPath;
-            }
-        });
-    }
+                if (DataContext is ViewModels.PlatformInstallConfigViewModel viewModel)
+                {
+                    viewModel.GamesDirectory = selectedPath;
+                }
+            });
+        }
 
     /// <summary>
     /// Opens a folder picker for the music root directory.

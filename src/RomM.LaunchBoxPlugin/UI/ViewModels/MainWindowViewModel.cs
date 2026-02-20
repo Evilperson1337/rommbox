@@ -204,7 +204,7 @@ public sealed class MainWindowViewModel : ObservableObject
         _ = Connection.SaveSilentlyAsync();
         if (SelectedNavIndex == 1)
         {
-            Platforms.SaveMappingsCommand.Execute(null);
+            _ = Platforms.SaveMappingsSilentlyAsync();
         }
         await Application.Current.Dispatcher.InvokeAsync(() =>
         {

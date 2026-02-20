@@ -219,6 +219,16 @@ namespace RomMbox.Services.Settings
                     mapping.InstallScenario = InstallScenario.Basic;
                 }
 
+                if (!Enum.IsDefined(typeof(OptionalContentLocation), mapping.OstInstallLocation))
+                {
+                    mapping.OstInstallLocation = OptionalContentLocation.Centralized;
+                }
+
+                if (!Enum.IsDefined(typeof(OptionalContentLocation), mapping.BonusInstallLocation))
+                {
+                    mapping.BonusInstallLocation = OptionalContentLocation.Centralized;
+                }
+
                 if (mapping.TargetImportFile == null)
                 {
                     mapping.TargetImportFile = string.Empty;
@@ -227,6 +237,11 @@ namespace RomMbox.Services.Settings
                 if (mapping.InstallerSilentArgs == null)
                 {
                     mapping.InstallerSilentArgs = string.Empty;
+                }
+
+                if (mapping.AssociatedEmulatorId == null)
+                {
+                    mapping.AssociatedEmulatorId = string.Empty;
                 }
 
                 if (!Enum.IsDefined(typeof(InstallerMode), mapping.InstallerMode))

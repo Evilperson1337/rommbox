@@ -77,22 +77,30 @@ CREATE TABLE IF NOT EXISTS InstallStateMetadata (
     Key TEXT PRIMARY KEY,
     Value TEXT
 );
-CREATE TABLE IF NOT EXISTS PlatformMappings (
-    RommPlatformId TEXT PRIMARY KEY,
-    RommPlatformName TEXT,
-    LaunchBoxPlatformName TEXT,
-    AutoMapped INTEGER NOT NULL,
-    DisableAutoImport INTEGER NOT NULL,
-    ExtractAfterDownload INTEGER NOT NULL,
-    ExtractionBehavior TEXT,
-    InstallerMode TEXT,
-    MusicRootPath TEXT,
-    InstallOst INTEGER NOT NULL,
-    BonusRootPath TEXT,
-    InstallBonus INTEGER NOT NULL,
-    PreReqsRootPath TEXT,
-    InstallPreReqs INTEGER NOT NULL
-);
+ CREATE TABLE IF NOT EXISTS PlatformMappings (
+     RommPlatformId TEXT PRIMARY KEY,
+     RommPlatformName TEXT,
+     LaunchBoxPlatformName TEXT,
+     AutoMapped INTEGER NOT NULL,
+     DisableAutoImport INTEGER NOT NULL,
+     ExtractAfterDownload INTEGER NOT NULL,
+     ExtractionBehavior TEXT,
+     InstallerMode TEXT,
+     MusicRootPath TEXT,
+     InstallOst INTEGER NOT NULL,
+     BonusRootPath TEXT,
+     InstallBonus INTEGER NOT NULL,
+     PreReqsRootPath TEXT,
+     InstallPreReqs INTEGER NOT NULL,
+     CustomInstallDirectory TEXT,
+     InstallScenario TEXT,
+     TargetImportFile TEXT,
+     InstallerSilentArgs TEXT,
+     SelfContained INTEGER NOT NULL,
+     AssociatedEmulatorId TEXT,
+     OstInstallLocation TEXT,
+     BonusInstallLocation TEXT
+ );
 CREATE TABLE IF NOT EXISTS PlatformMappingAliases (
     AliasId TEXT PRIMARY KEY,
     Alias TEXT,
@@ -178,6 +186,8 @@ CREATE TABLE IF NOT EXISTS ExcludedRommPlatforms (
                     alter.CommandText = "ALTER TABLE InstallState ADD COLUMN ServerUrl TEXT";
                     await alter.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
                 }
+
+                await EnsurePlatformMappingsSchemaAsync(connection, cancellationToken).ConfigureAwait(false);
                 _logger?.Info("InstallState database initialized.");
             }
             catch (Exception ex)
@@ -191,11 +201,11 @@ CREATE TABLE IF NOT EXISTS ExcludedRommPlatforms (
             }
         }
 
-        /// <summary>
-        /// Ensures initialization is performed once in a thread-safe manner.
-        /// </summary>
-        private async Task EnsureInitializedAsync(CancellationToken cancellationToken)
-        {
+    /// <summary>
+    /// Ensures initialization is performed once in a thread-safe manner.
+    /// </summary>
+    private async Task EnsureInitializedAsync(CancellationToken cancellationToken)
+    {
             if (_initialized)
             {
                 return;
@@ -881,6 +891,45 @@ ON CONFLICT(Key) DO UPDATE SET Value = excluded.Value;
                 InstalledUtc = reader.IsDBNull(11) ? null : FromDbTimestamp(reader.GetValue(11)),
                 LastValidatedUtc = reader.IsDBNull(12) ? null : FromDbTimestamp(reader.GetValue(12))
             };
+        }
+
+        private static async Task EnsurePlatformMappingsSchemaAsync(SqliteConnection connection, CancellationToken cancellationToken)
+        {
+            var schemaCommand = connection.CreateCommand();
+            schemaCommand.CommandText = "PRAGMA table_info(PlatformMappings);";
+
+            var columns = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            using (var reader = await schemaCommand.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
+            {
+                while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    if (!reader.IsDBNull(1))
+                    {
+                        columns.Add(reader.GetString(1));
+                    }
+                }
+            }
+
+            await AddColumnIfMissingAsync(connection, columns, "CustomInstallDirectory", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "InstallScenario", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "TargetImportFile", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "InstallerSilentArgs", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "SelfContained", "INTEGER NOT NULL DEFAULT 1", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "AssociatedEmulatorId", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "OstInstallLocation", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "BonusInstallLocation", "TEXT", cancellationToken).ConfigureAwait(false);
+        }
+
+        private static async Task AddColumnIfMissingAsync(SqliteConnection connection, HashSet<string> columns, string columnName, string columnDefinition, CancellationToken cancellationToken)
+        {
+            if (columns.Contains(columnName))
+            {
+                return;
+            }
+
+            var alter = connection.CreateCommand();
+            alter.CommandText = $"ALTER TABLE PlatformMappings ADD COLUMN {columnName} {columnDefinition}";
+            await alter.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
         }
     }
 }

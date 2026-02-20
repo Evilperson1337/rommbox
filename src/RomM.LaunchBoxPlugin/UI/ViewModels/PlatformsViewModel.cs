@@ -49,7 +49,7 @@ public sealed class PlatformsViewModel : ObservableObject
         Mappings = new ObservableCollection<Models.PlatformMapping>();
 
         RefreshCommand = new RelayCommand(async () => await LoadMappingsAsync());
-        SaveMappingsCommand = new RelayCommand(async () => await SaveMappingsAsync());
+        SaveMappingsCommand = new RelayCommand(async () => await SaveMappingsAsync(showConfirmation: true));
         ConfigureCommand = new RelayCommand<Models.PlatformMapping>(OpenConfigureDialog, mapping => mapping != null && !mapping.Exclude);
 
         // Lazy-load when the tab is activated.
@@ -103,6 +103,28 @@ public sealed class PlatformsViewModel : ObservableObject
     /// </summary>
     public RelayCommand<Models.PlatformMapping> ConfigureCommand { get; }
 
+    private ViewModels.PlatformInstallConfigViewModel _activeConfiguration;
+    public ViewModels.PlatformInstallConfigViewModel ActiveConfiguration
+    {
+        get => _activeConfiguration;
+        set
+        {
+            if (SetProperty(ref _activeConfiguration, value))
+            {
+                RaisePropertyChanged(nameof(IsConfiguring));
+            }
+        }
+    }
+
+    public bool IsConfiguring => ActiveConfiguration != null;
+
+    private Models.PlatformMapping _selectedMapping;
+    public Models.PlatformMapping SelectedMapping
+    {
+        get => _selectedMapping;
+        set => SetProperty(ref _selectedMapping, value);
+    }
+
     /// <summary>
     /// Reloads mappings by re-running the load routine.
     /// </summary>
@@ -155,13 +177,17 @@ public sealed class PlatformsViewModel : ObservableObject
                         ExtractAfterDownload = false,
                         ExtractionBehavior = RomMbox.Models.PlatformMapping.ExtractionBehavior.Subfolder,
                         InstallScenario = RomMbox.Models.Install.InstallScenario.Basic,
+                        SelfContained = true,
                         TargetImportFile = "",
                         InstallerSilentArgs = "",
                         InstallerMode = RomMbox.Models.Install.InstallerMode.Manual,
+                        AssociatedEmulatorId = string.Empty,
                         MusicRootPath = "",
                         InstallOst = false,
+                        OstInstallLocation = RomMbox.Models.PlatformMapping.OptionalContentLocation.Centralized,
                         BonusRootPath = "",
                         InstallBonus = false,
+                        BonusInstallLocation = RomMbox.Models.PlatformMapping.OptionalContentLocation.Centralized,
                         PreReqsRootPath = "",
                         InstallPreReqs = false,
                         CustomInstallDirectory = ""
@@ -198,13 +224,17 @@ public sealed class PlatformsViewModel : ObservableObject
                         Exclude = excludedMatch,
                         DisableAutoImport = mapping.DisableAutoImport,
                         InstallScenario = mapping.InstallScenario,
+                        SelfContained = mapping.SelfContained,
                         TargetImportFile = mapping.TargetImportFile,
                         InstallerSilentArgs = mapping.InstallerSilentArgs,
                         InstallerMode = mapping.InstallerMode,
+                        AssociatedEmulatorId = mapping.AssociatedEmulatorId,
                         MusicRootPath = mapping.MusicRootPath,
                         InstallOst = mapping.InstallOst,
+                        OstInstallLocation = mapping.OstInstallLocation,
                         BonusRootPath = mapping.BonusRootPath,
                         InstallBonus = mapping.InstallBonus,
+                        BonusInstallLocation = mapping.BonusInstallLocation,
                         PreReqsRootPath = mapping.PreReqsRootPath,
                         InstallPreReqs = mapping.InstallPreReqs,
                         ExtractAfterDownload = mapping.ExtractAfterDownload,
@@ -246,13 +276,17 @@ public sealed class PlatformsViewModel : ObservableObject
                         ExtractAfterDownload = false,
                         ExtractionBehavior = RomMbox.Models.PlatformMapping.ExtractionBehavior.Subfolder,
                         InstallScenario = RomMbox.Models.Install.InstallScenario.Basic,
+                        SelfContained = true,
                         TargetImportFile = "",
                         InstallerSilentArgs = "",
                         InstallerMode = RomMbox.Models.Install.InstallerMode.Manual,
+                        AssociatedEmulatorId = string.Empty,
                         MusicRootPath = "",
                         InstallOst = false,
+                        OstInstallLocation = RomMbox.Models.PlatformMapping.OptionalContentLocation.Centralized,
                         BonusRootPath = "",
                         InstallBonus = false,
+                        BonusInstallLocation = RomMbox.Models.PlatformMapping.OptionalContentLocation.Centralized,
                         PreReqsRootPath = "",
                         InstallPreReqs = false,
                         CustomInstallDirectory = ""
@@ -305,7 +339,12 @@ public sealed class PlatformsViewModel : ObservableObject
     /// <summary>
     /// Persists platform mappings and exclusions to settings.
     /// </summary>
-    private async Task SaveMappingsAsync()
+    public Task SaveMappingsSilentlyAsync()
+    {
+        return SaveMappingsAsync(showConfirmation: false);
+    }
+
+    private async Task SaveMappingsAsync(bool showConfirmation)
     {
         try
         {
@@ -362,13 +401,17 @@ public sealed class PlatformsViewModel : ObservableObject
                         ExtractAfterDownload = mapping.ExtractAfterDownload,
                         ExtractionBehavior = mapping.ExtractionBehavior,
                         InstallScenario = mapping.InstallScenario,
+                        SelfContained = mapping.SelfContained,
                         TargetImportFile = mapping.TargetImportFile,
                         InstallerSilentArgs = mapping.InstallerSilentArgs,
                         InstallerMode = mapping.InstallerMode,
+                        AssociatedEmulatorId = mapping.AssociatedEmulatorId,
                         MusicRootPath = mapping.MusicRootPath,
                         InstallOst = mapping.InstallOst,
+                        OstInstallLocation = mapping.OstInstallLocation,
                         BonusRootPath = mapping.BonusRootPath,
                         InstallBonus = mapping.InstallBonus,
+                        BonusInstallLocation = mapping.BonusInstallLocation,
                         PreReqsRootPath = mapping.PreReqsRootPath,
                         InstallPreReqs = mapping.InstallPreReqs,
                         CustomInstallDirectory = mapping.CustomInstallDirectory
@@ -379,18 +422,21 @@ public sealed class PlatformsViewModel : ObservableObject
             _mappingService.SaveMappings(platformMappings);
             _mappingService.SaveExcludedRommPlatformIds(excluded);
 
-            await Application.Current.Dispatcher.InvokeAsync(() =>
+            if (showConfirmation)
             {
-                var dialog = new RomMbox.UI.Views.InfoDialog("RomM", "Platform Mappings Set")
+                await Application.Current.Dispatcher.InvokeAsync(() =>
                 {
-                    Owner = Application.Current?.Windows
-                        ?.OfType<MainWindow>()
-                        .FirstOrDefault(),
-                    Topmost = true
-                };
-                dialog.Activate();
-                dialog.ShowDialog();
-            });
+                    var dialog = new RomMbox.UI.Views.InfoDialog("RomM", "Platform Mappings Set")
+                    {
+                        Owner = Application.Current?.Windows
+                            ?.OfType<MainWindow>()
+                            .FirstOrDefault(),
+                        Topmost = true
+                    };
+                    dialog.Activate();
+                    dialog.ShowDialog();
+                });
+            }
         }
         catch (Exception ex)
         {
@@ -505,29 +551,71 @@ public sealed class PlatformsViewModel : ObservableObject
         }
 
         var defaultInstallDirectory = ResolveDefaultInstallDirectory(mapping.LaunchBoxPlatform);
-        var dialog = new Views.PlatformInstallConfigDialog
-        {
-            Owner = Application.Current?.MainWindow,
-            DataContext = new ViewModels.PlatformInstallConfigViewModel(mapping, defaultInstallDirectory)
-        };
+        var viewModel = new ViewModels.PlatformInstallConfigViewModel(
+            mapping,
+            defaultInstallDirectory,
+            onSave: () => SaveInlineConfiguration(mapping),
+            onBack: () => ExitInlineConfiguration());
+        SelectedMapping = mapping;
+        ActiveConfiguration = viewModel;
+    }
 
-        if (dialog.ShowDialog() == true && dialog.DataContext is ViewModels.PlatformInstallConfigViewModel viewModel)
+    private void SaveInlineConfiguration(Models.PlatformMapping mapping)
+    {
+        if (ActiveConfiguration == null)
         {
-            mapping.DisableAutoImport = viewModel.DisableAutoImport;
-            mapping.InstallScenario = viewModel.InstallScenario;
-            mapping.TargetImportFile = viewModel.TargetImportFile;
-            mapping.InstallerSilentArgs = viewModel.InstallerSilentArgs;
-            mapping.InstallerMode = viewModel.InstallerMode;
-            mapping.MusicRootPath = viewModel.MusicRootPath;
-            mapping.InstallOst = viewModel.InstallOst;
-            mapping.BonusRootPath = viewModel.BonusRootPath;
-            mapping.InstallBonus = viewModel.InstallBonus;
-            mapping.PreReqsRootPath = viewModel.PreReqsRootPath;
-            mapping.InstallPreReqs = viewModel.InstallPreReqs;
-            mapping.ExtractAfterDownload = viewModel.ExtractAfterDownload;
-            mapping.ExtractionBehavior = viewModel.ExtractionBehavior;
-            mapping.CustomInstallDirectory = viewModel.CustomInstallDirectory;
+            return;
         }
+
+        var updated = ActiveConfiguration.BuildMappingForSave();
+        if (updated != null)
+        {
+            var index = Mappings.IndexOf(mapping);
+            if (index >= 0)
+            {
+                Mappings[index] = updated;
+            }
+        }
+
+        ExitInlineConfiguration();
+    }
+
+    private void ExitInlineConfiguration()
+    {
+        ActiveConfiguration = null;
+        SelectedMapping = null;
+    }
+
+    private static string ResolveGamesDirectoryForSave(string gamesDirectory)
+    {
+        if (string.IsNullOrWhiteSpace(gamesDirectory))
+        {
+            return string.Empty;
+        }
+
+        try
+        {
+            var root = RomMbox.Services.Paths.PluginPaths.GetLaunchBoxRootDirectory();
+            if (string.IsNullOrWhiteSpace(root))
+            {
+                return gamesDirectory;
+            }
+
+            var normalizedRoot = System.IO.Path.GetFullPath(root.TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar))
+                + System.IO.Path.DirectorySeparatorChar;
+            var normalizedPath = System.IO.Path.GetFullPath(gamesDirectory.Trim());
+
+            if (normalizedPath.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase))
+            {
+                var relative = normalizedPath.Substring(normalizedRoot.Length);
+                return relative.Replace(System.IO.Path.AltDirectorySeparatorChar, System.IO.Path.DirectorySeparatorChar);
+            }
+        }
+        catch
+        {
+        }
+
+        return gamesDirectory;
     }
 
     /// <summary>

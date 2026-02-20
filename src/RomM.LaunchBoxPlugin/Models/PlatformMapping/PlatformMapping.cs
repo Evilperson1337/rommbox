@@ -59,6 +59,12 @@ namespace RomMbox.Models.PlatformMapping
         public InstallScenario InstallScenario { get; set; } = InstallScenario.Basic;
 
         /// <summary>
+        /// Gets or sets whether extracted content is self-contained for emulator platforms.
+        /// </summary>
+        [DataMember(Name = "selfContained", EmitDefaultValue = false)]
+        public bool SelfContained { get; set; } = true;
+
+        /// <summary>
         /// Target file name(s) to import when extracting multi-file archives.
         /// </summary>
         [DataMember(Name = "targetImportFile", EmitDefaultValue = false)]
@@ -69,6 +75,12 @@ namespace RomMbox.Models.PlatformMapping
         /// </summary>
         [DataMember(Name = "installerSilentArgs", EmitDefaultValue = false)]
         public string InstallerSilentArgs { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the associated emulator id for this platform.
+        /// </summary>
+        [DataMember(Name = "associatedEmulatorId", EmitDefaultValue = false)]
+        public string AssociatedEmulatorId { get; set; } = string.Empty;
 
         /// <summary>
         /// Determines whether installers run manually or silently.
@@ -83,6 +95,12 @@ namespace RomMbox.Models.PlatformMapping
         public string MusicRootPath { get; set; } = string.Empty;
 
         /// <summary>
+        /// Gets or sets where soundtrack content should be installed.
+        /// </summary>
+        [DataMember(Name = "ostInstallLocation", EmitDefaultValue = false)]
+        public OptionalContentLocation OstInstallLocation { get; set; } = OptionalContentLocation.Centralized;
+
+        /// <summary>
         /// Whether to install soundtrack content.
         /// </summary>
         [DataMember(Name = "installOst", EmitDefaultValue = false)]
@@ -93,6 +111,12 @@ namespace RomMbox.Models.PlatformMapping
         /// </summary>
         [DataMember(Name = "bonusRootPath", EmitDefaultValue = false)]
         public string BonusRootPath { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets where bonus content should be installed.
+        /// </summary>
+        [DataMember(Name = "bonusInstallLocation", EmitDefaultValue = false)]
+        public OptionalContentLocation BonusInstallLocation { get; set; } = OptionalContentLocation.Centralized;
 
         /// <summary>
         /// Whether to install bonus content.

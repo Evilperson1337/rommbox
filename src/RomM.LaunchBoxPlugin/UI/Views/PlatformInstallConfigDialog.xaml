@@ -1,16 +1,67 @@
-<Window x:Class="RomMbox.UI.Views.PlatformInstallConfigDialog"
+<UserControl x:Class="RomMbox.UI.Views.PlatformInstallConfigDialog"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:converters="clr-namespace:RomMbox.UI.Converters"
-        Title="Platform Install Options"
-        Width="520"
-        Height="460"
-        WindowStartupLocation="CenterOwner"
-        ResizeMode="NoResize"
-        WindowStyle="ToolWindow"
-        Background="#141822">
-    <Window.Resources>
+        Background="#141822"
+        MinWidth="640"
+        MinHeight="720">
+    <UserControl.Resources>
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibility" />
+        <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibility" />
+        <converters:EnumEqualsToBoolConverter x:Key="EnumEqualsToBool" />
+
+        <Style x:Key="SecondaryButton" TargetType="Button">
+            <Setter Property="Background" Value="#1C2230"/>
+            <Setter Property="Foreground" Value="#E6EBF5"/>
+            <Setter Property="BorderBrush" Value="#2D374B"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#4A6EDC"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#283042"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.6"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="SectionHeader" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#E6EBF5"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Margin" Value="0,0,0,8"/>
+        </Style>
+
+        <Style x:Key="FieldLabel" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#AAB4C8"/>
+            <Setter Property="Margin" Value="0,0,0,6"/>
+        </Style>
+
+        <Style x:Key="InlineHelper" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#6B748A"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+
         <Style x:Key="DarkComboBoxItem" TargetType="ComboBoxItem">
             <Setter Property="Background" Value="#1C2230"/>
             <Setter Property="Foreground" Value="#E6EBF5"/>
@@ -122,206 +173,189 @@
                 </Setter.Value>
             </Setter>
         </Style>
+    </UserControl.Resources>
 
-        <Style x:Key="ExtractionBehaviorComboBox" TargetType="ComboBox" BasedOn="{StaticResource DarkComboBox}">
-            <Style.Triggers>
-                <DataTrigger Binding="{Binding ExtractAfterDownload}" Value="False">
-                    <Setter Property="Background" Value="#161C28"/>
-                    <Setter Property="Foreground" Value="#6B748A"/>
-                    <Setter Property="BorderBrush" Value="#2D374B"/>
-                </DataTrigger>
-            </Style.Triggers>
-        </Style>
-    </Window.Resources>
-    <ScrollViewer VerticalScrollBarVisibility="Auto"
-                  HorizontalScrollBarVisibility="Disabled">
-        <Grid Margin="16">
+    <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0"
-                   Text="Install Options"
-                   Foreground="#E6EBF5"
-                   FontSize="16"
-                   FontWeight="Bold"
-                   Margin="0,0,0,12"/>
+        <Border Grid.Row="0"
+                Background="#141822"
+                BorderBrush="#2D374B"
+                BorderThickness="0,0,0,1"
+                Padding="20,16">
+            <DockPanel LastChildFill="True">
+                <StackPanel DockPanel.Dock="Left">
+                    <TextBlock Text="Platform Configuration" FontSize="18" FontWeight="Bold" Margin="0,0,0,4"/>
+                    <TextBlock Text="Configure installation and content handling for this platform." Style="{StaticResource InlineHelper}" Margin="0,0,0,0"/>
+                </StackPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Content="Back" Width="96" Height="36" Margin="0,0,10,0" Command="{Binding BackCommand}" Style="{StaticResource SecondaryButton}"/>
+                    <Button Content="Save" Width="96" Height="36" Command="{Binding SaveCommand}" Style="{StaticResource PrimaryButton}"
+                            IsEnabled="{Binding CanSave}"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
 
-        <StackPanel Grid.Row="1" Orientation="Vertical" Margin="0,0,0,10">
-            <TextBlock Text="Install Scenario" Foreground="#AAB4C8" Margin="0,0,0,6"/>
-            <ComboBox ItemsSource="{Binding InstallScenarioOptions}"
-                      SelectedItem="{Binding InstallScenario, Mode=TwoWay}"
-                      ItemContainerStyle="{StaticResource DarkComboBoxItem}"
-                      Style="{StaticResource DarkComboBox}"/>
-        </StackPanel>
+        <Grid Grid.Row="1" Background="#181D28">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="20,16,20,20">
+                <StackPanel Margin="0,0,0,32">
 
-        <StackPanel Grid.Row="2" Orientation="Vertical" Margin="0,0,0,10">
-            <CheckBox Content="Disable auto-import for this platform"
-                      IsChecked="{Binding DisableAutoImport, Mode=TwoWay}"
-                      Foreground="#E6EBF5"/>
-            <TextBlock Text="Manual imports remain available."
-                       Foreground="#6B748A"
-                       Margin="24,4,0,0"/>
-        </StackPanel>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="24"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
 
-        <StackPanel Grid.Row="3" Orientation="Vertical" Margin="0,0,0,10">
-            <CheckBox Content="Extract archive after download"
-                      IsChecked="{Binding ExtractAfterDownload, Mode=TwoWay}"
-                      Foreground="#E6EBF5"/>
-        </StackPanel>
+                    <StackPanel Grid.Column="0">
+                            <TextBlock Text="Installation Type" Style="{StaticResource SectionHeader}"/>
+                            <TextBlock Text="Select the workflow for installs on this platform." Style="{StaticResource InlineHelper}" Margin="0,0,0,10"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+                                <RadioButton Content="Basic"
+                                             Margin="0,0,18,0"
+                                             IsChecked="{Binding InstallationType, Converter={StaticResource EnumEqualsToBool}, ConverterParameter=Basic}"/>
+                                <RadioButton Content="Enhanced"
+                                             IsChecked="{Binding InstallationType, Converter={StaticResource EnumEqualsToBool}, ConverterParameter=Enhanced}"/>
+                            </StackPanel>
 
-        <StackPanel Grid.Row="4" Orientation="Vertical" Margin="0,0,0,10">
-            <TextBlock Text="Extraction Behavior" Foreground="#AAB4C8" Margin="0,0,0,6"/>
-            <ComboBox ItemsSource="{Binding ExtractionBehaviorOptions}"
-                      SelectedItem="{Binding ExtractionBehavior, Mode=TwoWay}"
-                      IsEnabled="{Binding ExtractAfterDownload}"
-                      Style="{StaticResource ExtractionBehaviorComboBox}"/>
-        </StackPanel>
+                            <Border Height="1" Background="#2D374B" Margin="0,0,0,16"/>
 
-        <StackPanel Grid.Row="5" Orientation="Vertical" Margin="0,0,0,10">
-            <TextBlock Text="Game Directory" Foreground="#AAB4C8" Margin="0,0,0,6"/>
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-            <TextBox Background="#1C2230"
-                     Foreground="#E6EBF5"
-                     BorderBrush="#2D374B"
-                     BorderThickness="1"
-                     Padding="6,2">
-                <TextBox.Style>
-                    <Style TargetType="TextBox">
-                        <Setter Property="Text" Value="{Binding CustomInstallDirectory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-                        <Style.Triggers>
-                            <DataTrigger Binding="{Binding HasCustomInstallDirectory}" Value="False">
-                                <Setter Property="Text" Value="{Binding DefaultInstallDirectory}"/>
-                            </DataTrigger>
-                        </Style.Triggers>
-                    </Style>
-                </TextBox.Style>
-            </TextBox>
-                <Button Grid.Column="1"
-                        Content="Browse"
-                        Margin="8,0,0,0"
-                        Width="90"
-                        Click="BrowseFolder_Click"/>
-            </Grid>
-            <TextBlock Text="Default: {Binding DefaultInstallDirectory}"
-                       Foreground="#6B748A"
-                       Margin="0,6,0,0"/>
-        </StackPanel>
+                            <TextBlock Text="Global Options" Style="{StaticResource SectionHeader}"/>
 
-        <StackPanel Grid.Row="6" Orientation="Vertical" Margin="0,0,0,10" Visibility="{Binding IsWindowsPlatform, Converter={StaticResource BoolToVisibility}}">
-            <TextBlock Text="Installer Mode" Foreground="#AAB4C8" Margin="0,0,0,6"/>
-            <ComboBox ItemsSource="{Binding InstallerModeOptions}"
-                      SelectedItem="{Binding InstallerMode, Mode=TwoWay}"
-                      ItemContainerStyle="{StaticResource DarkComboBoxItem}"
-                      Style="{StaticResource DarkComboBox}"/>
-        </StackPanel>
+                            <TextBlock Text="Games Directory" Style="{StaticResource FieldLabel}"/>
+                            <Grid Margin="0,0,0,6">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox Text="{Binding GamesDirectory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                <Button Grid.Column="1" Content="Browse" Margin="8,0,0,0" Width="90" Click="BrowseFolder_Click"/>
+                            </Grid>
+                            <TextBlock Text="Relative paths are used when the directory is on the same drive as LaunchBox." Style="{StaticResource InlineHelper}" Margin="0,0,0,2"/>
+                            <TextBlock Text="Games directory is required." Style="{StaticResource InlineHelper}" Foreground="#FF5656" Visibility="{Binding IsGamesDirectoryValid, Converter={StaticResource InverseBoolToVisibility}}" Margin="0,0,0,12"/>
 
-        <StackPanel Grid.Row="7" Orientation="Vertical" Margin="0,0,0,10" Visibility="{Binding IsWindowsPlatform, Converter={StaticResource BoolToVisibility}}">
-            <CheckBox Content="Install OST content"
-                      IsChecked="{Binding InstallOst, Mode=TwoWay}"
-                      Foreground="#E6EBF5"
-                      Margin="0,0,0,6"/>
-            <TextBlock Text="Music Root Path" Foreground="#AAB4C8" Margin="0,0,0,6"/>
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <TextBox Text="{Binding MusicRootPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         Background="#1C2230"
-                         Foreground="#E6EBF5"
-                         BorderBrush="#2D374B"
-                         BorderThickness="1"
-                         Padding="6,2"/>
-                <Button Grid.Column="1"
-                        Content="Browse"
-                        Margin="8,0,0,0"
-                        Width="90"
-                        Click="BrowseMusicRoot_Click"/>
-            </Grid>
-        </StackPanel>
+                            <TextBlock Text="Associated Emulator" Style="{StaticResource FieldLabel}"/>
+                            <ComboBox ItemsSource="{Binding Emulators}"
+                                      SelectedItem="{Binding SelectedEmulator, Mode=TwoWay}"
+                                      DisplayMemberPath="Name"
+                                      Style="{StaticResource DarkComboBox}"
+                                      IsEnabled="{Binding IsAssociatedEmulatorEnabled}"
+                                      Margin="0,0,0,6"/>
+                            <TextBlock Text="Available for emulator platforms." Style="{StaticResource InlineHelper}" Margin="0,0,0,12"/>
 
-        <StackPanel Grid.Row="8" Orientation="Vertical" Margin="0,0,0,10" Visibility="{Binding IsWindowsPlatform, Converter={StaticResource BoolToVisibility}}">
-            <CheckBox Content="Install bonus content"
-                      IsChecked="{Binding InstallBonus, Mode=TwoWay}"
-                      Foreground="#E6EBF5"
-                      Margin="0,0,0,6"/>
-            <TextBlock Text="Bonus Root Path" Foreground="#AAB4C8" Margin="0,0,0,6"/>
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <TextBox Text="{Binding BonusRootPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         Background="#1C2230"
-                         Foreground="#E6EBF5"
-                         BorderBrush="#2D374B"
-                         BorderThickness="1"
-                         Padding="6,2"/>
-                <Button Grid.Column="1"
-                        Content="Browse"
-                        Margin="8,0,0,0"
-                        Width="90"
-                        Click="BrowseBonusRoot_Click"/>
-            </Grid>
-        </StackPanel>
+                            <CheckBox Content="Extract archive before install"
+                                      IsChecked="{Binding ExtractAfterDownload, Mode=TwoWay}"
+                                      Margin="0,0,0,6"/>
+                            <TextBlock Text="Supports .zip, .7z, and .rar files." Style="{StaticResource InlineHelper}" Margin="24,0,0,10"/>
 
-        <StackPanel Grid.Row="9" Orientation="Vertical" Margin="0,0,0,10" Visibility="{Binding IsWindowsPlatform, Converter={StaticResource BoolToVisibility}}">
-            <CheckBox Content="Install pre-reqs content"
-                      IsChecked="{Binding InstallPreReqs, Mode=TwoWay}"
-                      Foreground="#E6EBF5"
-                      Margin="0,0,0,6"/>
-            <TextBlock Text="Pre-Reqs Root Path" Foreground="#AAB4C8" Margin="0,0,0,6"/>
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <TextBox Text="{Binding PreReqsRootPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         Background="#1C2230"
-                         Foreground="#E6EBF5"
-                         BorderBrush="#2D374B"
-                         BorderThickness="1"
-                         Padding="6,2"/>
-                <Button Grid.Column="1"
-                        Content="Browse"
-                        Margin="8,0,0,0"
-                        Width="90"
-                        Click="BrowsePreReqsRoot_Click"/>
-            </Grid>
-        </StackPanel>
+                            <StackPanel Margin="0,0,0,0" Visibility="{Binding IsExtractionBehaviorEnabled, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock Text="Extraction Behavior" Style="{StaticResource FieldLabel}"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                                    <RadioButton Content="Extract to Root"
+                                                 Margin="0,0,18,0"
+                                                 IsChecked="{Binding ExtractionBehavior, Converter={StaticResource EnumEqualsToBool}, ConverterParameter=Direct}"/>
+                                    <RadioButton Content="Extract to Subdirectory (Game Name)"
+                                                 IsChecked="{Binding ExtractionBehavior, Converter={StaticResource EnumEqualsToBool}, ConverterParameter=Subfolder}"/>
+                                </StackPanel>
+                            </StackPanel>
+                    </StackPanel>
 
-        <StackPanel Grid.Row="10" Orientation="Vertical" Margin="0,0,0,10" Visibility="{Binding IsEnhanced, Converter={StaticResource BoolToVisibility}}">
-            <TextBlock Text="Target Import File" Foreground="#AAB4C8" Margin="0,0,0,6"/>
-            <TextBox Text="{Binding TargetImportFile, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                     Background="#1C2230"
-                     Foreground="#E6EBF5"
-                     BorderBrush="#2D374B"
-                     BorderThickness="1"
-                     Padding="6,2"/>
-        </StackPanel>
+                    <StackPanel Grid.Column="2">
+                        <StackPanel Visibility="{Binding IsBasicSelected, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="Basic Options" Style="{StaticResource SectionHeader}"/>
 
-        <StackPanel Grid.Row="11" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,16,0,0">
-            <Button Content="Cancel" Width="90" Margin="0,0,10,0" Click="Cancel_Click"/>
-            <Button Content="Save" Width="90" Click="Save_Click" Style="{StaticResource PrimaryButton}"/>
-        </StackPanel>
+                            <CheckBox Content="Self-Contained"
+                                      IsChecked="{Binding SelfContained, Mode=TwoWay}"
+                                      Margin="0,0,0,6"/>
+                            <TextBlock Text="When enabled, the extracted file is used directly as the ROM path." Style="{StaticResource InlineHelper}" Margin="24,0,0,12"/>
 
-        
+                            <StackPanel Margin="0,0,0,6" IsEnabled="{Binding IsTargetFilesEnabled}">
+                                <TextBlock Text="Target File(s)" Style="{StaticResource FieldLabel}"/>
+                                <TextBox Text="{Binding TargetImportFile, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                <TextBlock Text="Separate entries with commas (example: eboot.bin, default.xex)." Style="{StaticResource InlineHelper}" Margin="0,6,0,0"/>
+                                <TextBlock Text="{Binding TargetImportFilesSummary}" Style="{StaticResource InlineHelper}" Margin="0,2,0,0"/>
+                            </StackPanel>
+                        </StackPanel>
+
+                        <StackPanel Visibility="{Binding IsEnhancedSelected, Converter={StaticResource BoolToVisibility}}">
+                            <TextBlock Text="Enhanced Options" Style="{StaticResource SectionHeader}" Margin="0,0,0,6"/>
+
+                            <TextBlock Text="Installation Mode" Style="{StaticResource FieldLabel}"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                <RadioButton Content="Manual"
+                                             Margin="0,0,18,0"
+                                             IsChecked="{Binding InstallerMode, Converter={StaticResource EnumEqualsToBool}, ConverterParameter=Manual}"/>
+                                <RadioButton Content="Automatic"
+                                             IsChecked="{Binding InstallerMode, Converter={StaticResource EnumEqualsToBool}, ConverterParameter=AutoInnoSilent}"/>
+                            </StackPanel>
+                            <StackPanel Margin="0,0,0,12" IsEnabled="{Binding IsInstallModeAutomatic}">
+                                <TextBlock Text="Custom Silent Install Arguments" Style="{StaticResource FieldLabel}"/>
+                                <TextBox Text="{Binding InstallerSilentArgs, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                <TextBlock Text="Uses default install options when left empty." Style="{StaticResource InlineHelper}" Margin="0,6,0,0"/>
+                            </StackPanel>
+
+                            <Border Height="1" Background="#2D374B" Margin="0,0,0,14"/>
+
+                            <CheckBox Content="Install Bonus Content" IsChecked="{Binding InstallBonus, Mode=TwoWay}" Margin="0,0,0,6"/>
+                            <StackPanel Margin="24,0,0,10" IsEnabled="{Binding IsBonusOptionsEnabled}">
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                    <RadioButton Content="Centralized Install"
+                                                 Margin="0,0,18,0"
+                                                 IsChecked="{Binding BonusInstallLocation, Converter={StaticResource EnumEqualsToBool}, ConverterParameter=Centralized}"/>
+                                    <RadioButton Content="Install in Game Folder"
+                                                 IsChecked="{Binding BonusInstallLocation, Converter={StaticResource EnumEqualsToBool}, ConverterParameter=GameFolder}"/>
+                                </StackPanel>
+                                <Grid Margin="0,0,0,4" IsEnabled="{Binding IsBonusCentralizedSelected}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox Text="{Binding BonusRootPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                    <Button Grid.Column="1" Content="Browse" Margin="8,0,0,0" Width="90" Click="BrowseBonusRoot_Click"/>
+                                </Grid>
+                                <TextBlock Text="Game folder installs create a “Bonus Content” directory in the Installation Directory." Style="{StaticResource InlineHelper}"/>
+                            </StackPanel>
+
+                            <CheckBox Content="Extract Pre-Requisites" IsChecked="{Binding InstallPreReqs, Mode=TwoWay}" Margin="0,0,0,6"/>
+                            <StackPanel Margin="24,0,0,10" IsEnabled="{Binding IsPreReqsOptionsEnabled}">
+                                <Grid Margin="0,0,0,4">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox Text="{Binding PreReqsRootPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                    <Button Grid.Column="1" Content="Browse" Margin="8,0,0,0" Width="90" Click="BrowsePreReqsRoot_Click"/>
+                                </Grid>
+                                <TextBlock Text="{Binding PreReqsTargetSummary}" Style="{StaticResource InlineHelper}"/>
+                            </StackPanel>
+
+                            <CheckBox Content="Install Soundtracks" IsChecked="{Binding InstallOst, Mode=TwoWay}" Margin="0,0,0,6"/>
+                            <StackPanel Margin="24,0,0,0" IsEnabled="{Binding IsOstOptionsEnabled}">
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                    <RadioButton Content="Centralized Install"
+                                                 Margin="0,0,18,0"
+                                                 IsChecked="{Binding OstInstallLocation, Converter={StaticResource EnumEqualsToBool}, ConverterParameter=Centralized}"/>
+                                    <RadioButton Content="Install in Game Folder"
+                                                 IsChecked="{Binding OstInstallLocation, Converter={StaticResource EnumEqualsToBool}, ConverterParameter=GameFolder}"/>
+                                </StackPanel>
+                                <Grid Margin="0,0,0,4" IsEnabled="{Binding IsOstCentralizedSelected}">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox Text="{Binding MusicRootPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                    <Button Grid.Column="1" Content="Browse" Margin="8,0,0,0" Width="90" Click="BrowseMusicRoot_Click"/>
+                                </Grid>
+                                <TextBlock Text="Game folder installs create a “Soundtracks” directory in the Installation Directory." Style="{StaticResource InlineHelper}"/>
+                            </StackPanel>
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+            </ScrollViewer>
         </Grid>
-    </ScrollViewer>
-</Window>
+    </Grid>
+</UserControl>

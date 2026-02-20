@@ -5,11 +5,15 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:behaviors="clr-namespace:RomMbox.UI.Behaviors"
+    xmlns:converters="clr-namespace:RomMbox.UI.Converters"
+    xmlns:views="clr-namespace:RomMbox.UI.Views"
     xmlns:system="clr-namespace:System.Windows;assembly=PresentationFramework"
     mc:Ignorable="d"
     Width="800">
 
     <UserControl.Resources>
+        <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibility"/>
+        <converters:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
         <Style x:Key="DarkSecondaryButton" TargetType="Button">
             <Setter Property="Background" Value="#1C2230"/>
             <Setter Property="Foreground" Value="#E6EBF5"/>
@@ -179,43 +183,44 @@
         </Style>
     </UserControl.Resources>
 
-    <StackPanel>
+    <Grid>
+        <StackPanel Visibility="{Binding IsConfiguring, Converter={StaticResource InverseBoolToVisibility}}">
 
-        <TextBlock Text="Platforms" Style="{StaticResource PageHeader}" Foreground="#FF7F7F7F" FontWeight="Bold"/>
-        <TextBlock Text="Map platforms from the RomM server to LaunchBox platforms."
-                   Style="{StaticResource HelperText}"
-                   Margin="0,0,0,14"/>
+            <TextBlock Text="Platforms" Style="{StaticResource PageHeader}" Foreground="#FF7F7F7F" FontWeight="Bold"/>
+            <TextBlock Text="Map platforms from the RomM server to LaunchBox platforms."
+                       Style="{StaticResource HelperText}"
+                       Margin="0,0,0,14"/>
 
-        <DockPanel Margin="0,0,0,14">
-            <Button Content="Refresh"
-                    DockPanel.Dock="Right"
-                    Command="{Binding RefreshCommand}"
-                    Width="110"
-                    HorizontalAlignment="Right"
-                    Style="{StaticResource DarkSecondaryButton}"/>
-        </DockPanel>
+            <DockPanel Margin="0,0,0,14">
+                <Button Content="Refresh"
+                        DockPanel.Dock="Right"
+                        Command="{Binding RefreshCommand}"
+                        Width="110"
+                        HorizontalAlignment="Right"
+                        Style="{StaticResource DarkSecondaryButton}"/>
+            </DockPanel>
 
-        <DataGrid ItemsSource="{Binding Mappings}"
-                  AutoGenerateColumns="False"
-                  CanUserAddRows="False"
-                  HeadersVisibility="Column"
-                  Height="420"
-                  EnableRowVirtualization="False"
-                  EnableColumnVirtualization="False"
-                  VirtualizingStackPanel.IsVirtualizing="False"
-                  Background="#141822"
-                  BorderBrush="{StaticResource BorderBrush}"
-                  BorderThickness="1"
-                  RowBackground="#141822"
-                  AlternatingRowBackground="#151A26"
-                  GridLinesVisibility="Horizontal"
-                  HorizontalGridLinesBrush="#283042"
-                  VerticalGridLinesBrush="#283042"
-                  SelectionMode="Single"
-                  SelectionUnit="FullRow"
-                  VerticalContentAlignment="Center"
-                  ScrollViewer.VerticalScrollBarVisibility="Visible"
-                  ScrollViewer.HorizontalScrollBarVisibility="Auto">
+            <DataGrid ItemsSource="{Binding Mappings}"
+                      AutoGenerateColumns="False"
+                      CanUserAddRows="False"
+                      HeadersVisibility="Column"
+                      Height="420"
+                      EnableRowVirtualization="False"
+                      EnableColumnVirtualization="False"
+                      VirtualizingStackPanel.IsVirtualizing="False"
+                      Background="#141822"
+                      BorderBrush="{StaticResource BorderBrush}"
+                      BorderThickness="1"
+                      RowBackground="#141822"
+                      AlternatingRowBackground="#151A26"
+                      GridLinesVisibility="Horizontal"
+                      HorizontalGridLinesBrush="#283042"
+                      VerticalGridLinesBrush="#283042"
+                      SelectionMode="Single"
+                      SelectionUnit="FullRow"
+                      VerticalContentAlignment="Center"
+                      ScrollViewer.VerticalScrollBarVisibility="Visible"
+                      ScrollViewer.HorizontalScrollBarVisibility="Auto">
 
             <!-- Column headers -->
             <DataGrid.ColumnHeaderStyle>
@@ -338,13 +343,21 @@
             </DataGrid.Columns>
         </DataGrid>
 
-        <StackPanel Orientation="Horizontal"
-                    HorizontalAlignment="Right"
-                    Margin="0,12,0,0">
-            <Button Content="Save"
-                    Command="{Binding SaveMappingsCommand}"
-                    Style="{StaticResource PrimaryButton}"/>
+            <StackPanel Orientation="Horizontal"
+                        HorizontalAlignment="Right"
+                        Margin="0,12,0,0">
+                <Button Content="Save"
+                        Command="{Binding SaveMappingsCommand}"
+                        Style="{StaticResource PrimaryButton}"/>
+            </StackPanel>
+
         </StackPanel>
 
-    </StackPanel>
+        <ContentControl Visibility="{Binding IsConfiguring, Converter={StaticResource BoolToVisibility}}"
+                        HorizontalAlignment="Stretch">
+            <ContentControl.Content>
+                <views:PlatformInstallConfigDialog DataContext="{Binding ActiveConfiguration}"/>
+            </ContentControl.Content>
+        </ContentControl>
+    </Grid>
 </UserControl>

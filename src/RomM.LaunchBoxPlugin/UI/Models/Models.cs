@@ -46,11 +46,23 @@ public sealed class PlatformMapping : ObservableObject
     /// </summary>
     public InstallScenario InstallScenario { get => _installScenario; set => SetProperty(ref _installScenario, value); }
 
+    private bool _selfContained = true;
+    /// <summary>
+    /// Gets or sets whether the extracted folder is self-contained.
+    /// </summary>
+    public bool SelfContained { get => _selfContained; set => SetProperty(ref _selfContained, value); }
+
     private string _targetImportFile = "";
     /// <summary>
     /// Gets or sets the target import file used after extraction or install.
     /// </summary>
     public string TargetImportFile { get => _targetImportFile; set => SetProperty(ref _targetImportFile, value); }
+
+    private string _associatedEmulatorId = "";
+    /// <summary>
+    /// Gets or sets the associated emulator id.
+    /// </summary>
+    public string AssociatedEmulatorId { get => _associatedEmulatorId; set => SetProperty(ref _associatedEmulatorId, value); }
 
     private string _installerSilentArgs = "";
     /// <summary>
@@ -70,6 +82,12 @@ public sealed class PlatformMapping : ObservableObject
     /// </summary>
     public string MusicRootPath { get => _musicRootPath; set => SetProperty(ref _musicRootPath, value); }
 
+    private OptionalContentLocation _ostInstallLocation = OptionalContentLocation.Centralized;
+    /// <summary>
+    /// Gets or sets the install location for OST content.
+    /// </summary>
+    public OptionalContentLocation OstInstallLocation { get => _ostInstallLocation; set => SetProperty(ref _ostInstallLocation, value); }
+
     private bool _installOst;
     /// <summary>
     /// Gets or sets whether soundtracks should be installed.
@@ -81,6 +99,12 @@ public sealed class PlatformMapping : ObservableObject
     /// Gets or sets the root path used for bonus content installs.
     /// </summary>
     public string BonusRootPath { get => _bonusRootPath; set => SetProperty(ref _bonusRootPath, value); }
+
+    private OptionalContentLocation _bonusInstallLocation = OptionalContentLocation.Centralized;
+    /// <summary>
+    /// Gets or sets the install location for bonus content.
+    /// </summary>
+    public OptionalContentLocation BonusInstallLocation { get => _bonusInstallLocation; set => SetProperty(ref _bonusInstallLocation, value); }
 
     private bool _installBonus;
     /// <summary>

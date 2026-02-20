@@ -119,7 +119,15 @@ namespace RomMbox.Services
                         BonusRootPath = saved?.BonusRootPath ?? string.Empty,
                         InstallBonus = saved?.InstallBonus ?? false,
                         PreReqsRootPath = saved?.PreReqsRootPath ?? string.Empty,
-                        InstallPreReqs = saved?.InstallPreReqs ?? false
+                        InstallPreReqs = saved?.InstallPreReqs ?? false,
+                        CustomInstallDirectory = saved?.CustomInstallDirectory ?? string.Empty,
+                        InstallScenario = saved?.InstallScenario ?? InstallScenario.Basic,
+                        TargetImportFile = saved?.TargetImportFile ?? string.Empty,
+                        InstallerSilentArgs = saved?.InstallerSilentArgs ?? string.Empty,
+                        SelfContained = saved?.SelfContained ?? true,
+                        AssociatedEmulatorId = saved?.AssociatedEmulatorId ?? string.Empty,
+                        OstInstallLocation = saved?.OstInstallLocation ?? OptionalContentLocation.Centralized,
+                        BonusInstallLocation = saved?.BonusInstallLocation ?? OptionalContentLocation.Centralized
                     });
                 }
                 return new PlatformMappingResult { Mappings = mappings };
