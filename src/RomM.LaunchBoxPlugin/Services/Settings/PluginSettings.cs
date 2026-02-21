@@ -177,10 +177,7 @@ namespace RomMbox.Services.Settings
                 UseSevenZipFallback = true;
             }
 
-            if (KeepArchivesAfterExtraction == null)
-            {
-                KeepArchivesAfterExtraction = false;
-            }
+            KeepArchivesAfterExtraction = false;
 
             if (PromptForWindowsInstallDirectory == null)
             {

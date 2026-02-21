@@ -3,10 +3,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Diagnostics;
-using System.IO.Compression;
 using RomMbox.Models.Install;
 using RomMbox.Models.PlatformMapping;
 using RomMbox.Services.Logging;
@@ -17,7 +17,7 @@ namespace RomMbox.Services
 {
     /// <summary>
     /// Handles archive detection and extraction for ROM downloads.
-    /// Uses managed ZIP support first, then falls back to 7-Zip when enabled.
+    /// Uses LaunchBox's bundled 7-Zip for all extraction.
     /// </summary>
     internal sealed class ArchiveService
     {
@@ -56,7 +56,7 @@ namespace RomMbox.Services
         /// <summary>
         /// Gets whether archives should be kept after extraction.
         /// </summary>
-        public bool KeepArchivesAfterExtraction => _settings.Value.GetKeepArchivesAfterExtraction();
+        public bool KeepArchivesAfterExtraction => false;
 
         /// <summary>
         /// Extracts an archive into a target directory based on the requested behavior.
@@ -95,60 +95,6 @@ namespace RomMbox.Services
 
             var destination = ResolveExtractionDirectory(archivePath, targetDirectory, behavior);
             Directory.CreateDirectory(destination);
-
-            var extension = Path.GetExtension(archivePath) ?? string.Empty;
-            if (extension.Equals(".zip", StringComparison.OrdinalIgnoreCase))
-            {
-                try
-                {
-                    // Managed ZIP extraction avoids the 7-Zip dependency for .zip files.
-                    _logger?.Info($"Starting managed ZIP extraction: {LoggingService.SanitizePath(archivePath)} -> {LoggingService.SanitizePath(destination)}");
-                    await Task.Run(() =>
-                    {
-                        using var archive = ZipFile.OpenRead(archivePath);
-                        var totalEntries = archive.Entries.Count;
-                        var processed = 0;
-                        progress?.Report(new RomMbox.Models.Download.DownloadProgress(0, Math.Max(1, totalEntries)));
-
-                        foreach (var entry in archive.Entries)
-                        {
-                            cancellationToken.ThrowIfCancellationRequested();
-
-                            var targetPath = Path.Combine(destination, entry.FullName);
-                            if (string.IsNullOrWhiteSpace(entry.Name))
-                            {
-                                Directory.CreateDirectory(targetPath);
-                            }
-                            else
-                            {
-                                var targetDir = Path.GetDirectoryName(targetPath);
-                                if (!string.IsNullOrWhiteSpace(targetDir))
-                                {
-                                    Directory.CreateDirectory(targetDir);
-                                }
-                                entry.ExtractToFile(targetPath, overwrite: true);
-                            }
-
-                            processed++;
-                            progress?.Report(new RomMbox.Models.Download.DownloadProgress(processed, Math.Max(1, totalEntries)));
-                        }
-
-                        progress?.Report(new RomMbox.Models.Download.DownloadProgress(Math.Max(1, totalEntries), Math.Max(1, totalEntries)));
-                    }, cancellationToken).ConfigureAwait(false);
-                    _logger?.Info("Managed ZIP extraction completed successfully.");
-                    return destination;
-                }
-                catch (Exception ex)
-                {
-                    _logger?.Warning($"Managed ZIP extraction failed, falling back to 7-Zip. {ex.Message}");
-                }
-            }
-
-            if (!_settings.Value.GetUseSevenZipFallback())
-            {
-                _logger?.Warning("7-Zip extraction disabled. Skipping extraction.");
-                return string.Empty;
-            }
 
             var sevenZipPath = ResolveSevenZipPath();
             if (string.IsNullOrWhiteSpace(sevenZipPath))
@@ -245,13 +191,14 @@ namespace RomMbox.Services
             var startInfo = new ProcessStartInfo
             {
                 FileName = sevenZipPath,
-                Arguments = $"x \"{archivePath}\" -o\"{destination}\" -y",
+                Arguments = $"x \"{archivePath}\" -o\"{destination}\" -y -bsp1",
                 CreateNoWindow = true,
                 UseShellExecute = false,
                 RedirectStandardError = true,
                 RedirectStandardOutput = true
             };
 
+            progress?.Report(new RomMbox.Models.Download.DownloadProgress(0, 100));
             using (var process = Process.Start(startInfo))
             {
                 if (process == null)
@@ -273,9 +220,37 @@ namespace RomMbox.Services
                     }
                 });
 
-                var output = process.StandardOutput.ReadToEnd();
-                var error = process.StandardError.ReadToEnd();
+                var outputBuilder = new StringBuilder();
+                var errorBuilder = new StringBuilder();
+                process.OutputDataReceived += (_, args) =>
+                {
+                    if (args.Data == null)
+                    {
+                        return;
+                    }
+
+                    outputBuilder.AppendLine(args.Data);
+                    var percent = TryParseSevenZipPercent(args.Data);
+                    if (percent.HasValue)
+                    {
+                        progress?.Report(new RomMbox.Models.Download.DownloadProgress(percent.Value, 100));
+                    }
+                };
+                process.ErrorDataReceived += (_, args) =>
+                {
+                    if (args.Data == null)
+                    {
+                        return;
+                    }
+
+                    errorBuilder.AppendLine(args.Data);
+                };
+
+                process.BeginOutputReadLine();
+                process.BeginErrorReadLine();
                 process.WaitForExit();
+                var output = outputBuilder.ToString();
+                var error = errorBuilder.ToString();
 
                 if (process.ExitCode != 0)
                 {
@@ -283,6 +258,29 @@ namespace RomMbox.Services
                     throw new InvalidOperationException("7-Zip extraction failed.");
                 }
             }
+
+            progress?.Report(new RomMbox.Models.Download.DownloadProgress(100, 100));
+        }
+
+        private static long? TryParseSevenZipPercent(string line)
+        {
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                return null;
+            }
+
+            var match = Regex.Match(line, @"\s(?<pct>\d{1,3})%", RegexOptions.Compiled);
+            if (!match.Success)
+            {
+                return null;
+            }
+
+            if (long.TryParse(match.Groups["pct"].Value, out var value))
+            {
+                return Math.Clamp(value, 0, 100);
+            }
+
+            return null;
         }
 
         /// <summary>
@@ -322,10 +320,7 @@ namespace RomMbox.Services
         /// </summary>
         public void LogArchiveRetentionNote()
         {
-            var settings = _settings.Value;
-            _logger?.Info(settings.GetKeepArchivesAfterExtraction()
-                ? "Archive retention enabled; archives will be kept after extraction."
-                : "Archive retention disabled; archives will be removed after extraction.");
+            _logger?.Info("Archive retention disabled; archives will be removed after extraction.");
         }
 
         /// <summary>

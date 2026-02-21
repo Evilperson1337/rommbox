@@ -88,20 +88,48 @@ namespace RomMbox.Services.Install
                     return ExecutableResolutionResult.Failed("Manifest missing executable entry.");
                 }
 
-                var candidate = Path.Combine(installRoot, manifest.Executable);
+                var resolvedExecutable = ResolveManifestValue(manifest.Executable, installRoot);
+                var candidate = Path.GetFullPath(Path.Combine(installRoot, resolvedExecutable));
                 if (!File.Exists(candidate))
                 {
+                    _logger?.Warning($"Manifest executable not found. ManifestPath='{manifestPath}', RawExecutable='{manifest.Executable}', ResolvedExecutable='{resolvedExecutable}', Candidate='{candidate}'.");
                     return ExecutableResolutionResult.Failed("Manifest executable not found on disk.");
                 }
 
-                _logger?.Info($"Executable resolver selected manifest executable '{candidate}'.");
-                return ExecutableResolutionResult.CreateSuccess(candidate, manifest.Arguments ?? Array.Empty<string>());
+                var resolvedArgs = (manifest.Arguments ?? Array.Empty<string>())
+                    .Select(arg => ResolveManifestValue(arg, installRoot))
+                    .ToArray();
+
+                _logger?.Info($"Executable resolver selected manifest executable '{candidate}'. ManifestPath='{manifestPath}'.");
+                if (resolvedArgs.Length > 0)
+                {
+                    _logger?.Info($"Manifest arguments resolved: {string.Join(" ", resolvedArgs)}");
+                }
+                return ExecutableResolutionResult.CreateSuccess(candidate, resolvedArgs);
             }
             catch (Exception ex)
             {
                 _logger?.Warning($"Failed to read manifest.json for executable resolution. {ex.Message}");
                 return ExecutableResolutionResult.Failed("Manifest parsing failed.");
             }
+        }
+
+        private static string ResolveManifestValue(string value, string installRoot)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return string.Empty;
+            }
+
+            var resolved = value.Replace("%GAME_DIR%", installRoot ?? string.Empty, StringComparison.OrdinalIgnoreCase)
+                .Replace("%LOCALAPPDATA%", Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), StringComparison.OrdinalIgnoreCase)
+                .Replace("%APPDATA%", Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), StringComparison.OrdinalIgnoreCase)
+                .Replace("%USERPROFILE%", Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), StringComparison.OrdinalIgnoreCase)
+                .Replace("%DOCUMENTS%", Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), StringComparison.OrdinalIgnoreCase);
+
+            return resolved.Replace('/', Path.DirectorySeparatorChar)
+                .Replace('\\', Path.DirectorySeparatorChar)
+                .Trim();
         }
 
         /// <summary>

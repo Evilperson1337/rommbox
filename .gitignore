@@ -83,3 +83,6 @@ api_reference/
 # Allow all contents under deps/ regardless of global ignores
 !deps/
 !deps/**
+
+# internal docs not ready for release
+internal-docs/

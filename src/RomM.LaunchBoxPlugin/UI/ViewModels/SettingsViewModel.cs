@@ -82,7 +82,7 @@ public sealed class SettingsViewModel : ObservableObject
     /// </summary>
     public bool UseSevenZipFallback { get => _useSevenZipFallback; set => SetProperty(ref _useSevenZipFallback, value); }
 
-    private bool _keepArchivesAfterExtraction = true;
+    private bool _keepArchivesAfterExtraction = false;
     /// <summary>
     /// Gets whether archives are kept after extraction.
     /// </summary>
@@ -183,7 +183,7 @@ public sealed class SettingsViewModel : ObservableObject
             var settings = _settingsManager.Load();
             settings.SevenZipPath = SevenZipPath ?? string.Empty;
             settings.UseSevenZipFallback = UseSevenZipFallback;
-            settings.KeepArchivesAfterExtraction = KeepArchivesAfterExtraction;
+            settings.KeepArchivesAfterExtraction = false;
             _settingsManager.Save(settings);
             KeepArchivesAfterExtraction = settings.GetKeepArchivesAfterExtraction();
             StatusText = "Settings saved.";

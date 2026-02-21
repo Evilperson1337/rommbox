@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.IO.Compression;
+using System.Linq;
 using System.Threading;
 using FluentAssertions;
 using RomMbox.Models.Install;
@@ -79,6 +80,10 @@ namespace RomMbox.Tests.Services
         [Fact]
         public async Task ExtractAsync_ShouldExtractZipToSubfolder_WhenBehaviorSubfolder()
         {
+            if (string.IsNullOrWhiteSpace(TryResolveSevenZipPath()))
+            {
+                return;
+            }
             using var temp = new TempDirectory();
             var archivePath = CreateZipArchive(temp.Path, "game.zip");
             var service = new ArchiveService(TestLogger.Create(), new SettingsManager(TestLogger.Create()));
@@ -93,6 +98,10 @@ namespace RomMbox.Tests.Services
         [Fact]
         public async Task ExtractAsync_ShouldExtractZipDirect_WhenBehaviorDirect()
         {
+            if (string.IsNullOrWhiteSpace(TryResolveSevenZipPath()))
+            {
+                return;
+            }
             using var temp = new TempDirectory();
             var archivePath = CreateZipArchive(temp.Path, "game.zip");
             var service = new ArchiveService(TestLogger.Create(), new SettingsManager(TestLogger.Create()));
@@ -113,6 +122,29 @@ namespace RomMbox.Tests.Services
                 writer.Write("data");
             }
             return path;
+        }
+
+        private static string TryResolveSevenZipPath()
+        {
+            var launchBoxRoot = RomMbox.Services.Paths.PluginPaths.GetLaunchBoxRootDirectory();
+            if (!string.IsNullOrWhiteSpace(launchBoxRoot))
+            {
+                var bundled = Path.Combine(launchBoxRoot, "ThirdParty", "7-Zip", "7z.exe");
+                if (File.Exists(bundled))
+                {
+                    return bundled;
+                }
+            }
+
+            var programFiles = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+            var programFilesX86 = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86);
+            var candidates = new[]
+            {
+                Path.Combine(programFiles, "7-Zip", "7z.exe"),
+                Path.Combine(programFilesX86, "7-Zip", "7z.exe")
+            };
+
+            return candidates.FirstOrDefault(File.Exists);
         }
     }
 }

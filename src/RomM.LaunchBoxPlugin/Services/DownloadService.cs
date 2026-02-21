@@ -119,33 +119,22 @@ namespace RomMbox.Services
                     _logger?.Info($"RomM extraction completed. InstallType={result.InstallType}.");
                     extractionProgress?.Report(new Models.Download.DownloadProgress(1, 1));
 
-                    if (_archiveService.KeepArchivesAfterExtraction)
-                    {
-                        _archiveService.LogArchiveRetentionNote();
-                    }
-                    else
-                    {
-                        _archiveService.TryDeleteArchive(archivePath);
-                    }
+                    _archiveService.TryDeleteArchive(archivePath);
                 }
                 else
                 {
-                    // No extraction: copy the archive to the final download folder.
-                    _logger?.Info("Extraction skipped for RomM download.");
-                    var finalPath = Path.Combine(downloadDirectory, fileName);
-                    Directory.CreateDirectory(downloadDirectory);
-                    File.Copy(archivePath, finalPath, true);
-                    result.ArchivePath = finalPath;
+                    // No extraction requested or archive not supported.
+                    if (extractAfterDownload)
+                    {
+                        _logger?.Info("Extraction skipped for RomM download: archive not supported.");
+                    }
+
+                    result.ArchivePath = archivePath;
                     result.ExtractedPath = null;
                 }
 
-                if (string.IsNullOrWhiteSpace(result.ArchivePath) && _archiveService.KeepArchivesAfterExtraction)
-                {
-                    result.ArchivePath = archivePath;
-                }
-
                 result.Success = true;
-                if (extractedArchive && !_archiveService.KeepArchivesAfterExtraction)
+                if (extractedArchive)
                 {
                     result.ArchivePath = null;
                 }

@@ -466,6 +466,8 @@ namespace RomMbox.Services
                 throw new ArgumentException("Destination path is required.", nameof(destinationPath));
             }
 
+            _logger?.Debug($"Downloading ROM content to file: RomId={romId}, FileName={fileName}, FileIds={fileIds ?? "<none>"}, Destination='{destinationPath}'.");
+
             var path = $"/api/roms/{Uri.EscapeDataString(romId)}/content/{Uri.EscapeDataString(fileName)}";
             if (!string.IsNullOrWhiteSpace(fileIds))
             {
@@ -484,16 +486,24 @@ namespace RomMbox.Services
                 Directory.CreateDirectory(directory);
             }
 
-            await using var output = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true);
-            await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
-            var buffer = new byte[81920];
-            int bytesRead;
             long received = 0;
-            while ((bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length, cancellationToken).ConfigureAwait(false)) > 0)
+            try
             {
-                await output.WriteAsync(buffer, 0, bytesRead, cancellationToken).ConfigureAwait(false);
-                received += bytesRead;
-                progress?.Report(new DownloadProgress(received, totalBytes));
+                await using var output = new FileStream(destinationPath, FileMode.Create, FileAccess.Write, FileShare.None, 81920, useAsync: true);
+                await using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
+                var buffer = new byte[81920];
+                int bytesRead;
+                while ((bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length, cancellationToken).ConfigureAwait(false)) > 0)
+                {
+                    await output.WriteAsync(buffer, 0, bytesRead, cancellationToken).ConfigureAwait(false);
+                    received += bytesRead;
+                    progress?.Report(new DownloadProgress(received, totalBytes));
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.Warning($"RomM download stream failed: RomId={romId}, FileName={fileName}, Received={received}, Total={totalBytes?.ToString() ?? "<unknown>"}, Destination='{destinationPath}'. {ex.Message}");
+                throw;
             }
 
             return totalBytes ?? received;

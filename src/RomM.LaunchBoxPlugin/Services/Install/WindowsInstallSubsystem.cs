@@ -21,6 +21,7 @@ namespace RomMbox.Services.Install
         private readonly ArchiveService _archiveService;
         private readonly WindowsInstallClassifier _classifier;
         private readonly ExecutableResolver _executableResolver;
+        private readonly Dictionary<string, bool> _innoSignatureCache = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
         /// Creates the Windows install subsystem with required services.
@@ -51,7 +52,9 @@ namespace RomMbox.Services.Install
             string installDir,
             PlatformMapping mapping,
             string gameName,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            IProgress<Models.Download.DownloadProgress> extractionProgress = null,
+            IProgress<double> installProgress = null)
         {
             if (string.IsNullOrWhiteSpace(archivePath) || !File.Exists(archivePath))
             {
@@ -72,12 +75,13 @@ namespace RomMbox.Services.Install
             Directory.CreateDirectory(tempRoot);
             Directory.CreateDirectory(tempExtractDir);
 
+            var cleanupTempRoot = false;
             try
             {
                 var extractRoot = !string.IsNullOrWhiteSpace(extractedPath) && Directory.Exists(extractedPath)
                     ? EnsureExtractedInTemp(extractedPath, tempExtractDir)
                     : await _archiveService
-                        .ExtractAsync(archivePath, tempExtractDir, ExtractionBehavior.Subfolder, cancellationToken)
+                        .ExtractAsync(archivePath, tempExtractDir, ExtractionBehavior.Subfolder, cancellationToken, extractionProgress)
                         .ConfigureAwait(false);
 
                 if (string.IsNullOrWhiteSpace(extractRoot))
@@ -90,39 +94,48 @@ namespace RomMbox.Services.Install
                     _logger?.Info($"Extraction completed. ExtractedPath='{extractRoot}'.");
                 }
 
+                installProgress?.Report(0);
+
                 var archiveInstallType = _classifier.DetectInstallType(archivePath, extractRoot);
                 _logger?.Info($"Windows archive install classification: {archiveInstallType}.");
 
                 var baseRoot = archiveInstallType == InstallType.Installer
                     ? extractRoot
                     : NormalizePortableRoot(extractRoot, installDir, gameName, archivePath);
+                _logger?.Info($"Windows base root selected: '{baseRoot}'. ArchiveInstallType={archiveInstallType}.");
                 var contentRoots = DiscoverContentRoots(baseRoot);
                 _logger?.Info($"Windows content roots: Base='{baseRoot}', PreReqs='{contentRoots.PreReqs ?? "<none>"}', Bonus='{contentRoots.Bonus ?? "<none>"}', Ost='{contentRoots.Ost ?? "<none>"}', Update='{contentRoots.Update ?? "<none>"}', Dlc='{contentRoots.Dlc ?? "<none>"}'.");
                 _logger?.Info($"Windows optional content config: PreReqsEnabled={mapping?.InstallPreReqs == true}, PreReqsRoot='{mapping?.PreReqsRootPath ?? "<empty>"}'.");
 
                 _logger?.Info("Install check bypassed because content was just extracted for this install run.");
 
-            var baseResult = await InstallBaseAsync(baseRoot, installDir, mapping, gameName, skipAlreadyInstalled: true, cancellationToken, archiveInstallType)
-                .ConfigureAwait(false);
-            if (!baseResult.Success)
-            {
+                var baseResult = await InstallBaseAsync(baseRoot, installDir, mapping, gameName, skipAlreadyInstalled: true, cancellationToken, archiveInstallType, installProgress)
+                    .ConfigureAwait(false);
+                if (!baseResult.Success)
+                {
+                    return baseResult;
+                }
+
+                await InstallUpdateAndDlcAsync(contentRoots.Update, installDir, mapping, gameName, "UPDATE", cancellationToken, installProgress).ConfigureAwait(false);
+                await InstallUpdateAndDlcAsync(contentRoots.Dlc, installDir, mapping, gameName, "DLC", cancellationToken, installProgress).ConfigureAwait(false);
+            await InstallOptionalContentAsync(contentRoots.Ost, installDir, mapping, mapping?.MusicRootPath, mapping?.InstallOst == true, gameName, "OST", cancellationToken).ConfigureAwait(false);
+            await InstallOptionalContentAsync(contentRoots.Bonus, installDir, mapping, mapping?.BonusRootPath, mapping?.InstallBonus == true, gameName, "Bonus", cancellationToken).ConfigureAwait(false);
+            await InstallOptionalContentAsync(contentRoots.PreReqs, installDir, mapping, mapping?.PreReqsRootPath, mapping?.InstallPreReqs == true, gameName, "Pre-Reqs", cancellationToken, deleteSource: true, perGame: false).ConfigureAwait(false);
+
+                cleanupTempRoot = true;
+
                 return baseResult;
             }
-
-            var updateTask = InstallUpdateAndDlcAsync(contentRoots.Update, installDir, mapping, "UPDATE", cancellationToken);
-            var dlcTask = InstallUpdateAndDlcAsync(contentRoots.Dlc, installDir, mapping, "DLC", cancellationToken);
-            var ostTask = InstallOptionalContentAsync(contentRoots.Ost, installDir, mapping, mapping?.MusicRootPath, mapping?.InstallOst == true, gameName, "OST", cancellationToken);
-            var bonusTask = InstallOptionalContentAsync(contentRoots.Bonus, installDir, mapping, mapping?.BonusRootPath, mapping?.InstallBonus == true, gameName, "Bonus", cancellationToken);
-            var preReqsTask = InstallOptionalContentAsync(contentRoots.PreReqs, installDir, mapping, mapping?.PreReqsRootPath, mapping?.InstallPreReqs == true, gameName, "Pre-Reqs", cancellationToken, deleteSource: true, perGame: false);
-            await Task.WhenAll(updateTask, dlcTask, ostTask, bonusTask, preReqsTask).ConfigureAwait(false);
-
-                return baseResult;
+            catch (Exception ex)
+            {
+                _logger?.Error("Windows install failed; leaving temp install root for troubleshooting.", ex);
+                throw;
             }
             finally
             {
                 try
                 {
-                    if (Directory.Exists(tempRoot))
+                    if (cleanupTempRoot && Directory.Exists(tempRoot))
                     {
                         Directory.Delete(tempRoot, recursive: true);
                         _logger?.Info($"Temp install root cleaned up: '{tempRoot}'.");
@@ -307,7 +320,8 @@ namespace RomMbox.Services.Install
             string gameName,
             bool skipAlreadyInstalled,
             CancellationToken cancellationToken,
-            InstallType? archiveInstallType = null)
+            InstallType? archiveInstallType = null,
+            IProgress<double> installProgress = null)
         {
             if (!skipAlreadyInstalled && IsAlreadyInstalled(installDir, gameName, out var alreadyInstalledReason))
             {
@@ -328,7 +342,7 @@ namespace RomMbox.Services.Install
 
             if (installType == InstallType.Installer)
             {
-                return await RunInstallerAsync(baseRoot, installDir, mapping, gameName, cancellationToken).ConfigureAwait(false);
+                return await RunInstallerAsync(baseRoot, installDir, mapping, gameName, cancellationToken, installProgress).ConfigureAwait(false);
             }
 
             baseRoot = FlattenPortableRootIfNested(baseRoot, installDir, gameName);
@@ -375,7 +389,8 @@ namespace RomMbox.Services.Install
             string installDir,
             PlatformMapping mapping,
             string gameName,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            IProgress<double> installProgress = null)
         {
             var setupPath = Directory.EnumerateFiles(extractedPath, "setup.exe", SearchOption.AllDirectories)
                 .OrderBy(path => path.Length)
@@ -394,14 +409,15 @@ namespace RomMbox.Services.Install
 
             var installerMode = mapping?.InstallerMode ?? InstallerMode.Manual;
             var targetInstallDir = Path.Combine(installDir, NormalizeGameFolderName(gameName, "Game"));
+            ValidateTargetInstallDir(installDir, targetInstallDir, gameName);
             var wasEmpty = IsDirectoryEmpty(targetInstallDir);
             Directory.CreateDirectory(targetInstallDir);
-            var inno = _classifier.IsInnoInstallerExe(setupPath) || _classifier.IsInnoInstaller(extractedPath);
+            var inno = IsInnoInstallerCached(setupPath) || _classifier.IsInnoInstaller(extractedPath);
 
             if (installerMode == InstallerMode.AutoInnoSilent && inno)
             {
                 var args = string.IsNullOrWhiteSpace(mapping?.InstallerSilentArgs)
-                    ? "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART"
+                    ? "/SILENT /SUPPRESSMSGBOXES /NORESTART"
                     : mapping.InstallerSilentArgs;
                 var command = $"{args} /DIR=\"{targetInstallDir}\"";
                 _logger?.Info($"Launching installer (auto silent): {setupPath} {command}");
@@ -415,12 +431,18 @@ namespace RomMbox.Services.Install
             }
 
             var success = ConfirmInstallerSuccess(targetInstallDir, wasEmpty);
+            var resolution = _executableResolver.Resolve(targetInstallDir, RootFolders);
             if (!success)
             {
+                var recovered = TryRecoverInstallerResult(installDir, resolution);
+                if (recovered.Success)
+                {
+                    return recovered;
+                }
+
                 return WindowsInstallResult.Failed("Installer did not complete successfully.");
             }
 
-            var resolution = _executableResolver.Resolve(targetInstallDir, RootFolders);
             if (!resolution.Success)
             {
                 return WindowsInstallResult.Failed(resolution.Message ?? "Executable resolution failed after install.");
@@ -442,6 +464,24 @@ namespace RomMbox.Services.Install
             return WindowsInstallResult.CreateSuccess(resolution.ExecutablePath, resolution.Arguments, InstallType.Installer);
         }
 
+
+        private bool IsInnoInstallerCached(string exePath)
+        {
+            if (string.IsNullOrWhiteSpace(exePath))
+            {
+                return false;
+            }
+
+            if (_innoSignatureCache.TryGetValue(exePath, out var cached))
+            {
+                return cached;
+            }
+
+            var detected = _classifier.IsInnoInstallerExe(exePath);
+            _innoSignatureCache[exePath] = detected;
+            return detected;
+        }
+
         /// <summary>
         /// Finds an Inno Setup installer in the extracted root.
         /// </summary>
@@ -458,7 +498,7 @@ namespace RomMbox.Services.Install
 
             foreach (var candidate in candidates)
             {
-                if (_classifier.IsInnoInstallerExe(candidate))
+                if (IsInnoInstallerCached(candidate))
                 {
                     return candidate;
                 }
@@ -470,28 +510,87 @@ namespace RomMbox.Services.Install
         /// <summary>
         /// Installs update or DLC content if available.
         /// </summary>
-        private async Task InstallUpdateAndDlcAsync(string root, string installDir, PlatformMapping mapping, string label, CancellationToken cancellationToken)
+        private async Task InstallUpdateAndDlcAsync(string root, string installDir, PlatformMapping mapping, string gameName, string label, CancellationToken cancellationToken, IProgress<double> installProgress = null)
         {
-            if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
+            try
             {
-                return;
-            }
-
-            var setups = Directory.EnumerateFiles(root, "setup.exe", SearchOption.AllDirectories)
-                .OrderBy(path => path)
-                .ToList();
-            foreach (var setup in setups)
-            {
-                _logger?.Info($"Running {label} installer: {setup}");
-                var args = mapping?.InstallerMode == InstallerMode.AutoInnoSilent && _classifier.IsInnoInstaller(root)
-                    ? $"{(string.IsNullOrWhiteSpace(mapping?.InstallerSilentArgs) ? "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART" : mapping.InstallerSilentArgs)} /DIR=\"{installDir}\""
-                    : string.Empty;
-                await ProcessRunner.RunAsync(setup, args, cancellationToken, useShellExecute: args.Length == 0).ConfigureAwait(false);
-                var confirmed = ConfirmInstallerSuccess(installDir, false);
-                if (!confirmed)
+                if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
                 {
-                    _logger?.Warning($"{label} installer did not complete successfully: {setup}");
+                    _logger?.Info($"{label} install skipped: source missing. Root='{root ?? "<empty>"}'.");
+                    return;
                 }
+
+                var targetInstallDir = ResolveGameInstallDir(installDir, gameName);
+                ValidateTargetInstallDir(installDir, targetInstallDir, gameName);
+                _logger?.Info($"{label} install starting. Root='{root}'. InstallDir='{installDir}'. TargetGameDir='{targetInstallDir}'.");
+                var setups = Directory.EnumerateFiles(root, "setup.exe", SearchOption.AllDirectories)
+                    .OrderBy(path => path)
+                    .ToList();
+                if (setups.Count == 0)
+                {
+                    var innoCandidates = Directory.EnumerateFiles(root, "*.exe", SearchOption.AllDirectories)
+                        .Where(path => IsInnoInstallerCached(path))
+                        .OrderBy(path => path)
+                        .ToList();
+                    if (innoCandidates.Count == 0)
+                    {
+                        _logger?.Warning($"{label} install skipped: no setup.exe or Inno installers found under '{root}'.");
+                    }
+                    else
+                    {
+                        setups = innoCandidates;
+                        var setupList = string.Join("; ", setups);
+                        _logger?.Info($"{label} Inno installers detected ({setups.Count}): {setupList}");
+                    }
+                }
+                else
+                {
+                    var setupList = string.Join("; ", setups);
+                    _logger?.Info($"{label} installers detected ({setups.Count}): {setupList}");
+                }
+                var autoSilent = mapping?.InstallerMode == InstallerMode.AutoInnoSilent;
+                var rootIsInno = _classifier.IsInnoInstaller(root);
+                var innoSetups = setups
+                    .Where(path => IsInnoInstallerCached(path) || rootIsInno)
+                    .ToList();
+
+                foreach (var setup in setups)
+                {
+                    if (!File.Exists(setup))
+                    {
+                        _logger?.Warning($"{label} installer missing on disk; skipping: {setup}");
+                        continue;
+                    }
+
+                    _logger?.Info($"Running {label} installer: {setup}");
+                    var isInno = IsInnoInstallerCached(setup) || rootIsInno;
+                    var args = autoSilent && isInno
+                        ? $"{(string.IsNullOrWhiteSpace(mapping?.InstallerSilentArgs) ? "/SILENT /SUPPRESSMSGBOXES /NORESTART" : mapping.InstallerSilentArgs)} /DIR=\"{targetInstallDir}\""
+                        : string.Empty;
+                    try
+                    {
+                        await ProcessRunner.RunAsync(setup, args, cancellationToken, useShellExecute: args.Length == 0).ConfigureAwait(false);
+                        var confirmed = ConfirmInstallerSuccess(targetInstallDir, false);
+                        if (!confirmed)
+                        {
+                            _logger?.Warning($"{label} installer did not complete successfully: {setup}");
+                        }
+                        else
+                        {
+                            _logger?.Info($"{label} installer completed successfully: {setup}. Installed to '{targetInstallDir}'.");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger?.Warning($"{label} installer failed: {setup}. {ex.Message}");
+                    }
+                }
+
+                _logger?.Info($"{label} install completed. Root='{root}'.");
+            }
+            catch (Exception ex)
+            {
+                _logger?.Warning($"{label} install encountered an error: {ex.Message}");
             }
         }
 
@@ -510,59 +609,66 @@ namespace RomMbox.Services.Install
             bool deleteSource = false,
             bool perGame = true)
         {
-            if (!enabled || string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
+            try
             {
-                if (!enabled)
+                if (!enabled || string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
                 {
-                    _logger?.Debug($"{label} install skipped: disabled.");
+                    if (!enabled)
+                    {
+                        _logger?.Debug($"{label} install skipped: disabled.");
+                    }
+                    else
+                    {
+                        _logger?.Debug($"{label} install skipped: source missing. Root='{root ?? "<empty>"}'.");
+                    }
+                    return;
                 }
-                else
+
+                var resolvedTargetRoot = ResolveOptionalContentRoot(installDir, mapping, targetRoot, label, perGame);
+                if (string.IsNullOrWhiteSpace(resolvedTargetRoot))
                 {
-                    _logger?.Debug($"{label} install skipped: source missing. Root='{root ?? "<empty>"}'.");
+                    _logger?.Warning($"{label} install skipped: target root not configured.");
+                    return;
                 }
-                return;
+
+                var destination = perGame
+                    ? Path.Combine(resolvedTargetRoot, NormalizeGameFolderName(gameName, "Game"))
+                    : resolvedTargetRoot;
+                Directory.CreateDirectory(destination);
+
+                foreach (var entry in Directory.EnumerateFileSystemEntries(root))
+                {
+                    if (Directory.Exists(entry))
+                    {
+                        var destDir = Path.Combine(destination, Path.GetFileName(entry));
+                        CopyDirectory(entry, destDir);
+                    }
+                    else
+                    {
+                        var destFile = Path.Combine(destination, Path.GetFileName(entry));
+                        File.Copy(entry, destFile, overwrite: true);
+                    }
+                }
+
+                await Task.CompletedTask.ConfigureAwait(false);
+                _logger?.Info($"{label} content installed to '{destination}'.");
+
+                if (deleteSource)
+                {
+                    try
+                    {
+                        Directory.Delete(root, recursive: true);
+                        _logger?.Info($"{label} source '{root}' removed after install.");
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger?.Warning($"Failed to remove {label} source '{root}': {ex.Message}");
+                    }
+                }
             }
-
-            var resolvedTargetRoot = ResolveOptionalContentRoot(installDir, mapping, targetRoot, label, perGame);
-            if (string.IsNullOrWhiteSpace(resolvedTargetRoot))
+            catch (Exception ex)
             {
-                _logger?.Warning($"{label} install skipped: target root not configured.");
-                return;
-            }
-
-            var destination = perGame
-                ? Path.Combine(resolvedTargetRoot, NormalizeGameFolderName(gameName, "Game"))
-                : resolvedTargetRoot;
-            Directory.CreateDirectory(destination);
-
-            foreach (var entry in Directory.EnumerateFileSystemEntries(root))
-            {
-                if (Directory.Exists(entry))
-                {
-                    var destDir = Path.Combine(destination, Path.GetFileName(entry));
-                    CopyDirectory(entry, destDir);
-                }
-                else
-                {
-                    var destFile = Path.Combine(destination, Path.GetFileName(entry));
-                    File.Copy(entry, destFile, overwrite: true);
-                }
-            }
-
-            await Task.CompletedTask.ConfigureAwait(false);
-            _logger?.Info($"{label} content installed to '{destination}'.");
-
-            if (deleteSource)
-            {
-                try
-                {
-                    Directory.Delete(root, recursive: true);
-                    _logger?.Info($"{label} source '{root}' removed after install.");
-                }
-                catch (Exception ex)
-                {
-                    _logger?.Warning($"Failed to remove {label} source '{root}': {ex.Message}");
-                }
+                _logger?.Warning($"{label} install encountered an error: {ex.Message}");
             }
         }
 
@@ -858,6 +964,73 @@ namespace RomMbox.Services.Install
             return !Directory.EnumerateFileSystemEntries(path).Any();
         }
 
+        private static string ResolveGameInstallDir(string installDir, string gameName)
+        {
+            if (string.IsNullOrWhiteSpace(installDir))
+            {
+                return installDir;
+            }
+
+            var safeGameName = NormalizeGameFolderName(gameName, Path.GetFileName(installDir));
+            return Path.Combine(installDir, safeGameName);
+        }
+
+        private WindowsInstallResult TryRecoverInstallerResult(string installDir, ExecutableResolutionResult resolution)
+        {
+            if (resolution == null || !resolution.Success)
+            {
+                return WindowsInstallResult.Failed("Installer did not complete successfully (no executable resolved).");
+            }
+
+            if (string.IsNullOrWhiteSpace(resolution.ExecutablePath))
+            {
+                return WindowsInstallResult.Failed("Installer did not complete successfully (no executable path resolved).");
+            }
+
+            var executableDir = Path.GetDirectoryName(resolution.ExecutablePath);
+            if (string.IsNullOrWhiteSpace(executableDir))
+            {
+                return WindowsInstallResult.Failed("Installer did not complete successfully (executable path missing directory).");
+            }
+
+            if (!string.IsNullOrWhiteSpace(installDir))
+            {
+                var normalizedRoot = installDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar) + Path.DirectorySeparatorChar;
+                if (!executableDir.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase))
+                {
+                    return WindowsInstallResult.Failed("Installer did not complete successfully (executable outside install root).");
+                }
+            }
+
+            _logger?.Warning("Installer confirmation failed, but executable resolution succeeded. Proceeding with resolved executable.");
+            return WindowsInstallResult.CreateSuccess(resolution.ExecutablePath, resolution.Arguments, InstallType.Installer);
+        }
+
+        private void ValidateTargetInstallDir(string installDir, string targetInstallDir, string gameName)
+        {
+            if (string.IsNullOrWhiteSpace(installDir) || string.IsNullOrWhiteSpace(targetInstallDir))
+            {
+                return;
+            }
+
+            var expectedLeaf = NormalizeGameFolderName(gameName, Path.GetFileName(installDir));
+            var normalizedInstallDir = Path.GetFullPath(installDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
+                + Path.DirectorySeparatorChar;
+            var normalizedTarget = Path.GetFullPath(targetInstallDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
+                + Path.DirectorySeparatorChar;
+
+            if (!normalizedTarget.StartsWith(normalizedInstallDir, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException($"Resolved install directory '{targetInstallDir}' is outside of install root '{installDir}'.");
+            }
+
+            var targetLeaf = Path.GetFileName(targetInstallDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            if (!string.Equals(targetLeaf, expectedLeaf, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException($"Resolved install directory '{targetInstallDir}' does not match expected game folder '{expectedLeaf}'.");
+            }
+        }
+
         /// <summary>
         /// Finds optional content roots (dlc/update/ost/bonus/pre-reqs) under the base root.
         /// </summary>
@@ -990,8 +1163,8 @@ namespace RomMbox.Services.Install
     /// <summary>
     /// Runs external processes with optional shell execution.
     /// </summary>
-    internal static class ProcessRunner
-    {
+        internal static class ProcessRunner
+        {
         /// <summary>
         /// Runs a process asynchronously and waits for exit.
         /// </summary>
@@ -999,9 +1172,13 @@ namespace RomMbox.Services.Install
         /// <param name="arguments">Arguments to pass.</param>
         /// <param name="cancellationToken">Cancellation token.</param>
         /// <param name="useShellExecute">Whether to use shell execution.</param>
-        public static async Task RunAsync(string fileName, string arguments, CancellationToken cancellationToken, bool useShellExecute = false)
+        public static async Task RunAsync(
+            string fileName,
+            string arguments,
+            CancellationToken cancellationToken,
+            bool useShellExecute = false)
         {
-            await Task.Run(() =>
+            await Task.Run(async () =>
             {
                 var startInfo = new System.Diagnostics.ProcessStartInfo
                 {

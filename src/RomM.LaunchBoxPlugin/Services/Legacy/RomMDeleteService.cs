@@ -347,7 +347,10 @@ namespace RomMbox.Services.Install
                     return topLevel;
                 }
 
-                return null;
+                var nested = Directory.EnumerateFiles(installRoot, "unins*.exe", SearchOption.AllDirectories)
+                    .OrderBy(path => path.Length)
+                    .FirstOrDefault();
+                return string.IsNullOrWhiteSpace(nested) ? null : nested;
             }
             catch
             {

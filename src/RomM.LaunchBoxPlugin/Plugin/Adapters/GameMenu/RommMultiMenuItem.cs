@@ -13,6 +13,8 @@ using RomMbox.Plugin;
 using RomMbox.Services;
 using RomMbox.Services.Settings;
 using RomMbox.Services.Install;
+using RomMbox.Services.Install.Pipeline;
+using RomMbox.Services.Install.Pipeline.Steps;
 using RomMbox.Services.Paths;
 using RomMbox.UI;
 using Unbroken.LaunchBox.Plugins;
@@ -162,10 +164,9 @@ namespace RomMbox.Plugin.Adapters.GameMenu
             // Show the window non-modally first
             progressWindow.Show();
 
-            // Hard-close safety in case background work hangs.
-            ScheduleProgressWindowHardTimeout(progressWindow, 60000, "Install");
+            // Install operations can be long (large downloads/extractions). Avoid hard-closing the UI window.
             
-            Task.Run(() =>
+            Task.Run(async () =>
             {
                 PluginEntry.Logger?.Info($"RomM Install background task started for '{game?.Title}'.");
                 try
@@ -180,7 +181,6 @@ namespace RomMbox.Plugin.Adapters.GameMenu
                         System.Windows.Application.Current.Dispatcher.Invoke(() =>
                         {
                             viewModel.StatusText = "Install aborted: services unavailable.";
-                            // Close after showing the error message
                             System.Threading.Thread.Sleep(1500);
                             progressWindow.Close();
                         });
@@ -189,74 +189,52 @@ namespace RomMbox.Plugin.Adapters.GameMenu
 
                     var settingsManager = PluginEntry.SettingsManager ?? new SettingsManager(logger);
                     var client = new RommClient(logger, settingsManager);
-                    var installService = new RomMInstallService(logger, settingsManager, installStateService, client);
-                    
-                    // Step 1: Get RomM details
-                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                    var destinationService = new InstallDestinationService(logger, settingsManager);
+                    var mappingStore = new PlatformMappingStore(logger);
+                    var archiveService = new ArchiveService(logger, settingsManager);
+                    var downloadService = new DownloadService(logger, client, archiveService, settingsManager);
+                    var windowsSubsystem = new WindowsInstallSubsystem(logger, archiveService);
+
+                    var steps = new List<IInstallStep>
                     {
-                        viewModel.HeaderText = "Installing Game";
-                        viewModel.StatusText = "Getting game details from RomM server...";
-                        viewModel.ProgressValue = 0;
-                        viewModel.IsIndeterminate = true;
-                    });
-                    
-                    // Step 2: Download
-                    var downloadProgress = new Progress<RomMbox.Models.Download.DownloadProgress>(progressUpdate =>
+                        new ResolveMetadataStep(client),
+                        new ResolveDestinationStep(destinationService, mappingStore),
+                        new DownloadStep(downloadService),
+                        new InstallContentStep(windowsSubsystem),
+                        new PostProcessStep(),
+                        new PersistStateStep()
+                    };
+
+                    var coordinator = new InstallCoordinator(logger, settingsManager, installStateService, steps);
+                    var progress = new Progress<InstallProgressEvent>(update =>
                     {
                         System.Windows.Application.Current.Dispatcher.Invoke(() =>
                         {
-                            viewModel.HeaderText = "Downloading Game";
-                            var total = progressUpdate.TotalBytes;
-                            var received = progressUpdate.BytesReceived;
-                            if (total.HasValue && total.Value > 0)
+                            viewModel.HeaderText = update.Phase switch
                             {
-                                var percent = Math.Clamp((received / (double)total.Value) * 100d, 0, 100);
-                                viewModel.StatusText = $"Downloaded {FormatBytes(received)} of {FormatBytes(total.Value)}";
-                                viewModel.ProgressValue = Math.Round(percent, 0, MidpointRounding.AwayFromZero);
+                                InstallPhase.Downloading => "Downloading Game",
+                                InstallPhase.Extracting => "Extracting Game",
+                                InstallPhase.Installing => "Installing Game",
+                                _ => "Preparing Install"
+                            };
+                            viewModel.StatusText = update.Message;
+                            if (update.Percent.HasValue)
+                            {
+                                viewModel.ProgressValue = Math.Round(update.Percent.Value, 0, MidpointRounding.AwayFromZero);
                                 viewModel.IsIndeterminate = false;
                             }
                             else
                             {
-                                viewModel.StatusText = $"Downloaded {FormatBytes(received)}";
-                                viewModel.ProgressValue = 0;
                                 viewModel.IsIndeterminate = true;
                             }
                         });
                     });
 
-                    var extractionProgress = new Progress<RomMbox.Models.Download.DownloadProgress>(progressUpdate =>
-                    {
-                        System.Windows.Application.Current.Dispatcher.Invoke(() =>
-                        {
-                            viewModel.HeaderText = "Extracting Game";
-                            viewModel.StatusText = $"Extracting {game?.Title}";
-                            var total = progressUpdate.TotalBytes;
-                            var received = progressUpdate.BytesReceived;
-                            if (total.HasValue && total.Value > 0)
-                            {
-                                var percent = Math.Clamp((received / (double)total.Value) * 100d, 0, 100);
-                                viewModel.ProgressValue = Math.Round(percent, 0, MidpointRounding.AwayFromZero);
-                                viewModel.IsIndeterminate = false;
-                            }
-                            else
-                            {
-                                viewModel.ProgressValue = Math.Clamp(viewModel.ProgressValue + 5, 0, 95);
-                                viewModel.IsIndeterminate = false;
-                            }
-                        });
-                    });
-
-                    System.Windows.Application.Current.Dispatcher.Invoke(() =>
-                    {
-                        viewModel.HeaderText = "Installing Game";
-                        viewModel.StatusText = "Installing...";
-                        viewModel.ProgressValue = 0;
-                        viewModel.IsIndeterminate = true;
-                    });
-
-                    var result = installService.Install(game, dataManager, CancellationToken.None, downloadProgress, extractionProgress);
+                    var result = await coordinator
+                        .RunAsync(new InstallRequest(game, dataManager), progress, CancellationToken.None)
+                        .ConfigureAwait(false);
                     logger?.Info($"RomM Install result for '{game?.Title}': Success={result.Success}, Message='{result.Message}'.");
-                    
+
                     System.Windows.Application.Current.Dispatcher.Invoke(() =>
                     {
                         if (result.Success)
@@ -275,8 +253,7 @@ namespace RomMbox.Plugin.Adapters.GameMenu
                             viewModel.IsIndeterminate = false;
                             logger?.Warning($"RomM Install failed for '{game?.Title}'. {result.Message}");
                         }
-                        
-                        // Keep window visible for a moment to show the result, then close automatically
+
                         System.Threading.Thread.Sleep(1500);
                         progressWindow.Close();
                     });
@@ -287,7 +264,6 @@ namespace RomMbox.Plugin.Adapters.GameMenu
                     System.Windows.Application.Current.Dispatcher.Invoke(() =>
                     {
                         viewModel.StatusText = "Install failed with error.";
-                        // Close after showing the error message
                         System.Threading.Thread.Sleep(1500);
                         progressWindow.Close();
                     });
@@ -348,7 +324,7 @@ namespace RomMbox.Plugin.Adapters.GameMenu
             progressWindow.DataContext = viewModel;
 
             progressWindow.Show();
-            ScheduleProgressWindowHardTimeout(progressWindow, 60000, "Uninstall");
+            ScheduleProgressWindowHardTimeout(progressWindow, 120000, "Uninstall");
 
             Task.Run(async () =>
             {
@@ -377,13 +353,18 @@ namespace RomMbox.Plugin.Adapters.GameMenu
                     var uninstallService = new RomMUninstallService(logger, installStateService);
                     var progress = new Progress<RomMbox.Models.Install.UninstallProgress>(update =>
                     {
-                        System.Windows.Application.Current.Dispatcher.Invoke(() =>
+                        var dispatcher = System.Windows.Application.Current.Dispatcher;
+                        if (dispatcher == null || dispatcher.HasShutdownStarted)
+                        {
+                            return;
+                        }
+                        dispatcher.BeginInvoke(new Action(() =>
                         {
                             viewModel.HeaderText = update.Stage;
                             viewModel.StatusText = update.Message;
                             viewModel.ProgressValue = update.Percent;
                             viewModel.IsIndeterminate = update.IsIndeterminate;
-                        });
+                        }), System.Windows.Threading.DispatcherPriority.Background);
                     });
 
                     logger?.Info($"RomM Uninstall calling DeleteOrUninstall for '{game?.Title}'.");
