@@ -121,8 +121,9 @@ namespace RomMbox.Services.Install
                 _logger?.Info($"Downloading ROM for '{game.Title}' to '{downloadDirectory}'. Scenario={installScenario}, Extract={extractAfterDownload}, Behavior={extractionBehavior}.");
 
                 var serverUrl = _settingsManager.Load().ServerUrl;
+                var detectInstallType = installScenario != InstallScenario.Basic;
                 downloadResult = _downloadService
-                    .DownloadRomAsync(rom, downloadDirectory, serverUrl, extractionBehavior, extractAfterDownload, cancellationToken, downloadProgress, extractionProgress)
+                    .DownloadRomAsync(rom, downloadDirectory, serverUrl, extractionBehavior, extractAfterDownload, cancellationToken, downloadProgress, extractionProgress, detectInstallType)
                     .ConfigureAwait(false)
                     .GetAwaiter()
                     .GetResult();
@@ -216,6 +217,20 @@ namespace RomMbox.Services.Install
                 var installRootPath = !string.IsNullOrWhiteSpace(downloadResult.ExtractedPath)
                     ? downloadResult.ExtractedPath
                     : downloadDirectory;
+
+                if (installScenario == InstallScenario.Basic)
+                {
+                    if (!string.IsNullOrWhiteSpace(downloadResult.ExtractedPath))
+                    {
+                        downloadResult.ExtractedPath = InstallContentRelocator.RelocateExtractedContent(downloadResult.ExtractedPath, downloadDirectory, _logger);
+                        finalPath = downloadResult.ExtractedPath;
+                    }
+                    else if (!string.IsNullOrWhiteSpace(downloadResult.ArchivePath))
+                    {
+                        downloadResult.ArchivePath = InstallContentRelocator.RelocateArchive(downloadResult.ArchivePath, downloadDirectory, _logger);
+                        finalPath = downloadResult.ArchivePath;
+                    }
+                }
 
                 if (installScenario == InstallScenario.Enhanced)
                 {

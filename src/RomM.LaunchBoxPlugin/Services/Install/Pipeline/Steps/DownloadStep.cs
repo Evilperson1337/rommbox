@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using RomMbox.Models.Download;
+using RomMbox.Models.Install;
 
 namespace RomMbox.Services.Install.Pipeline.Steps
 {
@@ -31,6 +32,8 @@ namespace RomMbox.Services.Install.Pipeline.Steps
             var mapping = context.PlatformMapping;
             var extractAfterDownload = mapping?.ExtractAfterDownload ?? false;
             var extractionBehavior = mapping?.ExtractionBehavior ?? Models.PlatformMapping.ExtractionBehavior.Subfolder;
+            var installScenario = mapping?.InstallScenario ?? InstallScenario.Basic;
+            var detectInstallType = installScenario != InstallScenario.Basic;
             var serverUrl = context.SettingsManager.Load().ServerUrl;
             var shouldReportExtraction = extractAfterDownload;
 
@@ -75,7 +78,8 @@ namespace RomMbox.Services.Install.Pipeline.Steps
                     extractAfterDownload,
                     cancellationToken,
                     downloadProgress,
-                    extractionProgress)
+                    extractionProgress,
+                    detectInstallType)
                 .ConfigureAwait(false);
 
             if (!result.Success)
@@ -86,6 +90,18 @@ namespace RomMbox.Services.Install.Pipeline.Steps
             if (shouldReportExtraction && string.IsNullOrWhiteSpace(result.ExtractedPath))
             {
                 progress?.Report(new InstallProgressEvent(InstallPhase.Extracting, "Extraction skipped (no supported archive)."));
+            }
+
+            if (installScenario == InstallScenario.Basic)
+            {
+                if (!string.IsNullOrWhiteSpace(result.ExtractedPath))
+                {
+                    result.ExtractedPath = InstallContentRelocator.RelocateExtractedContent(result.ExtractedPath, context.DownloadDirectory, context.Logger);
+                }
+                else if (!string.IsNullOrWhiteSpace(result.ArchivePath))
+                {
+                    result.ArchivePath = InstallContentRelocator.RelocateArchive(result.ArchivePath, context.DownloadDirectory, context.Logger);
+                }
             }
 
             context.ArchivePath = result.ArchivePath;

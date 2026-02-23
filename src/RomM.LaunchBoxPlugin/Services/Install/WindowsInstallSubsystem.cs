@@ -109,15 +109,22 @@ namespace RomMbox.Services.Install
 
                 _logger?.Info("Install check bypassed because content was just extracted for this install run.");
 
-                var baseResult = await InstallBaseAsync(baseRoot, installDir, mapping, gameName, skipAlreadyInstalled: true, cancellationToken, archiveInstallType, installProgress)
-                    .ConfigureAwait(false);
+                var autoSilent = mapping?.InstallerMode == InstallerMode.AutoInnoSilent;
+                var baseResult = autoSilent && archiveInstallType == InstallType.Installer
+                    ? await TryRunCombinedInstallerBatchAsync(baseRoot, contentRoots.Update, contentRoots.Dlc, installDir, mapping, gameName, cancellationToken, installProgress)
+                        .ConfigureAwait(false)
+                    : await InstallBaseAsync(baseRoot, installDir, mapping, gameName, skipAlreadyInstalled: true, cancellationToken, archiveInstallType, installProgress)
+                        .ConfigureAwait(false);
                 if (!baseResult.Success)
                 {
                     return baseResult;
                 }
 
-                await InstallUpdateAndDlcAsync(contentRoots.Update, installDir, mapping, gameName, "UPDATE", cancellationToken, installProgress).ConfigureAwait(false);
-                await InstallUpdateAndDlcAsync(contentRoots.Dlc, installDir, mapping, gameName, "DLC", cancellationToken, installProgress).ConfigureAwait(false);
+                if (!baseResult.InstallType.HasValue || baseResult.InstallType.Value != InstallType.Installer || !autoSilent)
+                {
+                    await InstallUpdateAndDlcAsync(contentRoots.Update, installDir, mapping, gameName, "UPDATE", cancellationToken, installProgress).ConfigureAwait(false);
+                    await InstallUpdateAndDlcAsync(contentRoots.Dlc, installDir, mapping, gameName, "DLC", cancellationToken, installProgress).ConfigureAwait(false);
+                }
             await InstallOptionalContentAsync(contentRoots.Ost, installDir, mapping, mapping?.MusicRootPath, mapping?.InstallOst == true, gameName, "OST", cancellationToken).ConfigureAwait(false);
             await InstallOptionalContentAsync(contentRoots.Bonus, installDir, mapping, mapping?.BonusRootPath, mapping?.InstallBonus == true, gameName, "Bonus", cancellationToken).ConfigureAwait(false);
             await InstallOptionalContentAsync(contentRoots.PreReqs, installDir, mapping, mapping?.PreReqsRootPath, mapping?.InstallPreReqs == true, gameName, "Pre-Reqs", cancellationToken, deleteSource: true, perGame: false).ConfigureAwait(false);
@@ -464,6 +471,213 @@ namespace RomMbox.Services.Install
             return WindowsInstallResult.CreateSuccess(resolution.ExecutablePath, resolution.Arguments, InstallType.Installer);
         }
 
+        private async Task<WindowsInstallResult> TryRunCombinedInstallerBatchAsync(
+            string extractedPath,
+            string updateRoot,
+            string dlcRoot,
+            string installDir,
+            PlatformMapping mapping,
+            string gameName,
+            CancellationToken cancellationToken,
+            IProgress<double> installProgress = null)
+        {
+            var setupPath = ResolveInstallerSetupPath(extractedPath);
+            if (string.IsNullOrWhiteSpace(setupPath))
+            {
+                return await InstallBaseAsync(extractedPath, installDir, mapping, gameName, skipAlreadyInstalled: true, cancellationToken, InstallType.Installer, installProgress)
+                    .ConfigureAwait(false);
+            }
+
+            var isBaseInno = IsInnoInstallerCached(setupPath) || _classifier.IsInnoInstaller(extractedPath);
+            if (!isBaseInno)
+            {
+                return await InstallBaseAsync(extractedPath, installDir, mapping, gameName, skipAlreadyInstalled: true, cancellationToken, InstallType.Installer, installProgress)
+                    .ConfigureAwait(false);
+            }
+
+            var updateInstallers = CollectAutoSilentInstallers(updateRoot);
+            var dlcInstallers = CollectAutoSilentInstallers(dlcRoot);
+            if (updateInstallers == null || dlcInstallers == null)
+            {
+                return await InstallBaseAsync(extractedPath, installDir, mapping, gameName, skipAlreadyInstalled: true, cancellationToken, InstallType.Installer, installProgress)
+                    .ConfigureAwait(false);
+            }
+
+            var targetInstallDir = ResolveGameInstallDir(installDir, gameName);
+            ValidateTargetInstallDir(installDir, targetInstallDir, gameName);
+            var wasEmpty = IsDirectoryEmpty(targetInstallDir);
+            Directory.CreateDirectory(targetInstallDir);
+
+            var installers = new List<(string Label, string Path)>
+            {
+                ("Base", setupPath)
+            };
+
+            installers.AddRange(updateInstallers.Select(path => ("Update", path)));
+            installers.AddRange(dlcInstallers.Select(path => ("DLC", path)));
+
+            var argumentList = BuildArgumentList(targetInstallDir, mapping?.InstallerSilentArgs);
+
+            _logger?.Info($"Installer batch starting for '{gameName}'. TargetDir='{targetInstallDir}'. Args='{string.Join(" ", argumentList)}'.");
+            foreach (var installer in installers)
+            {
+                _logger?.Info($"Installing {installer.Label}: {installer.Path}");
+            }
+
+            try
+            {
+                await ProcessRunner.RunElevatedBatchAsync(installers, argumentList, cancellationToken, _logger).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger?.Warning($"Installer batch execution failed: {ex.Message}");
+                throw;
+            }
+
+            var success = ConfirmInstallerSuccess(targetInstallDir, wasEmpty);
+            var resolution = _executableResolver.Resolve(targetInstallDir, RootFolders);
+            if (!success)
+            {
+                var recovered = TryRecoverInstallerResult(installDir, resolution);
+                if (recovered.Success)
+                {
+                    return recovered;
+                }
+
+                return WindowsInstallResult.Failed("Installer batch did not complete successfully.");
+            }
+
+            if (!resolution.Success)
+            {
+                return WindowsInstallResult.Failed(resolution.Message ?? "Executable resolution failed after install batch.");
+            }
+
+            if (resolution.RequiresConfirmation)
+            {
+                var hasMultipleCandidates = resolution.Candidates != null && resolution.Candidates.Count > 1;
+                var prompt = hasMultipleCandidates
+                    ? "Multiple executable candidates detected. Use selected executable?"
+                    : "Executable candidate detected. Use selected executable?";
+                var confirmation = AskUserConfirmation("Executable Selection", prompt, resolution.ExecutablePath);
+                if (!confirmation)
+                {
+                    return WindowsInstallResult.Failed("Executable selection not confirmed.");
+                }
+            }
+
+            return WindowsInstallResult.CreateSuccess(resolution.ExecutablePath, resolution.Arguments, InstallType.Installer);
+        }
+
+        private string ResolveInstallerSetupPath(string extractedPath)
+        {
+            if (string.IsNullOrWhiteSpace(extractedPath) || !Directory.Exists(extractedPath))
+            {
+                return null;
+            }
+
+            var setupPath = Directory.EnumerateFiles(extractedPath, "setup.exe", SearchOption.AllDirectories)
+                .OrderBy(path => path.Length)
+                .FirstOrDefault();
+            if (!string.IsNullOrWhiteSpace(setupPath))
+            {
+                return setupPath;
+            }
+
+            return FindInnoInstallerInRoot(extractedPath);
+        }
+
+        private IReadOnlyList<string> CollectAutoSilentInstallers(string root)
+        {
+            if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
+            {
+                return Array.Empty<string>();
+            }
+
+            var setups = Directory.EnumerateFiles(root, "setup.exe", SearchOption.AllDirectories)
+                .OrderBy(path => path)
+                .ToList();
+            if (setups.Count == 0)
+            {
+                setups = Directory.EnumerateFiles(root, "*.exe", SearchOption.AllDirectories)
+                    .Where(path => IsInnoInstallerCached(path))
+                    .OrderBy(path => path)
+                    .ToList();
+            }
+
+            if (setups.Count == 0)
+            {
+                return Array.Empty<string>();
+            }
+
+            var rootIsInno = _classifier.IsInnoInstaller(root);
+            foreach (var setup in setups)
+            {
+                var isInno = IsInnoInstallerCached(setup) || rootIsInno;
+                if (!isInno)
+                {
+                    return null;
+                }
+            }
+
+            return setups;
+        }
+
+        private static List<string> TokenizeArguments(string commandLine)
+        {
+            var result = new List<string>();
+            if (string.IsNullOrWhiteSpace(commandLine))
+            {
+                return result;
+            }
+
+            var current = new System.Text.StringBuilder();
+            var inQuotes = false;
+            foreach (var ch in commandLine)
+            {
+                if (ch == '"')
+                {
+                    inQuotes = !inQuotes;
+                    current.Append(ch);
+                    continue;
+                }
+
+                if (char.IsWhiteSpace(ch) && !inQuotes)
+                {
+                    if (current.Length > 0)
+                    {
+                        result.Add(current.ToString());
+                        current.Clear();
+                    }
+                    continue;
+                }
+
+                current.Append(ch);
+            }
+
+            if (current.Length > 0)
+            {
+                result.Add(current.ToString());
+            }
+
+            return result;
+        }
+
+        private static List<string> BuildArgumentList(string targetInstallDir, string silentArgs = null)
+        {
+            var args = new List<string>();
+            if (string.IsNullOrWhiteSpace(silentArgs))
+            {
+                args.AddRange(new[] { "/SILENT", "/SUPPRESSMSGBOXES", "/NORESTART" });
+            }
+            else
+            {
+                args.AddRange(TokenizeArguments(silentArgs));
+            }
+
+            args.Add($"/DIR=\"{targetInstallDir}\"");
+            return args;
+        }
+
 
         private bool IsInnoInstallerCached(string exePath)
         {
@@ -553,6 +767,34 @@ namespace RomMbox.Services.Install
                 var innoSetups = setups
                     .Where(path => IsInnoInstallerCached(path) || rootIsInno)
                     .ToList();
+
+                if (autoSilent && innoSetups.Count == setups.Count && innoSetups.Count > 1)
+                {
+                    var argumentList = BuildArgumentList(targetInstallDir, mapping?.InstallerSilentArgs);
+                    _logger?.Info($"{label} running {innoSetups.Count} Inno installers in elevated batch with args: {string.Join(" ", argumentList)}");
+                    var labeledSetups = innoSetups.Select(path => (Label: label, Path: path));
+                    try
+                    {
+                        await ProcessRunner.RunElevatedBatchAsync(labeledSetups, argumentList, cancellationToken, _logger).ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger?.Warning($"{label} installer batch failed: {ex.Message}");
+                        throw;
+                    }
+                    var confirmed = ConfirmInstallerSuccess(targetInstallDir, false);
+                    if (!confirmed)
+                    {
+                        _logger?.Warning($"{label} installers did not complete successfully.");
+                    }
+                    else
+                    {
+                        _logger?.Info($"{label} installers completed successfully. Installed to '{targetInstallDir}'.");
+                    }
+
+                    _logger?.Info($"{label} install completed. Root='{root}'.");
+                    return;
+                }
 
                 foreach (var setup in setups)
                 {
@@ -1163,8 +1405,8 @@ namespace RomMbox.Services.Install
     /// <summary>
     /// Runs external processes with optional shell execution.
     /// </summary>
-        internal static class ProcessRunner
-        {
+    internal static class ProcessRunner
+    {
         /// <summary>
         /// Runs a process asynchronously and waits for exit.
         /// </summary>
@@ -1205,5 +1447,137 @@ namespace RomMbox.Services.Install
                 process.WaitForExit();
             }, cancellationToken).ConfigureAwait(false);
         }
+
+        public static async Task RunElevatedBatchAsync(
+            IEnumerable<(string Label, string Path)> installers,
+            IReadOnlyList<string> arguments,
+            CancellationToken cancellationToken,
+            LoggingService logger = null)
+        {
+            if (installers == null)
+            {
+                throw new ArgumentNullException(nameof(installers));
+            }
+
+            var installerList = installers
+                .Where(item => !string.IsNullOrWhiteSpace(item.Path))
+                .ToList();
+            if (installerList.Count == 0)
+            {
+                return;
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            var batchRoot = Path.Combine(Paths.PluginPaths.GetPluginRootDirectory(), "temp", "install");
+            Directory.CreateDirectory(batchRoot);
+            var batchId = Guid.NewGuid().ToString("N");
+            var batchLogPath = Path.Combine(batchRoot, $"installer-batch-{batchId}.log");
+            var batchScriptPath = Path.Combine(batchRoot, $"installer-batch-{batchId}.ps1");
+
+            var scriptContent = BuildInstallerBatchScript(installerList, arguments, batchLogPath);
+            File.WriteAllText(batchScriptPath, scriptContent, System.Text.Encoding.UTF8);
+
+            logger?.Info($"Installer batch script path: {batchScriptPath}");
+            logger?.Info($"Installer batch log path: {batchLogPath}");
+            if (arguments != null && arguments.Count > 0)
+            {
+                logger?.Info($"Installer batch argument list: {string.Join(" ", arguments)}");
+                foreach (var arg in arguments)
+                {
+                    logger?.Debug($"Installer batch argument: {arg}");
+                }
+            }
+            foreach (var installer in installerList)
+            {
+                logger?.Info($"Installer batch item: {installer.Label} -> {installer.Path}");
+            }
+
+            await Task.Run(() =>
+            {
+                var startInfo = new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = "powershell",
+                    Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{batchScriptPath}\"",
+                    UseShellExecute = true,
+                    Verb = "runas",
+                    CreateNoWindow = true
+                };
+
+                using var process = System.Diagnostics.Process.Start(startInfo);
+                if (process == null)
+                {
+                    throw new InvalidOperationException("Failed to start elevated installer batch.");
+                }
+
+                process.WaitForExit();
+                logger?.Info($"Installer batch process exit code: {process.ExitCode}.");
+                try
+                {
+                    if (File.Exists(batchLogPath))
+                    {
+                        var lines = File.ReadAllLines(batchLogPath);
+                        foreach (var line in lines)
+                        {
+                            logger?.Info($"Installer batch result: {line}");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger?.Warning($"Failed to read installer batch log '{batchLogPath}': {ex.Message}");
+                }
+                if (process.ExitCode != 0)
+                {
+                    throw new InvalidOperationException($"Elevated installer batch failed. ExitCode={process.ExitCode}.");
+                }
+            }, cancellationToken).ConfigureAwait(false);
+        }
+
+        private static string BuildInstallerBatchScript(
+            IReadOnlyList<(string Label, string Path)> installers,
+            IReadOnlyList<string> arguments,
+            string batchLogPath)
+        {
+            var installerEntries = installers
+                .Select(installer =>
+                {
+                    var safePath = EscapePowerShellSingleQuoted(installer.Path);
+                    var safeLabel = EscapePowerShellSingleQuoted(installer.Label ?? "Installer");
+                    return $"@{{ Label = '{safeLabel}'; Path = '{safePath}' }}";
+                });
+
+            var argsList = arguments == null
+                ? Array.Empty<string>()
+                : arguments.ToArray();
+            var safeArgs = argsList.Select(arg => $"'{EscapePowerShellSingleQuoted(arg)}'");
+            var argumentsArray = string.Join(", ", safeArgs);
+
+            var safeLogPath = EscapePowerShellSingleQuoted(batchLogPath);
+            var installersArray = string.Join(", ", installerEntries);
+
+            var script = $@"$ErrorActionPreference = 'Stop'
+$batchExit = 0
+$logPath = '{safeLogPath}'
+if (Test-Path $logPath) {{ Remove-Item -Path $logPath -Force }}
+$arguments = @({argumentsArray})
+$installers = @({installersArray})
+foreach ($installer in $installers) {{
+    if ($batchExit -ne 0) {{ break }}
+    if ([string]::IsNullOrWhiteSpace($installer.Path)) {{ continue }}
+    $p = Start-Process -FilePath $installer.Path -ArgumentList $arguments -Wait -PassThru
+    Add-Content -Path $logPath -Value (""Installer $($installer.Label) ExitCode="" + $p.ExitCode)
+    if ($p.ExitCode -ne 0) {{ $batchExit = $p.ExitCode }}
+}}
+exit $batchExit
+";
+
+            return script;
+        }
+
+        private static string EscapePowerShellSingleQuoted(string value)
+        {
+            return string.IsNullOrEmpty(value) ? string.Empty : value.Replace("'", "''");
+        }
+
     }
 }

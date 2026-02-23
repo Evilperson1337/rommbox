@@ -49,7 +49,8 @@ namespace RomMbox.Services
             bool extractAfterDownload,
             CancellationToken cancellationToken,
             IProgress<Models.Download.DownloadProgress> progress = null,
-            IProgress<Models.Download.DownloadProgress> extractionProgress = null)
+            IProgress<Models.Download.DownloadProgress> extractionProgress = null,
+            bool detectInstallType = true)
         {
             if (rom == null)
             {
@@ -115,8 +116,15 @@ namespace RomMbox.Services
                     extractionProgress?.Report(new Models.Download.DownloadProgress(0, 1));
                     var extracted = await _archiveService.ExtractAsync(archivePath, tempExtractDir, behavior, cancellationToken, extractionProgress).ConfigureAwait(false);
                     result.ExtractedPath = extracted;
-                    result.InstallType = _archiveService.DetectInstallType(archivePath, extracted);
-                    _logger?.Info($"RomM extraction completed. InstallType={result.InstallType}.");
+                    if (detectInstallType)
+                    {
+                        result.InstallType = _archiveService.DetectInstallType(archivePath, extracted);
+                        _logger?.Info($"RomM extraction completed. InstallType={result.InstallType}.");
+                    }
+                    else
+                    {
+                        _logger?.Info("RomM extraction completed.");
+                    }
                     extractionProgress?.Report(new Models.Download.DownloadProgress(1, 1));
 
                     _archiveService.TryDeleteArchive(archivePath);

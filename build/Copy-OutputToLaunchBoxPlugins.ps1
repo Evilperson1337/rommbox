@@ -1,6 +1,6 @@
 param(
     [string]$SourceDir = "D:\Projects\github.com\rommbox\output\RomMbox",
-    [string]$TargetDir = "D:\temp\launchbox\Plugins"
+    [string]$TargetDir = "D:\Launchbox\Plugins"
 )
 
 $pluginName = "RomMbox"

@@ -1458,8 +1458,9 @@ namespace RomMbox.Services
                 RomMbox.Models.Download.DownloadResult result = null;
                 try
                 {
+                    var detectInstallType = installScenario != InstallScenario.Basic;
                     result = await _downloadService
-                        .DownloadRomAsync(rom, downloadDirectory, serverUrl, extractionBehavior, extractAfterDownload, cancellationToken)
+                        .DownloadRomAsync(rom, downloadDirectory, serverUrl, extractionBehavior, extractAfterDownload, cancellationToken, null, null, detectInstallType)
                         .ConfigureAwait(false);
                 }
                 finally
@@ -1530,6 +1531,20 @@ namespace RomMbox.Services
                     await _installStateService.UpsertStateAsync(installState, cancellationToken).ConfigureAwait(false);
 
                     return (true, true, string.Empty);
+                }
+
+                if (installScenario == InstallScenario.Basic)
+                {
+                    if (!string.IsNullOrWhiteSpace(result.ExtractedPath))
+                    {
+                        result.ExtractedPath = InstallContentRelocator.RelocateExtractedContent(result.ExtractedPath, downloadDirectory, _logger);
+                        finalPath = result.ExtractedPath;
+                    }
+                    else if (!string.IsNullOrWhiteSpace(result.ArchivePath))
+                    {
+                        result.ArchivePath = InstallContentRelocator.RelocateArchive(result.ArchivePath, downloadDirectory, _logger);
+                        finalPath = result.ArchivePath;
+                    }
                 }
 
                 if (installScenario == InstallScenario.Enhanced)
