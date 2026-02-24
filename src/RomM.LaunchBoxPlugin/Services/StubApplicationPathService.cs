@@ -54,7 +54,6 @@ namespace RomMbox.Services
 
                 // Skip creating stub files for RomM games - they should have empty ApplicationPath
                 // and be played through the RomM interface instead of locally.
-                _logger?.Debug($"Skipping stub creation for RomM game '{game.Title}' - ApplicationPath will remain empty for RomM interface.");
                 continue;
 
                 // The following code is now disabled for RomM games:
@@ -120,7 +119,6 @@ namespace RomMbox.Services
 
             // Skip creating stub files for RomM games - they should have empty ApplicationPath
             // and be played through the RomM interface instead of locally.
-            _logger?.Debug($"Skipping stub creation for RomM game '{game.Title}' - ApplicationPath will remain empty for RomM interface.");
             return false;
 
             // The following code is now disabled for RomM games:

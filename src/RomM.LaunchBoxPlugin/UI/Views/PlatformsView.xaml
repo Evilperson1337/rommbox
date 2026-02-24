@@ -192,12 +192,19 @@
                        Margin="0,0,0,14"/>
 
             <DockPanel Margin="0,0,0,14">
-                <Button Content="Refresh"
-                        DockPanel.Dock="Right"
-                        Command="{Binding RefreshCommand}"
-                        Width="110"
-                        HorizontalAlignment="Right"
-                        Style="{StaticResource DarkSecondaryButton}"/>
+                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
+                    <Button Content="Audit &amp; Update"
+                            Command="{Binding OpenAuditCommand}"
+                            Width="150"
+                            Margin="0,0,8,0"
+                            HorizontalAlignment="Right"
+                            Style="{StaticResource DarkSecondaryButton}"/>
+                    <Button Content="Refresh"
+                            Command="{Binding RefreshCommand}"
+                            Width="110"
+                            HorizontalAlignment="Right"
+                            Style="{StaticResource DarkSecondaryButton}"/>
+                </StackPanel>
             </DockPanel>
 
             <DataGrid ItemsSource="{Binding Mappings}"

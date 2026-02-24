@@ -13,7 +13,10 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Text="Review possible matches between RomM and existing LaunchBox games." FontSize="14" Margin="0,0,0,12"/>
+        <StackPanel Grid.Row="0" Margin="0,0,0,12">
+            <TextBlock Text="Review possible matches between RomM and existing LaunchBox games." FontSize="14"/>
+            <TextBlock Text="Select one RomM match to apply." Foreground="#AAB4C8"/>
+        </StackPanel>
 
         <DataGrid Grid.Row="1"
                   ItemsSource="{Binding Matches}"

@@ -11,6 +11,10 @@ using System.Windows;
 using Microsoft.Win32;
 using RomMbox.Plugin;
 using RomMbox.Services;
+using RomMbox.Services.Logging;
+using RomMbox.Services.GameActions;
+using RomMbox.UI.ViewModels;
+using RomMbox.UI.Views;
 using RomMbox.Services.Settings;
 using RomMbox.Services.Install;
 using RomMbox.Services.Install.Pipeline;
@@ -120,6 +124,8 @@ namespace RomMbox.Plugin.Adapters.GameMenu
                 children.Add(new RommGameMenuItem("Play on RomM", true, ResolvePluginAssetImage("gaming.png"), () => PlayOnRomM(game)));
             }
 
+            children.Add(new RommGameMenuItem("View on RomM", true, ResolvePluginAssetImage("romm.png"), () => ViewOnRomM(game)));
+            children.Add(new RommGameMenuItem("Properties", true, ResolveBadge("Not Installed.png"), () => OpenProperties(game)));
             children.Add(new RommGameMenuItem("Open RomM", true, ResolvePluginAssetImage("romm.png"), OpenRommServer));
 
             // TODO: Future deployment - re-enable save import/upload menu items when save management is implemented.
@@ -726,6 +732,178 @@ namespace RomMbox.Plugin.Adapters.GameMenu
                 {
                     PluginEntry.Logger?.Error("Play on RomM menu failed.", ex);
                 }
+            });
+        }
+
+        private static void ViewOnRomM(IGame game)
+        {
+            PluginEntry.EnsureInitialized();
+            Task.Run(() =>
+            {
+                var logger = PluginEntry.Logger;
+                var operationId = Guid.NewGuid().ToString("N");
+                using (logger?.BeginOperation(operationId))
+                {
+                    var start = DateTimeOffset.UtcNow;
+                    logger?.Write(LogLevel.Debug, "ViewOnRomMRequested", null,
+                        "OperationId", operationId,
+                        "GameTitle", game?.Title ?? string.Empty,
+                        "Platform", game?.Platform ?? string.Empty);
+
+                    try
+                    {
+                        var installStateService = PluginEntry.InstallStateService;
+                        if (installStateService == null)
+                        {
+                            logger?.Write(LogLevel.Warning, "ViewOnRomMMissingInstallStateService", null,
+                                "OperationId", operationId,
+                                "GameTitle", game?.Title ?? string.Empty,
+                                "Platform", game?.Platform ?? string.Empty);
+                            ShowInfoDialog("RomM", "RomM services are not available.");
+                            return;
+                        }
+
+                        var details = installStateService.GetRomMDetails(game);
+                        var serverUrl = details.ServerUrl?.Trim() ?? string.Empty;
+                        if (string.IsNullOrWhiteSpace(serverUrl))
+                        {
+                            logger?.Write(LogLevel.Warning, "ViewOnRomMServerUrlMissing", null,
+                                "OperationId", operationId,
+                                "GameTitle", game?.Title ?? string.Empty,
+                                "Platform", game?.Platform ?? string.Empty);
+                            ShowInfoDialog("RomM", "Server URL is not configured. Configure it in RomM settings.");
+                            return;
+                        }
+
+                        var romId = details.RommRomId?.Trim();
+                        if (string.IsNullOrWhiteSpace(romId))
+                        {
+                            logger?.Write(LogLevel.Warning, "ViewOnRomMMissingRomId", null,
+                                "OperationId", operationId,
+                                "GameTitle", game?.Title ?? string.Empty,
+                                "Platform", game?.Platform ?? string.Empty);
+                            ShowInfoDialog("RomM", "RomM ID is missing for this game.");
+                            return;
+                        }
+
+                        if (!Uri.TryCreate(serverUrl, UriKind.Absolute, out _))
+                        {
+                            logger?.Write(LogLevel.Warning, "ViewOnRomMInvalidServerUrl", null,
+                                "OperationId", operationId,
+                                "GameTitle", game?.Title ?? string.Empty,
+                                "Platform", game?.Platform ?? string.Empty);
+                            ShowInfoDialog("RomM", "Server URL is invalid. Please update it in RomM settings.");
+                            return;
+                        }
+
+                        var urlService = new RommViewUrlService(logger);
+                        var viewUrl = urlService.BuildViewUrl(serverUrl, romId);
+                        if (string.IsNullOrWhiteSpace(viewUrl))
+                        {
+                            logger?.Write(LogLevel.Warning, "ViewOnRomMUrlBuildFailed", null,
+                                "OperationId", operationId,
+                                "GameTitle", game?.Title ?? string.Empty,
+                                "Platform", game?.Platform ?? string.Empty);
+                            ShowInfoDialog("RomM", "RomM URL could not be built. Please check settings.");
+                            return;
+                        }
+
+                        var launcher = new ExternalLauncherService(logger);
+                        if (!launcher.TryOpenUrl(viewUrl))
+                        {
+                            logger?.Write(LogLevel.Warning, "ViewOnRomMBrowserLaunchFailed", null,
+                                "OperationId", operationId,
+                                "GameTitle", game?.Title ?? string.Empty,
+                                "Platform", game?.Platform ?? string.Empty);
+                            ShowInfoDialog("RomM", "Failed to open the RomM page in your browser.");
+                            return;
+                        }
+
+                        logger?.Write(LogLevel.Info, "ViewOnRomMOpened", null,
+                            "OperationId", operationId,
+                            "GameTitle", game?.Title ?? string.Empty,
+                            "Platform", game?.Platform ?? string.Empty);
+                    }
+                    catch (Exception ex)
+                    {
+                        logger?.Write(LogLevel.Error, "ViewOnRomMFailed", ex,
+                            "OperationId", operationId,
+                            "GameTitle", game?.Title ?? string.Empty,
+                            "Platform", game?.Platform ?? string.Empty);
+                        ShowInfoDialog("RomM", "Unable to open the RomM page. Please try again.");
+                    }
+                    finally
+                    {
+                        var duration = DateTimeOffset.UtcNow - start;
+                        logger?.Write(LogLevel.Info, "ViewOnRomMCompleted", null,
+                            "OperationId", operationId,
+                            "DurationMs", (long)duration.TotalMilliseconds,
+                            "Game", $"{game?.Title ?? string.Empty} ({game?.Platform ?? string.Empty})");
+                    }
+                }
+            });
+        }
+
+        private static void OpenProperties(IGame game)
+        {
+            PluginEntry.EnsureInitialized();
+            Task.Run(() =>
+            {
+                try
+                {
+                    var logger = PluginEntry.Logger;
+                    var installStateService = PluginEntry.InstallStateService;
+                    if (installStateService == null)
+                    {
+                        logger?.Warning("InstallStateService unavailable while opening properties.");
+                        ShowInfoDialog("RomM", "RomM services are not available.");
+                        return;
+                    }
+
+                    var contextBuilder = new GamePropertiesContextBuilder(installStateService, logger);
+                    var context = contextBuilder.BuildAsync(game, CancellationToken.None).GetAwaiter().GetResult();
+                    if (context == null)
+                    {
+                        logger?.Warning("Failed to build game properties context.");
+                        ShowInfoDialog("RomM", "Failed to load game properties.");
+                        return;
+                    }
+
+                    Application.Current?.Dispatcher.Invoke(() =>
+                    {
+                        var dialog = new GamePropertiesWindow();
+                        var viewModel = new GamePropertiesViewModel(context, logger)
+                        {
+                            CloseAction = dialog.Close
+                        };
+                        dialog.DataContext = viewModel;
+                        dialog.Owner = Application.Current?.MainWindow;
+                        dialog.ShowDialog();
+                    });
+                }
+                catch (Exception ex)
+                {
+                    PluginEntry.Logger?.Error("Error handling RomM game properties selection.", ex);
+                    ShowInfoDialog("RomM", "Unable to open game properties.");
+                }
+            });
+        }
+
+        private static void ShowInfoDialog(string title, string message)
+        {
+            var dispatcher = Application.Current?.Dispatcher;
+            if (dispatcher == null || dispatcher.HasShutdownStarted)
+            {
+                return;
+            }
+
+            dispatcher.Invoke(() =>
+            {
+                var dialog = new RomMbox.UI.Views.InfoDialog(title, message)
+                {
+                    Owner = Application.Current?.MainWindow
+                };
+                dialog.ShowDialog();
             });
         }
 

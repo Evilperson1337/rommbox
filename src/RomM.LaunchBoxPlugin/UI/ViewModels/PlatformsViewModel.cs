@@ -49,6 +49,7 @@ public sealed class PlatformsViewModel : ObservableObject
         Mappings = new ObservableCollection<Models.PlatformMapping>();
 
         RefreshCommand = new RelayCommand(async () => await LoadMappingsAsync());
+        OpenAuditCommand = new RelayCommand(OpenAuditWindow);
         SaveMappingsCommand = new RelayCommand(async () => await SaveMappingsAsync(showConfirmation: true));
         ConfigureCommand = new RelayCommand<Models.PlatformMapping>(OpenConfigureDialog, mapping => mapping != null && !mapping.Exclude);
 
@@ -95,6 +96,10 @@ public sealed class PlatformsViewModel : ObservableObject
     /// </summary>
     public RelayCommand RefreshCommand { get; }
     /// <summary>
+    /// Command that opens the platform audit window.
+    /// </summary>
+    public RelayCommand OpenAuditCommand { get; }
+    /// <summary>
     /// Command that saves updated platform mappings.
     /// </summary>
     public RelayCommand SaveMappingsCommand { get; }
@@ -123,6 +128,22 @@ public sealed class PlatformsViewModel : ObservableObject
     {
         get => _selectedMapping;
         set => SetProperty(ref _selectedMapping, value);
+    }
+
+    private void OpenAuditWindow()
+    {
+        try
+        {
+            var window = new RomMbox.UI.RomMAuditWindow
+            {
+                Owner = Application.Current?.MainWindow
+            };
+            window.Show();
+        }
+        catch (Exception ex)
+        {
+            _logger?.Error("Failed to open RomM audit window.", ex);
+        }
     }
 
     /// <summary>

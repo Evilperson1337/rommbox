@@ -1,0 +1,175 @@
+<Window x:Class="RomMbox.UI.RomMAuditWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:converters="clr-namespace:RomMbox.UI.Converters"
+        mc:Ignorable="d"
+        Title="RomM Audit &amp; Update"
+        Height="720"
+        Width="980"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResize"
+        WindowStyle="ToolWindow"
+        Background="#141822">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/RomMbox;component/UI/Resources.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <converters:BoolToVisibilityConverter x:Key="BoolToVisibility" />
+
+            <Style x:Key="SectionHeader" TargetType="TextBlock">
+                <Setter Property="Foreground" Value="#E6EBF5"/>
+                <Setter Property="FontSize" Value="14"/>
+                <Setter Property="FontWeight" Value="SemiBold"/>
+                <Setter Property="Margin" Value="0,0,0,8"/>
+            </Style>
+
+            <Style x:Key="FieldLabel" TargetType="TextBlock">
+                <Setter Property="Foreground" Value="#AAB4C8"/>
+                <Setter Property="Margin" Value="0,0,0,4"/>
+            </Style>
+
+            <Style x:Key="InlineHelper" TargetType="TextBlock">
+                <Setter Property="Foreground" Value="#6B748A"/>
+                <Setter Property="FontSize" Value="12"/>
+                <Setter Property="TextWrapping" Value="Wrap"/>
+            </Style>
+
+            <Style x:Key="DarkSecondaryButton" TargetType="Button">
+                <Setter Property="Background" Value="#1C2230"/>
+                <Setter Property="Foreground" Value="#E6EBF5"/>
+                <Setter Property="BorderBrush" Value="#2D374B"/>
+                <Setter Property="BorderThickness" Value="1"/>
+                <Setter Property="Padding" Value="8,4"/>
+                <Setter Property="Cursor" Value="Hand"/>
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border x:Name="Bd"
+                                    Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="{TemplateBinding BorderThickness}"
+                                    CornerRadius="4">
+                                <ContentPresenter HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"/>
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <Trigger Property="IsMouseOver" Value="True">
+                                    <Setter TargetName="Bd" Property="BorderBrush" Value="#4A6EDC"/>
+                                </Trigger>
+                                <Trigger Property="IsPressed" Value="True">
+                                    <Setter TargetName="Bd" Property="Background" Value="#283042"/>
+                                </Trigger>
+                                <Trigger Property="IsEnabled" Value="False">
+                                    <Setter TargetName="Bd" Property="Opacity" Value="0.6"/>
+                                </Trigger>
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Margin="0,0,0,12">
+            <TextBlock Text="Audit &amp; Update" FontSize="20" FontWeight="Bold" Foreground="#F5F7FF"/>
+            <TextBlock Text="Audit games within a platform and re-link to RomM." Style="{StaticResource InlineHelper}"/>
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel>
+                <Border Background="#141822" BorderBrush="#2D374B" BorderThickness="1" CornerRadius="4" Padding="12" Margin="0,0,0,12">
+                    <StackPanel>
+                        <TextBlock Text="Configuration" Style="{StaticResource SectionHeader}"/>
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="160"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Platform" Style="{StaticResource FieldLabel}" Grid.Column="0"/>
+                            <ComboBox Grid.Column="1"
+                                      ItemsSource="{Binding Platforms}"
+                                      SelectedItem="{Binding SelectedPlatform}"
+                                      DisplayMemberPath="Name"
+                                      Width="320"/>
+                        </Grid>
+
+                        <WrapPanel Margin="0,4,0,0">
+                            <CheckBox Content="Re-match missing RomM ID" IsChecked="{Binding RematchMissing}" Margin="0,0,16,8"/>
+                            <CheckBox Content="Re-validate existing matches" IsChecked="{Binding RevalidateExisting}" Margin="0,0,16,8"/>
+                            <CheckBox Content="Force full re-match" IsChecked="{Binding ForceRematch}" Margin="0,0,16,8"/>
+                            <CheckBox Content="Dry-run mode" IsChecked="{Binding DryRun}" Margin="0,0,16,8"/>
+                        </WrapPanel>
+
+                        <Grid Margin="0,4,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="160"/>
+                                <ColumnDefinition Width="120"/>
+                                <ColumnDefinition Width="40"/>
+                                <ColumnDefinition Width="160"/>
+                                <ColumnDefinition Width="120"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Max parallel" Style="{StaticResource FieldLabel}" Grid.Column="0"/>
+                            <TextBox Text="{Binding MaxParallelism}" Grid.Column="1"/>
+                            <TextBlock Text="" Grid.Column="2"/>
+                            <TextBlock Text="API delay (ms)" Style="{StaticResource FieldLabel}" Grid.Column="3"/>
+                            <TextBox Text="{Binding ApiDelayMs}" Grid.Column="4"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <Border Background="#141822" BorderBrush="#2D374B" BorderThickness="1" CornerRadius="4" Padding="12" Margin="0,0,0,12">
+                    <StackPanel>
+                        <TextBlock Text="Summary" Style="{StaticResource SectionHeader}"/>
+                        <TextBlock Text="{Binding PreviewSummaryText}" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Background="#141822" BorderBrush="#2D374B" BorderThickness="1" CornerRadius="4" Padding="12" Margin="0,0,0,12">
+                    <StackPanel>
+                        <TextBlock Text="Execution Progress" Style="{StaticResource SectionHeader}"/>
+                        <ProgressBar Height="12" Minimum="0" Maximum="100" Value="{Binding ProgressPercent}"/>
+                        <TextBlock Text="{Binding StatusText}" Foreground="#AAB4C8" Margin="0,8,0,0"/>
+                    </StackPanel>
+                </Border>
+
+                <Border Background="#141822" BorderBrush="#2D374B" BorderThickness="1" CornerRadius="4" Padding="12">
+                    <StackPanel>
+                        <TextBlock Text="Results Summary" Style="{StaticResource SectionHeader}"/>
+                        <TextBlock Text="{Binding ResultsSummaryText}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+                        <TextBlock Text="Results Log" Style="{StaticResource SectionHeader}" Margin="0,8,0,8"/>
+                        <Border Background="#10141C" BorderBrush="#2D374B" BorderThickness="1" CornerRadius="4" Padding="6" Height="200">
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <ItemsControl ItemsSource="{Binding ResultsLog}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding}" TextWrapping="Wrap" Margin="0,0,0,6"/>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+                        </Border>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <StackPanel Grid.Row="2" Orientation="Vertical" Margin="0,16,0,0">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Start" Width="120" Margin="0,0,8,0" Style="{StaticResource PrimaryButton}" Command="{Binding StartCommand}" IsEnabled="{Binding CanStart}"/>
+                <Button Content="Cancel" Width="120" Margin="0,0,8,0" Style="{StaticResource DarkSecondaryButton}" Command="{Binding CancelCommand}" IsEnabled="{Binding CanCancel}"/>
+                <Button Content="Close" Width="120" Command="{Binding CloseCommand}"/>
+            </StackPanel>
+        </StackPanel>
+    </Grid>
+</Window>
