@@ -18,6 +18,12 @@ namespace RomMbox.Services.Install.Pipeline
         public DateTimeOffset? InstalledUtc { get; set; }
         public DateTimeOffset? LastValidatedUtc { get; set; }
         public string WindowsInstallType { get; set; }
+        public string InstallStatus { get; set; }
+        public string InstallPhase { get; set; }
+        public string LastError { get; set; }
+        public DateTimeOffset? LastAttemptUtc { get; set; }
+        public DateTimeOffset? LastCompletedUtc { get; set; }
+        public string LastOperationId { get; set; }
 
         public InstallState ToInstallState()
         {
@@ -35,7 +41,13 @@ namespace RomMbox.Services.Install.Pipeline
                 IsInstalled = IsInstalled,
                 InstalledUtc = InstalledUtc ?? DateTimeOffset.UtcNow,
                 LastValidatedUtc = LastValidatedUtc ?? DateTimeOffset.UtcNow,
-                WindowsInstallType = WindowsInstallType
+                WindowsInstallType = WindowsInstallType,
+                InstallStatus = InstallStatus,
+                InstallPhase = InstallPhase,
+                LastError = LastError,
+                LastAttemptUtc = LastAttemptUtc,
+                LastCompletedUtc = LastCompletedUtc,
+                LastOperationId = LastOperationId
             };
         }
     }

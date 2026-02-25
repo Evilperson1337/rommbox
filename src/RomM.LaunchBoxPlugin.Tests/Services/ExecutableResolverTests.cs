@@ -14,7 +14,7 @@ namespace RomMbox.Tests.Services
         {
             var resolver = new ExecutableResolver(TestLogger.Create());
 
-            var result = resolver.Resolve("Z:\\missing-path");
+            var result = resolver.Resolve("Z:\\missing-path", "Game");
 
             result.Success.Should().BeFalse();
             result.Message.Should().Contain("not found");
@@ -33,7 +33,7 @@ namespace RomMbox.Tests.Services
 
             var resolver = new ExecutableResolver(TestLogger.Create());
 
-            var result = resolver.Resolve(temp.Path);
+            var result = resolver.Resolve(temp.Path, "Game");
 
             result.Success.Should().BeTrue();
             result.RequiresConfirmation.Should().BeFalse();
@@ -50,7 +50,7 @@ namespace RomMbox.Tests.Services
 
             var resolver = new ExecutableResolver(TestLogger.Create());
 
-            var result = resolver.Resolve(temp.Path);
+            var result = resolver.Resolve(temp.Path, "Game");
 
             result.Success.Should().BeTrue();
             result.RequiresConfirmation.Should().BeFalse();
@@ -66,7 +66,7 @@ namespace RomMbox.Tests.Services
 
             var resolver = new ExecutableResolver(TestLogger.Create());
 
-            var result = resolver.Resolve(temp.Path);
+            var result = resolver.Resolve(temp.Path, "Game");
 
             result.Success.Should().BeTrue();
             result.RequiresConfirmation.Should().BeTrue();
@@ -83,7 +83,7 @@ namespace RomMbox.Tests.Services
 
             var resolver = new ExecutableResolver(TestLogger.Create());
 
-            var result = resolver.Resolve(temp.Path, new[] { "dlc" });
+            var result = resolver.Resolve(temp.Path, "Game", new[] { "dlc" });
 
             result.Success.Should().BeTrue();
             result.RequiresConfirmation.Should().BeFalse();

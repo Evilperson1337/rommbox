@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.ComponentModel.Composition;
 using System.Drawing;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -45,6 +46,9 @@ namespace RomMbox.Plugin.Adapters.GameMenu
         /// Tracks in-flight save availability requests to prevent duplicate calls.
         /// </summary>
         private static readonly ConcurrentDictionary<string, byte> SaveAvailabilityRequests = new();
+        private static readonly ConcurrentDictionary<string, Image> BadgeCache = new(StringComparer.OrdinalIgnoreCase);
+        private static readonly ConcurrentDictionary<string, Image> PluginAssetCache = new(StringComparer.OrdinalIgnoreCase);
+        private static readonly Lazy<Image> RommBadgeCache = new(ResolveRommBadgeInternal);
 
         /// <summary>
         /// Indicates whether multi-select is supported (not in v1).
@@ -92,48 +96,79 @@ namespace RomMbox.Plugin.Adapters.GameMenu
         /// </summary>
         public IEnumerable<IGameMenuItem> GetMenuItems(IGame[] selectedGames)
         {
+            var stopwatch = Stopwatch.StartNew();
+            var threadId = Thread.CurrentThread.ManagedThreadId;
+            var syncContext = SynchronizationContext.Current?.GetType().Name ?? "<null>";
             var game = selectedGames?.FirstOrDefault();
-            if (game == null)
+            var menuBuilt = false;
+            var childCount = 0;
+            try
             {
-                PluginEntry.Logger?.Debug("RomM menu requested with null game selection.");
-                return Array.Empty<IGameMenuItem>();
-            }
+                PluginEntry.Logger?.Debug($"RomM menu build start. Game='{game?.Title ?? "<null>"}', ThreadId={threadId}, SyncContext={syncContext}.");
+                if (game == null)
+                {
+                    PluginEntry.Logger?.Debug($"RomM menu requested with null game selection. ThreadId={threadId}, SyncContext={syncContext}.");
+                    return Array.Empty<IGameMenuItem>();
+                }
 
-            var service = PluginEntry.InstallStateService;
-            if (service == null || !service.IsRomMSourcedGame(game))
-            {
-                PluginEntry.Logger?.Debug($"RomM menu hidden. ServiceAvailable={service != null}, IsRomMSourced={service?.IsRomMSourcedGame(game) ?? false}, Game='{game?.Title}'.");
-                return Array.Empty<IGameMenuItem>();
-            }
+                var service = PluginEntry.InstallStateService;
+                if (service == null || !service.IsRomMSourcedGame(game))
+                {
+                    PluginEntry.Logger?.Debug($"RomM menu hidden. ServiceAvailable={service != null}, IsRomMSourced={service?.IsRomMSourcedGame(game) ?? false}, Game='{game?.Title}', ThreadId={threadId}, SyncContext={syncContext}.");
+                    return Array.Empty<IGameMenuItem>();
+                }
 
-            // Check install state using application path resolution.
-            var isInstalled = HasValidApplicationPath(game, out var resolvedPath);
-            PluginEntry.Logger?.Debug($"RomM menu for '{game?.Title}': InstalledFlag={game?.Installed == true}, ApplicationPath='{game?.ApplicationPath}', ResolvedPath='{resolvedPath}', IsInstalled={isInstalled}.");
-            var children = new List<IGameMenuItem>();
-            if (isInstalled)
-            {
-                children.Add(new RommGameMenuItem("Uninstall Game", true, ResolveBadge("Not Installed.png"), () => UninstallGame(game)));
-            }
-            else
-            {
-                children.Add(new RommGameMenuItem("Install Game", true, ResolveBadge("Installed.png"), () => InstallGame(game)));
-            }
+                // Check install state using application path resolution.
+                var isInstalled = HasValidApplicationPath(game, out var resolvedPath);
+                PluginEntry.Logger?.Debug($"RomM menu for '{game?.Title}': InstalledFlag={game?.Installed == true}, ApplicationPath='{game?.ApplicationPath}', ResolvedPath='{resolvedPath}', IsInstalled={isInstalled}, ThreadId={threadId}, SyncContext={syncContext}.");
+                var children = new List<IGameMenuItem>();
+                if (isInstalled)
+                {
+                    children.Add(new RommGameMenuItem("Uninstall Game", true, ResolveBadge("Not Installed.png"), () => UninstallGame(game)));
+                }
+                else
+                {
+                    children.Add(new RommGameMenuItem("Install Game", true, ResolveBadge("Installed.png"), () => InstallGame(game)));
+                    children.Add(new RommGameMenuItem("Link to Local Game", true, ResolveBadge("Installed.png"), () => LinkLocalGame(game)));
+                }
 
-            if (CanPlayOnRomM(game, service))
+            if (CanPlayOnRomMFast(game))
             {
                 children.Add(new RommGameMenuItem("Play on RomM", true, ResolvePluginAssetImage("gaming.png"), () => PlayOnRomM(game)));
             }
 
-            children.Add(new RommGameMenuItem("View on RomM", true, ResolvePluginAssetImage("romm.png"), () => ViewOnRomM(game)));
-            children.Add(new RommGameMenuItem("Properties", true, ResolveBadge("Not Installed.png"), () => OpenProperties(game)));
-            children.Add(new RommGameMenuItem("Open RomM", true, ResolvePluginAssetImage("romm.png"), OpenRommServer));
+                children.Add(new RommGameMenuItem("View on RomM", true, ResolvePluginAssetImage("romm.png"), () => ViewOnRomM(game)));
+                children.Add(new RommGameMenuItem("Properties", true, ResolveBadge("Not Installed.png"), () => OpenProperties(game)));
+                children.Add(new RommGameMenuItem("Open RomM", true, ResolvePluginAssetImage("romm.png"), OpenRommServer));
 
-            // TODO: Future deployment - re-enable save import/upload menu items when save management is implemented.
+                // TODO: Future deployment - re-enable save import/upload menu items when save management is implemented.
 
-            return new List<IGameMenuItem>
+                childCount = children.Count;
+                menuBuilt = true;
+                return new List<IGameMenuItem>
+                {
+                    new RommGameMenuItem("RomM", true, ResolveRommBadge(), children)
+                };
+            }
+            finally
             {
-                new RommGameMenuItem("RomM", true, ResolveRommBadge(), children)
-            };
+                stopwatch.Stop();
+                PluginEntry.Logger?.Debug($"RomM menu build end. DurationMs={stopwatch.ElapsedMilliseconds}, MenuBuilt={menuBuilt}, ChildCount={childCount}, Game='{game?.Title ?? "<null>"}'.");
+                LogMenuTiming(stopwatch, game);
+            }
+        }
+
+        private static void LogMenuTiming(Stopwatch stopwatch, IGame game)
+        {
+            if (stopwatch == null)
+            {
+                return;
+            }
+            var elapsedMs = stopwatch.ElapsedMilliseconds;
+            if (elapsedMs > 100)
+            {
+                PluginEntry.Logger?.Warning($"RomM menu build slow. DurationMs={elapsedMs}, Game='{game?.Title ?? "<null>"}'.");
+            }
         }
 
         /// <summary>
@@ -275,6 +310,113 @@ namespace RomMbox.Plugin.Adapters.GameMenu
                     });
                 }
             });
+        }
+
+        private static void LinkLocalGame(IGame game)
+        {
+            PluginEntry.EnsureInitialized();
+            Task.Run(async () =>
+            {
+                try
+                {
+                    var logger = PluginEntry.Logger;
+                    var dataManager = PluginHelper.DataManager;
+                    var installStateService = PluginEntry.InstallStateService;
+                    if (dataManager == null || installStateService == null || game == null)
+                    {
+                        logger?.Warning("Link Local Game aborted: services unavailable.");
+                        return;
+                    }
+
+                    if (HasValidApplicationPath(game, out var resolvedPath))
+                    {
+                        logger?.Info($"Link Local Game resolved existing path for '{game?.Title}': '{resolvedPath}'.");
+                        var updated = ApplyLinkedPath(game, resolvedPath, installStateService, dataManager, logger);
+                        if (!updated)
+                        {
+                            ShowInfoDialog("RomM", "Unable to link game - the existing path could not be saved.");
+                        }
+                        return;
+                    }
+
+                    string selectedPath = null;
+                    await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
+                    {
+                        var dialog = new OpenFileDialog
+                        {
+                            Title = $"Link Local Game - {game?.Title}",
+                            Filter = "Executable Files (*.exe)|*.exe|All Files (*.*)|*.*",
+                            CheckFileExists = true,
+                            Multiselect = false
+                        };
+
+                        var result = dialog.ShowDialog();
+                        if (result == true)
+                        {
+                            selectedPath = dialog.FileName;
+                        }
+                    });
+
+                    if (string.IsNullOrWhiteSpace(selectedPath))
+                    {
+                        logger?.Info($"Link Local Game cancelled for '{game?.Title}'.");
+                        return;
+                    }
+
+                    if (!File.Exists(selectedPath))
+                    {
+                        logger?.Warning($"Link Local Game selected invalid path for '{game?.Title}': '{selectedPath}'.");
+                        ShowInfoDialog("RomM", "Selected file does not exist.");
+                        return;
+                    }
+
+                    var applied = ApplyLinkedPath(game, selectedPath, installStateService, dataManager, logger);
+                    if (!applied)
+                    {
+                        ShowInfoDialog("RomM", "Unable to link the selected game executable.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    PluginEntry.Logger?.Error("Link Local Game menu failed.", ex);
+                    ShowInfoDialog("RomM", "Failed to link local game.");
+                }
+            });
+        }
+
+        private static bool ApplyLinkedPath(
+            IGame game,
+            string absolutePath,
+            InstallStateService installStateService,
+            IDataManager dataManager,
+            LoggingService logger)
+        {
+            if (game == null || string.IsNullOrWhiteSpace(absolutePath))
+            {
+                return false;
+            }
+
+            var launchBoxPath = ToLaunchBoxRelativePath(absolutePath);
+            logger?.Info($"Link Local Game applying for '{game?.Title}': Absolute='{absolutePath}', LaunchBox='{launchBoxPath}'.");
+            game.ApplicationPath = launchBoxPath;
+            game.Installed = true;
+            game.Status = "Installed";
+            EnsureEmulatorId(dataManager, game);
+
+            dataManager.Save(false);
+
+            try
+            {
+                installStateService.UpdateInstalledPathAsync(game.Id, absolutePath, CancellationToken.None)
+                    .GetAwaiter()
+                    .GetResult();
+            }
+            catch (Exception ex)
+            {
+                logger?.Warning($"Failed to persist installed path for '{game?.Title}'. {ex.Message}");
+            }
+
+            return true;
         }
 
         /// <summary>
@@ -907,6 +1049,25 @@ namespace RomMbox.Plugin.Adapters.GameMenu
             });
         }
 
+        private static void EnsureEmulatorId(IDataManager dataManager, IGame game)
+        {
+            if (dataManager == null || game == null || string.IsNullOrWhiteSpace(game.Platform))
+            {
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(game.EmulatorId))
+            {
+                return;
+            }
+
+            var emulatorId = ResolveEmulatorId(dataManager, game.Platform);
+            if (!string.IsNullOrWhiteSpace(emulatorId))
+            {
+                game.EmulatorId = emulatorId;
+            }
+        }
+
         private static void OpenRommServer()
         {
             PluginEntry.EnsureInitialized();
@@ -933,6 +1094,72 @@ namespace RomMbox.Plugin.Adapters.GameMenu
             }
         }
 
+        private static string ToLaunchBoxRelativePath(string absolutePath)
+        {
+            if (string.IsNullOrWhiteSpace(absolutePath))
+            {
+                return absolutePath;
+            }
+
+            try
+            {
+                var root = PluginPaths.GetLaunchBoxRootDirectory();
+                if (string.IsNullOrWhiteSpace(root))
+                {
+                    return absolutePath;
+                }
+
+                var normalizedRoot = root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
+                    + Path.DirectorySeparatorChar;
+                if (absolutePath.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase))
+                {
+                    var relative = absolutePath.Substring(normalizedRoot.Length);
+                    return relative.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+                }
+            }
+            catch
+            {
+            }
+
+            return absolutePath;
+        }
+
+        private static string ResolveEmulatorId(IDataManager dataManager, string platformName)
+        {
+            if (dataManager == null || string.IsNullOrWhiteSpace(platformName))
+            {
+                return string.Empty;
+            }
+
+            var emulators = dataManager.GetAllEmulators() ?? Array.Empty<IEmulator>();
+            foreach (var emulator in emulators)
+            {
+                var platforms = emulator?.GetAllEmulatorPlatforms() ?? Array.Empty<IEmulatorPlatform>();
+                foreach (var platform in platforms)
+                {
+                    if (string.Equals(platform?.Platform, platformName, StringComparison.OrdinalIgnoreCase)
+                        && platform?.IsDefault == true)
+                    {
+                        return emulator?.Id ?? string.Empty;
+                    }
+                }
+            }
+
+            foreach (var emulator in emulators)
+            {
+                var platforms = emulator?.GetAllEmulatorPlatforms() ?? Array.Empty<IEmulatorPlatform>();
+                foreach (var platform in platforms)
+                {
+                    if (string.Equals(platform?.Platform, platformName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return emulator?.Id ?? string.Empty;
+                    }
+                }
+            }
+
+            return string.Empty;
+        }
+
         /// <summary>
         /// Checks whether the game is playable via RomM for its platform.
         /// </summary>
@@ -943,14 +1170,39 @@ namespace RomMbox.Plugin.Adapters.GameMenu
                 return false;
             }
 
+            var stopwatch = Stopwatch.StartNew();
+
             var details = service.GetRomMDetails(game);
             var settingsManager = PluginEntry.SettingsManager ?? new SettingsManager(PluginEntry.Logger);
-            if (!RommPlayability.IsPlayablePlatform(details.RommPlatformId, game.Platform, settingsManager))
+            var playable = RommPlayability.IsPlayablePlatform(details.RommPlatformId, game.Platform, settingsManager);
+            stopwatch.Stop();
+            if (stopwatch.ElapsedMilliseconds > 50)
+            {
+                PluginEntry.Logger?.Warning($"CanPlayOnRomM slow. DurationMs={stopwatch.ElapsedMilliseconds}, Game='{game?.Title ?? "<null>"}', Platform='{game?.Platform ?? "<null>"}'.");
+            }
+            if (!playable)
             {
                 return false;
             }
 
             return true;
+        }
+
+        private static bool CanPlayOnRomMFast(IGame game)
+        {
+            if (game == null)
+            {
+                return false;
+            }
+
+            var stopwatch = Stopwatch.StartNew();
+            var playable = RommPlayability.IsPlayablePlatform(game.Platform);
+            stopwatch.Stop();
+            if (stopwatch.ElapsedMilliseconds > 50)
+            {
+                PluginEntry.Logger?.Warning($"CanPlayOnRomMFast slow. DurationMs={stopwatch.ElapsedMilliseconds}, Game='{game?.Title ?? "<null>"}', Platform='{game?.Platform ?? "<null>"}'.");
+            }
+            return playable;
         }
 
         /// <summary>
@@ -1003,18 +1255,27 @@ namespace RomMbox.Plugin.Adapters.GameMenu
         /// </summary>
         private static Image ResolveRommBadge()
         {
+            return RommBadgeCache.Value;
+        }
+
+        private static Image ResolveRommBadgeInternal()
+        {
+            var stopwatch = Stopwatch.StartNew();
             var pluginRoot = PluginPaths.GetPluginRootDirectory();
-            if (!string.IsNullOrWhiteSpace(pluginRoot))
+            if (string.IsNullOrWhiteSpace(pluginRoot))
             {
-                var assetPath = Path.Combine(pluginRoot, "system", "assets", "romm.png");
-                var assetImage = LoadImageFromFile(assetPath);
-                if (assetImage != null)
-                {
-                    return assetImage;
-                }
+                stopwatch.Stop();
+                return null;
             }
 
-            return null;
+            var assetPath = Path.Combine(pluginRoot, "system", "assets", "romm.png");
+            var image = LoadImageFromFile(assetPath);
+            stopwatch.Stop();
+            if (stopwatch.ElapsedMilliseconds > 50)
+            {
+                PluginEntry.Logger?.Warning($"ResolveRommBadge slow. DurationMs={stopwatch.ElapsedMilliseconds}, AssetPath='{assetPath}'.");
+            }
+            return image;
         }
 
         /// <summary>
@@ -1027,9 +1288,24 @@ namespace RomMbox.Plugin.Adapters.GameMenu
                 return null;
             }
 
+            if (MenuImageLoadingDisabled)
+            {
+                PluginEntry.Logger?.Debug($"Menu image loading disabled. Badge='{fileName}'.");
+                return null;
+            }
+
+            var stopwatch = Stopwatch.StartNew();
+
+            if (BadgeCache.TryGetValue(fileName, out var cached))
+            {
+                stopwatch.Stop();
+                return cached;
+            }
+
             var launchBoxRoot = PluginPaths.GetLaunchBoxRootDirectory();
             if (string.IsNullOrWhiteSpace(launchBoxRoot))
             {
+                stopwatch.Stop();
                 return null;
             }
 
@@ -1045,10 +1321,21 @@ namespace RomMbox.Plugin.Adapters.GameMenu
                 var image = LoadImageFromFile(path);
                 if (image != null)
                 {
+                    BadgeCache[fileName] = image;
+                    stopwatch.Stop();
+                    if (stopwatch.ElapsedMilliseconds > 50)
+                    {
+                        PluginEntry.Logger?.Warning($"ResolveBadge slow. DurationMs={stopwatch.ElapsedMilliseconds}, FileName='{fileName}'.");
+                    }
                     return image;
                 }
             }
 
+            stopwatch.Stop();
+            if (stopwatch.ElapsedMilliseconds > 50)
+            {
+                PluginEntry.Logger?.Warning($"ResolveBadge slow (not found). DurationMs={stopwatch.ElapsedMilliseconds}, FileName='{fileName}'.");
+            }
             return null;
         }
 
@@ -1062,14 +1349,39 @@ namespace RomMbox.Plugin.Adapters.GameMenu
                 return null;
             }
 
+            if (MenuImageLoadingDisabled)
+            {
+                PluginEntry.Logger?.Debug($"Menu image loading disabled. Asset='{fileName}'.");
+                return null;
+            }
+
+            var stopwatch = Stopwatch.StartNew();
+
+            if (PluginAssetCache.TryGetValue(fileName, out var cached))
+            {
+                stopwatch.Stop();
+                return cached;
+            }
+
             var pluginRoot = PluginPaths.GetPluginRootDirectory();
             if (string.IsNullOrWhiteSpace(pluginRoot))
             {
+                stopwatch.Stop();
                 return null;
             }
 
             var assetPath = Path.Combine(pluginRoot, "system", "assets", fileName);
-            return LoadImageFromFile(assetPath);
+            var image = LoadImageFromFile(assetPath);
+            if (image != null)
+            {
+                PluginAssetCache[fileName] = image;
+            }
+            stopwatch.Stop();
+            if (stopwatch.ElapsedMilliseconds > 50)
+            {
+                PluginEntry.Logger?.Warning($"ResolvePluginAssetImage slow. DurationMs={stopwatch.ElapsedMilliseconds}, FileName='{fileName}'.");
+            }
+            return image;
         }
 
         /// <summary>
@@ -1077,21 +1389,44 @@ namespace RomMbox.Plugin.Adapters.GameMenu
         /// </summary>
         private static Image LoadImageFromFile(string path)
         {
-            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            if (string.IsNullOrWhiteSpace(path) || MenuImageLoadingDisabled || !File.Exists(path))
             {
                 return null;
             }
 
             try
             {
+                var stopwatch = Stopwatch.StartNew();
                 var bytes = File.ReadAllBytes(path);
                 using var stream = new MemoryStream(bytes);
                 using var image = Image.FromStream(stream);
-                return (Image)image.Clone();
+                var cloned = (Image)image.Clone();
+                stopwatch.Stop();
+                if (stopwatch.ElapsedMilliseconds > 50)
+                {
+                    PluginEntry.Logger?.Warning($"Menu image load slow. DurationMs={stopwatch.ElapsedMilliseconds}, Path='{path}'.");
+                }
+                return cloned;
             }
-            catch
+            catch (Exception ex)
             {
+                PluginEntry.Logger?.Warning($"Menu image load failed. Path='{path}'. {ex.Message}");
                 return null;
+            }
+        }
+
+        private static bool MenuImageLoadingDisabled
+        {
+            get
+            {
+                try
+                {
+                    return string.Equals(Environment.GetEnvironmentVariable("ROMM_MENU_NO_IMAGES"), "1", StringComparison.OrdinalIgnoreCase);
+                }
+                catch
+                {
+                    return false;
+                }
             }
         }
 
@@ -1100,9 +1435,18 @@ namespace RomMbox.Plugin.Adapters.GameMenu
         /// </summary>
         private static bool HasValidApplicationPath(IGame game, out string resolvedPath)
         {
+            var stopwatch = Stopwatch.StartNew();
+            var threadId = Thread.CurrentThread.ManagedThreadId;
             resolvedPath = game?.ApplicationPath ?? string.Empty;
             if (string.IsNullOrWhiteSpace(resolvedPath))
             {
+                stopwatch.Stop();
+                return false;
+            }
+
+            if (game?.Installed != true)
+            {
+                stopwatch.Stop();
                 return false;
             }
 
@@ -1117,11 +1461,21 @@ namespace RomMbox.Plugin.Adapters.GameMenu
                     }
                 }
 
-                return System.IO.File.Exists(resolvedPath) || System.IO.Directory.Exists(resolvedPath);
+                var exists = System.IO.File.Exists(resolvedPath) || System.IO.Directory.Exists(resolvedPath);
+                return exists;
             }
-            catch
+            catch (Exception ex)
             {
+                PluginEntry.Logger?.Warning($"Application path validation failed. Path='{resolvedPath}'. {ex.Message}");
                 return false;
+            }
+            finally
+            {
+                stopwatch.Stop();
+                if (stopwatch.ElapsedMilliseconds > 50)
+                {
+                    PluginEntry.Logger?.Warning($"Application path validation slow. DurationMs={stopwatch.ElapsedMilliseconds}, ThreadId={threadId}, Path='{resolvedPath}'.");
+                }
             }
         }
 

@@ -96,5 +96,35 @@ namespace RomMbox.Models
         /// When the install state was last validated against disk (UTC).
         /// </summary>
         public DateTimeOffset? LastValidatedUtc { get; set; }
+
+        /// <summary>
+        /// Current install status (e.g., Pending, InProgress, Failed, Completed, Cancelled).
+        /// </summary>
+        public string InstallStatus { get; set; }
+
+        /// <summary>
+        /// Current install phase for the latest attempt.
+        /// </summary>
+        public string InstallPhase { get; set; }
+
+        /// <summary>
+        /// Last error message captured during install.
+        /// </summary>
+        public string LastError { get; set; }
+
+        /// <summary>
+        /// When the last install attempt started (UTC).
+        /// </summary>
+        public DateTimeOffset? LastAttemptUtc { get; set; }
+
+        /// <summary>
+        /// When the last successful install completed (UTC).
+        /// </summary>
+        public DateTimeOffset? LastCompletedUtc { get; set; }
+
+        /// <summary>
+        /// Correlation id for the last install attempt.
+        /// </summary>
+        public string LastOperationId { get; set; }
     }
 }

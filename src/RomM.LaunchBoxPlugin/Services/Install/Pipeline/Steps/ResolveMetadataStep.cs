@@ -30,11 +30,31 @@ namespace RomMbox.Services.Install.Pipeline.Steps
             }
 
             progress?.Report(new InstallProgressEvent(Phase, "Fetching game details..."));
-            var rom = await _client.GetRomDetailsAsync(details.RommRomId, cancellationToken).ConfigureAwait(false);
+            context.Logger?.Info($"Resolving RomM metadata for '{context.Game.Title}'. RommRomId={details.RommRomId}.");
+            var timeout = TimeSpan.FromSeconds(30);
+            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            timeoutCts.CancelAfter(timeout);
+            RomMbox.Models.Romm.RommRom rom;
+            try
+            {
+                rom = await _client.GetRomDetailsAsync(details.RommRomId, timeoutCts.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
+            {
+                context.Logger?.Warning($"Resolving RomM metadata timed out after {timeout.TotalSeconds:0} seconds for RommRomId={details.RommRomId}.");
+                return InstallResult.Failed(Phase, $"Metadata lookup timed out after {timeout.TotalSeconds:0} seconds.");
+            }
+            catch (Exception ex)
+            {
+                context.Logger?.Warning($"Resolving RomM metadata failed for RommRomId={details.RommRomId}. {ex.Message}");
+                return InstallResult.Failed(Phase, $"Metadata lookup failed: {ex.Message}");
+            }
             if (rom == null)
             {
                 return InstallResult.Failed(Phase, "Failed to resolve RomM details.");
             }
+
+            context.Logger?.Info($"Resolved RomM metadata for '{context.Game.Title}'. RommRomId={details.RommRomId}.");
 
             context.RommDetails = rom;
             context.InstallStateSnapshot = new InstallStateSnapshot
@@ -42,7 +62,11 @@ namespace RomMbox.Services.Install.Pipeline.Steps
                 LaunchBoxGameId = context.Game.Id,
                 RommRomId = rom.Id,
                 RommPlatformId = rom.PlatformId,
-                ServerUrl = context.SettingsManager.Load().ServerUrl
+                ServerUrl = context.SettingsManager.Load().ServerUrl,
+                InstallStatus = "InProgress",
+                InstallPhase = Phase.ToString(),
+                LastAttemptUtc = DateTimeOffset.UtcNow,
+                LastOperationId = context.OperationId
             };
             return InstallResult.Successful();
         }

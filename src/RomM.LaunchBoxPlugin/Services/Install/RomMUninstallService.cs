@@ -50,14 +50,32 @@ namespace RomMbox.Services.Install
             try
             {
                 progress?.Report(new UninstallProgress("Uninstalling Game", "Resolving install state...", 10, true));
+                var resolveStopwatch = System.Diagnostics.Stopwatch.StartNew();
                 await Task.Delay(100, cancellationToken).ConfigureAwait(false);
+                resolveStopwatch.Stop();
+                if (resolveStopwatch.ElapsedMilliseconds > 500)
+                {
+                    _logger?.Warning($"Uninstall resolve state slow. DurationMs={resolveStopwatch.ElapsedMilliseconds}.");
+                }
 
                 progress?.Report(new UninstallProgress("Removing Content", "Deleting local content...", 35, true));
-                var result = await Task.Run(() => _deleteService.DeleteOrUninstall(game, dataManager, cancellationToken), cancellationToken)
+                var uninstallStopwatch = System.Diagnostics.Stopwatch.StartNew();
+                var result = await _deleteService.DeleteOrUninstallAsync(game, dataManager, cancellationToken)
                     .ConfigureAwait(false);
+                uninstallStopwatch.Stop();
+                if (uninstallStopwatch.ElapsedMilliseconds > 500)
+                {
+                    _logger?.Warning($"Uninstall delete/uninstall slow. DurationMs={uninstallStopwatch.ElapsedMilliseconds}.");
+                }
 
                 progress?.Report(new UninstallProgress("Finishing", "Finalizing uninstall...", 90, true));
+                var finishStopwatch = System.Diagnostics.Stopwatch.StartNew();
                 await Task.Delay(100, cancellationToken).ConfigureAwait(false);
+                finishStopwatch.Stop();
+                if (finishStopwatch.ElapsedMilliseconds > 500)
+                {
+                    _logger?.Warning($"Uninstall finalize slow. DurationMs={finishStopwatch.ElapsedMilliseconds}.");
+                }
 
                 return result;
             }

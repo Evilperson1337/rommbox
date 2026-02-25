@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
@@ -39,7 +40,7 @@ namespace RomMbox.Services.Install
         /// <param name="dataManager">LaunchBox data manager instance.</param>
         /// <param name="cancellationToken">Cancellation token for async state calls.</param>
         /// <returns>Result that indicates success and whether a stub was created.</returns>
-        public RomMDeleteResult DeleteOrUninstall(IGame game, IDataManager dataManager, CancellationToken cancellationToken)
+        public async Task<RomMDeleteResult> DeleteOrUninstallAsync(IGame game, IDataManager dataManager, CancellationToken cancellationToken)
         {
             if (game == null || dataManager == null)
             {
@@ -53,14 +54,15 @@ namespace RomMbox.Services.Install
 
             try
             {
-                var state = _installStateService.GetStateAsync(game.Id, cancellationToken)
-                    .ConfigureAwait(false)
-                    .GetAwaiter()
-                    .GetResult();
+                _logger?.Info($"Uninstall resolve state started for '{game.Title}'. GameId={game.Id}.");
+                var state = await _installStateService.GetStateAsync(game.Id, cancellationToken).ConfigureAwait(false);
+                _logger?.Info($"Uninstall resolve state completed for '{game.Title}'. Installed={state?.IsInstalled == true}, InstallType='{state?.WindowsInstallType ?? "<none>"}'.");
                 var wasInstalled = state != null && state.IsInstalled;
 
                 // Clean the on-disk content first, then update LaunchBox metadata.
+                _logger?.Info($"Uninstall cleanup invoking for '{game.Title}'.");
                 var (removedFiles, cleanupMessage) = CleanupLocalContent(game, state);
+                _logger?.Info($"Uninstall cleanup finished for '{game.Title}'. RemovedFiles={removedFiles}.");
                 _logger?.Info($"RomM delete/uninstall cleanup for '{game.Title}': RemovedFiles={removedFiles}, Message={cleanupMessage ?? "none"}.");
 
                 if (wasInstalled)
@@ -72,7 +74,7 @@ namespace RomMbox.Services.Install
                     var stubCreated = _stubService.TryCreateStubForGame(dataManager, game);
                     if (state != null)
                     {
-                        _installStateService.UpsertIdentityAsync(
+                        await _installStateService.UpsertIdentityAsync(
                                 game.Id,
                                 state.RommRomId,
                                 state.RommPlatformId,
@@ -80,19 +82,15 @@ namespace RomMbox.Services.Install
                                 localMd5: state.LocalMd5,
                                 windowsInstallType: state.WindowsInstallType,
                                 cancellationToken)
-                            .ConfigureAwait(false)
-                            .GetAwaiter()
-                            .GetResult();
-                        _installStateService.UpdateRommAdditionalAppStateAsync(
+                            .ConfigureAwait(false);
+                        await _installStateService.UpdateRommAdditionalAppStateAsync(
                                 game.Id,
                                 state.RommMergedBaseGameId,
                                 launchPath: string.Empty,
                                 launchArgs: string.Empty,
                                 syncedUtc: DateTimeOffset.UtcNow,
                                 cancellationToken)
-                            .ConfigureAwait(false)
-                            .GetAwaiter()
-                            .GetResult();
+                            .ConfigureAwait(false);
                     }
                     QueueLaunchBoxSaveAndCleanup(dataManager, game.Id, cancellationToken, preserveMerge: true);
                     return RomMDeleteResult.UninstallResult(stubCreated);
@@ -104,7 +102,7 @@ namespace RomMbox.Services.Install
                 game.Status = "Available Remotely";
                 if (state != null)
                 {
-                    _installStateService.UpsertIdentityAsync(
+                    await _installStateService.UpsertIdentityAsync(
                             game.Id,
                             state.RommRomId,
                             state.RommPlatformId,
@@ -112,19 +110,15 @@ namespace RomMbox.Services.Install
                             localMd5: state.LocalMd5,
                             windowsInstallType: state.WindowsInstallType,
                             cancellationToken)
-                        .ConfigureAwait(false)
-                        .GetAwaiter()
-                        .GetResult();
-                    _installStateService.UpdateRommAdditionalAppStateAsync(
+                        .ConfigureAwait(false);
+                    await _installStateService.UpdateRommAdditionalAppStateAsync(
                             game.Id,
                             state.RommMergedBaseGameId,
                             launchPath: string.Empty,
                             launchArgs: string.Empty,
                             syncedUtc: DateTimeOffset.UtcNow,
                             cancellationToken)
-                        .ConfigureAwait(false)
-                        .GetAwaiter()
-                        .GetResult();
+                        .ConfigureAwait(false);
                 }
                 QueueLaunchBoxSaveAndCleanup(dataManager, game.Id, cancellationToken, preserveMerge: true);
                 return RomMDeleteResult.UninstallResult(stubCreated: false);
@@ -143,31 +137,37 @@ namespace RomMbox.Services.Install
                 return;
             }
 
+            var operationId = Guid.NewGuid().ToString("N");
+            _logger?.Info($"Uninstall save/cleanup queued. OpId={operationId}, GameId={launchBoxGameId}, PreserveMerge={preserveMerge}.");
             Task.Run(() =>
             {
+                var stopwatch = Stopwatch.StartNew();
                 try
                 {
-                    dataManager.Save(true);
+                    _logger?.Debug($"Uninstall save/cleanup started. OpId={operationId}, ThreadId={Thread.CurrentThread.ManagedThreadId}.");
+                    dataManager.BackgroundReloadSave(() => { });
+                    _logger?.Debug($"BackgroundReloadSave queued. OpId={operationId}, ElapsedMs={stopwatch.ElapsedMilliseconds}.");
                     if (preserveMerge)
                     {
-                        _installStateService.DeleteStatePreserveMergeAsync(launchBoxGameId, cancellationToken)
-                            .ConfigureAwait(false)
-                            .GetAwaiter()
-                            .GetResult();
+                        var task = _installStateService.DeleteStatePreserveMergeAsync(launchBoxGameId, cancellationToken);
+                        if (!task.Wait(TimeSpan.FromSeconds(10)))
+                        {
+                            _logger?.Warning($"Install state cleanup timed out. OpId={operationId}, GameId={launchBoxGameId}.");
+                        }
                     }
                     else
                     {
-                        _installStateService.DeleteStateAsync(launchBoxGameId, cancellationToken)
-                            .ConfigureAwait(false)
-                            .GetAwaiter()
-                            .GetResult();
+                        var task = _installStateService.DeleteStateAsync(launchBoxGameId, cancellationToken);
+                        if (!task.Wait(TimeSpan.FromSeconds(10)))
+                        {
+                            _logger?.Warning($"Install state cleanup timed out. OpId={operationId}, GameId={launchBoxGameId}.");
+                        }
                     }
-                    RefreshLaunchBoxData(dataManager);
-                    _logger?.Info("LaunchBox data saved and install state cleaned up after uninstall.");
+                    _logger?.Info($"LaunchBox background save queued and install state cleaned up after uninstall. OpId={operationId}, ElapsedMs={stopwatch.ElapsedMilliseconds}.");
                 }
                 catch (Exception ex)
                 {
-                    _logger?.Warning($"LaunchBox save/cleanup failed after uninstall: {ex.Message}");
+                    _logger?.Warning($"LaunchBox save/cleanup failed after uninstall. OpId={operationId}, ElapsedMs={stopwatch.ElapsedMilliseconds}. {ex.Message}");
                 }
             });
         }
@@ -247,6 +247,7 @@ namespace RomMbox.Services.Install
                 if (File.Exists(path))
                 {
                     _logger?.Info($"Deleting file '{path}'.");
+                    _logger?.Debug($"Delete path resolved as file. Path='{path}'.");
                     File.Delete(path);
                     return 1;
                 }
@@ -254,6 +255,7 @@ namespace RomMbox.Services.Install
                 if (Directory.Exists(path))
                 {
                     _logger?.Info($"Deleting directory '{path}'.");
+                    LogDirectoryDeletePreview(path);
                     Directory.Delete(path, true);
                     return 1;
                 }
@@ -264,7 +266,30 @@ namespace RomMbox.Services.Install
                 messages?.Add($"Failed to delete '{path}': {ex.Message}");
             }
 
+            _logger?.Debug($"Delete path not found on disk. Path='{path}'.");
+
             return 0;
+        }
+
+        private void LogDirectoryDeletePreview(string directory)
+        {
+            try
+            {
+                if (!Directory.Exists(directory))
+                {
+                    return;
+                }
+
+                var entryCount = Directory.EnumerateFileSystemEntries(directory).Take(6).ToList();
+                var sample = entryCount.Count == 0
+                    ? "<empty>"
+                    : string.Join(", ", entryCount.Select(Path.GetFileName));
+                _logger?.Debug($"Directory delete preview for '{directory}': Sample=[{sample}].");
+            }
+            catch (Exception ex)
+            {
+                _logger?.Debug($"Directory delete preview failed for '{directory}': {ex.Message}");
+            }
         }
 
         private void TryDeleteEmptyParent(string directory)
@@ -351,7 +376,34 @@ namespace RomMbox.Services.Install
                     UseShellExecute = true
                 };
                 using var process = System.Diagnostics.Process.Start(startInfo);
-                process?.WaitForExit();
+                if (process == null)
+                {
+                    _logger?.Warning($"Failed to start Inno uninstaller '{uninstaller}'.");
+                    messages?.Add($"Failed to start Inno uninstaller '{uninstaller}'.");
+                    return false;
+                }
+
+                var timeout = TimeSpan.FromMinutes(10);
+                _logger?.Info($"Waiting for Inno uninstaller to exit (timeout {timeout.TotalMinutes:0} minutes).\n");
+                if (!process.WaitForExit((int)timeout.TotalMilliseconds))
+                {
+                    _logger?.Warning($"Inno uninstaller did not exit within timeout ({timeout.TotalMinutes:0} minutes). Attempting to continue cleanup.");
+                    messages?.Add($"Inno uninstaller timed out after {timeout.TotalMinutes:0} minutes.");
+                    try
+                    {
+                        if (!process.HasExited)
+                        {
+                            _ = process.CloseMainWindow();
+                        }
+                    }
+                    catch
+                    {
+                        // ignore
+                    }
+                    return false;
+                }
+
+                _logger?.Info($"Inno uninstaller exited with code {process.ExitCode}.");
                 return true;
             }
             catch (Exception ex)
@@ -443,14 +495,13 @@ namespace RomMbox.Services.Install
                 return;
             }
 
-            Task.Run(() =>
+            Task.Run(async () =>
             {
                 try
                 {
+                    await Task.Delay(250).ConfigureAwait(false);
                     dataManager.BackgroundReloadSave(() => { });
-                    dataManager.ReloadIfNeeded();
-                    dataManager.ForceReload();
-                    _logger?.Info("LaunchBox data refresh completed after uninstall.");
+                    _logger?.Info("LaunchBox background refresh scheduled after uninstall.");
                 }
                 catch (Exception ex)
                 {

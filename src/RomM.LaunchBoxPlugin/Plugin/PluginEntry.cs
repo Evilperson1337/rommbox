@@ -66,6 +66,7 @@ namespace RomMbox.Plugin
                     if (dataManager != null)
                     {
                         _ = _installStateService.InitializeAsync(CancellationToken.None);
+                        _ = _installStateService.RecoverStaleOperationsAsync(TimeSpan.FromHours(2), CancellationToken.None);
                     }
                     _ = new StubApplicationPathService(logger, _installStateService)
                         .EnsureStubApplicationPathsAsync(System.Threading.CancellationToken.None);

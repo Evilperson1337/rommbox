@@ -54,7 +54,9 @@ namespace RomMbox.Services.Install
             string gameName,
             CancellationToken cancellationToken,
             IProgress<Models.Download.DownloadProgress> extractionProgress = null,
-            IProgress<double> installProgress = null)
+            IProgress<double> installProgress = null,
+            string finalInstallDir = null,
+            bool preferFinalInstallDirForInstaller = false)
         {
             if (string.IsNullOrWhiteSpace(archivePath) || !File.Exists(archivePath))
             {
@@ -110,10 +112,13 @@ namespace RomMbox.Services.Install
                 _logger?.Info("Install check bypassed because content was just extracted for this install run.");
 
                 var autoSilent = mapping?.InstallerMode == InstallerMode.AutoInnoSilent;
+                var resolvedInstallDir = preferFinalInstallDirForInstaller && archiveInstallType == InstallType.Installer
+                    ? finalInstallDir ?? installDir
+                    : installDir;
                 var baseResult = autoSilent && archiveInstallType == InstallType.Installer
-                    ? await TryRunCombinedInstallerBatchAsync(baseRoot, contentRoots.Update, contentRoots.Dlc, installDir, mapping, gameName, cancellationToken, installProgress)
+                    ? await TryRunCombinedInstallerBatchAsync(baseRoot, contentRoots.Update, contentRoots.Dlc, resolvedInstallDir, mapping, gameName, cancellationToken, installProgress)
                         .ConfigureAwait(false)
-                    : await InstallBaseAsync(baseRoot, installDir, mapping, gameName, skipAlreadyInstalled: true, cancellationToken, archiveInstallType, installProgress)
+                    : await InstallBaseAsync(baseRoot, resolvedInstallDir, mapping, gameName, skipAlreadyInstalled: true, cancellationToken, archiveInstallType, installProgress)
                         .ConfigureAwait(false);
                 if (!baseResult.Success)
                 {
@@ -122,12 +127,12 @@ namespace RomMbox.Services.Install
 
                 if (!baseResult.InstallType.HasValue || baseResult.InstallType.Value != InstallType.Installer || !autoSilent)
                 {
-                    await InstallUpdateAndDlcAsync(contentRoots.Update, installDir, mapping, gameName, "UPDATE", cancellationToken, installProgress).ConfigureAwait(false);
-                    await InstallUpdateAndDlcAsync(contentRoots.Dlc, installDir, mapping, gameName, "DLC", cancellationToken, installProgress).ConfigureAwait(false);
+                    await InstallUpdateAndDlcAsync(contentRoots.Update, resolvedInstallDir, mapping, gameName, "UPDATE", cancellationToken, installProgress).ConfigureAwait(false);
+                    await InstallUpdateAndDlcAsync(contentRoots.Dlc, resolvedInstallDir, mapping, gameName, "DLC", cancellationToken, installProgress).ConfigureAwait(false);
                 }
-            await InstallOptionalContentAsync(contentRoots.Ost, installDir, mapping, mapping?.MusicRootPath, mapping?.InstallOst == true, gameName, "OST", cancellationToken).ConfigureAwait(false);
-            await InstallOptionalContentAsync(contentRoots.Bonus, installDir, mapping, mapping?.BonusRootPath, mapping?.InstallBonus == true, gameName, "Bonus", cancellationToken).ConfigureAwait(false);
-            await InstallOptionalContentAsync(contentRoots.PreReqs, installDir, mapping, mapping?.PreReqsRootPath, mapping?.InstallPreReqs == true, gameName, "Pre-Reqs", cancellationToken, deleteSource: true, perGame: false).ConfigureAwait(false);
+            await InstallOptionalContentAsync(contentRoots.Ost, resolvedInstallDir, mapping, mapping?.MusicRootPath, mapping?.InstallOst == true, gameName, "OST", cancellationToken).ConfigureAwait(false);
+            await InstallOptionalContentAsync(contentRoots.Bonus, resolvedInstallDir, mapping, mapping?.BonusRootPath, mapping?.InstallBonus == true, gameName, "Bonus", cancellationToken).ConfigureAwait(false);
+            await InstallOptionalContentAsync(contentRoots.PreReqs, resolvedInstallDir, mapping, mapping?.PreReqsRootPath, mapping?.InstallPreReqs == true, gameName, "Pre-Reqs", cancellationToken, deleteSource: true, perGame: false).ConfigureAwait(false);
 
                 cleanupTempRoot = true;
 
@@ -353,7 +358,7 @@ namespace RomMbox.Services.Install
             }
 
             baseRoot = FlattenPortableRootIfNested(baseRoot, installDir, gameName);
-            var resolution = _executableResolver.Resolve(baseRoot, RootFolders);
+            var resolution = _executableResolver.Resolve(baseRoot, gameName, RootFolders);
             if (!resolution.Success)
             {
                 var relocated = TryRelocatePortableGameFolder(baseRoot, installDir, mapping, gameName);
@@ -362,7 +367,7 @@ namespace RomMbox.Services.Install
                     return WindowsInstallResult.Failed(relocated.Message ?? resolution.Message ?? "Executable resolution failed.");
                 }
 
-                resolution = _executableResolver.Resolve(relocated.GameFilesPath, RootFolders);
+                resolution = _executableResolver.Resolve(relocated.GameFilesPath, gameName, RootFolders);
                 if (!resolution.Success)
                 {
                     return WindowsInstallResult.Failed(resolution.Message ?? "Executable resolution failed after relocating game folder.");
@@ -374,15 +379,12 @@ namespace RomMbox.Services.Install
 
             if (resolution.RequiresConfirmation)
             {
-                var hasMultipleCandidates = resolution.Candidates != null && resolution.Candidates.Count > 1;
-                var prompt = hasMultipleCandidates
-                    ? "Multiple executable candidates detected. Use selected executable?"
-                    : "Executable candidate detected. Use selected executable?";
-                var confirmation = AskUserConfirmation("Executable Selection", prompt, resolution.ExecutablePath);
-                if (!confirmation)
+                var selection = SelectExecutableCandidate(gameName, installDir, resolution, mapping);
+                if (!selection.Confirmed)
                 {
                     return WindowsInstallResult.Failed("Executable selection not confirmed.");
                 }
+                resolution = resolution.WithExecutable(selection.SelectedPath);
             }
 
             return WindowsInstallResult.CreateSuccess(resolution.ExecutablePath, resolution.Arguments, installType);
@@ -420,25 +422,28 @@ namespace RomMbox.Services.Install
             var wasEmpty = IsDirectoryEmpty(targetInstallDir);
             Directory.CreateDirectory(targetInstallDir);
             var inno = IsInnoInstallerCached(setupPath) || _classifier.IsInnoInstaller(extractedPath);
+            var innoLogPath = inno ? BuildInnoLogPath(installDir, gameName) : string.Empty;
 
             if (installerMode == InstallerMode.AutoInnoSilent && inno)
             {
                 var args = string.IsNullOrWhiteSpace(mapping?.InstallerSilentArgs)
                     ? "/SILENT /SUPPRESSMSGBOXES /NORESTART"
                     : mapping.InstallerSilentArgs;
-                var command = $"{args} /DIR=\"{targetInstallDir}\"";
+                var logArg = string.IsNullOrWhiteSpace(innoLogPath) ? string.Empty : $" /LOG=\"{innoLogPath}\"";
+                var command = $"{args} /DIR=\"{targetInstallDir}\"{logArg}";
                 _logger?.Info($"Launching installer (auto silent): {setupPath} {command}");
                 await ProcessRunner.RunAsync(setupPath, command, cancellationToken).ConfigureAwait(false);
             }
             else
             {
-                var command = inno ? $"/DIR=\"{targetInstallDir}\"" : string.Empty;
+                var logArg = string.IsNullOrWhiteSpace(innoLogPath) ? string.Empty : $" /LOG=\"{innoLogPath}\"";
+                var command = inno ? $"/DIR=\"{targetInstallDir}\"{logArg}" : string.Empty;
                 _logger?.Info($"Launching installer manually: {setupPath} {command}".Trim());
                 await ProcessRunner.RunAsync(setupPath, command, cancellationToken, useShellExecute: true).ConfigureAwait(false);
             }
 
-            var success = ConfirmInstallerSuccess(targetInstallDir, wasEmpty);
-            var resolution = _executableResolver.Resolve(targetInstallDir, RootFolders);
+            var success = ConfirmInstallerSuccess(targetInstallDir, wasEmpty, innoLogPath, null);
+            var resolution = _executableResolver.Resolve(targetInstallDir, gameName, RootFolders);
             if (!success)
             {
                 var recovered = TryRecoverInstallerResult(installDir, resolution);
@@ -447,7 +452,8 @@ namespace RomMbox.Services.Install
                     return recovered;
                 }
 
-                return WindowsInstallResult.Failed("Installer did not complete successfully.");
+                var logHint = string.IsNullOrWhiteSpace(innoLogPath) ? string.Empty : $" See installer log: {innoLogPath}";
+                return WindowsInstallResult.Failed($"Installer did not complete successfully.{logHint}");
             }
 
             if (!resolution.Success)
@@ -457,15 +463,12 @@ namespace RomMbox.Services.Install
 
             if (resolution.RequiresConfirmation)
             {
-                var hasMultipleCandidates = resolution.Candidates != null && resolution.Candidates.Count > 1;
-                var prompt = hasMultipleCandidates
-                    ? "Multiple executable candidates detected. Use selected executable?"
-                    : "Executable candidate detected. Use selected executable?";
-                var confirmation = AskUserConfirmation("Executable Selection", prompt, resolution.ExecutablePath);
-                if (!confirmation)
+                var selection = SelectExecutableCandidate(gameName, targetInstallDir, resolution, mapping);
+                if (!selection.Confirmed)
                 {
                     return WindowsInstallResult.Failed("Executable selection not confirmed.");
                 }
+                resolution = resolution.WithExecutable(selection.SelectedPath);
             }
 
             return WindowsInstallResult.CreateSuccess(resolution.ExecutablePath, resolution.Arguments, InstallType.Installer);
@@ -517,6 +520,12 @@ namespace RomMbox.Services.Install
             installers.AddRange(dlcInstallers.Select(path => ("DLC", path)));
 
             var argumentList = BuildArgumentList(targetInstallDir, mapping?.InstallerSilentArgs);
+            var innoLogPath = BuildInnoLogPath(installDir, gameName);
+            if (!string.IsNullOrWhiteSpace(innoLogPath))
+            {
+                argumentList.Add($"/LOG=\"{innoLogPath}\"");
+                _logger?.Info($"Installer batch log configured: {innoLogPath}");
+            }
 
             _logger?.Info($"Installer batch starting for '{gameName}'. TargetDir='{targetInstallDir}'. Args='{string.Join(" ", argumentList)}'.");
             foreach (var installer in installers)
@@ -524,18 +533,23 @@ namespace RomMbox.Services.Install
                 _logger?.Info($"Installing {installer.Label}: {installer.Path}");
             }
 
+            int? batchExitCode = null;
             try
             {
-                await ProcessRunner.RunElevatedBatchAsync(installers, argumentList, cancellationToken, _logger).ConfigureAwait(false);
+                batchExitCode = await ProcessRunner.RunElevatedBatchAsync(installers, argumentList, cancellationToken, _logger, innoLogPath).ConfigureAwait(false);
             }
             catch (Exception ex)
             {
-                _logger?.Warning($"Installer batch execution failed: {ex.Message}");
-                throw;
+                var logHint = string.IsNullOrWhiteSpace(innoLogPath) ? string.Empty : $" Installer log: {innoLogPath}";
+                _logger?.Warning($"Installer batch execution failed: {ex.Message}.{logHint}");
             }
 
-            var success = ConfirmInstallerSuccess(targetInstallDir, wasEmpty);
-            var resolution = _executableResolver.Resolve(targetInstallDir, RootFolders);
+            var success = ConfirmInstallerSuccess(targetInstallDir, wasEmpty, innoLogPath, batchExitCode);
+            if (success && batchExitCode.HasValue && batchExitCode.Value != 0)
+            {
+                batchExitCode = 0;
+            }
+            var resolution = _executableResolver.Resolve(targetInstallDir, gameName, RootFolders);
             if (!success)
             {
                 var recovered = TryRecoverInstallerResult(installDir, resolution);
@@ -554,15 +568,12 @@ namespace RomMbox.Services.Install
 
             if (resolution.RequiresConfirmation)
             {
-                var hasMultipleCandidates = resolution.Candidates != null && resolution.Candidates.Count > 1;
-                var prompt = hasMultipleCandidates
-                    ? "Multiple executable candidates detected. Use selected executable?"
-                    : "Executable candidate detected. Use selected executable?";
-                var confirmation = AskUserConfirmation("Executable Selection", prompt, resolution.ExecutablePath);
-                if (!confirmation)
+                var selection = SelectExecutableCandidate(gameName, targetInstallDir, resolution, mapping);
+                if (!selection.Confirmed)
                 {
                     return WindowsInstallResult.Failed("Executable selection not confirmed.");
                 }
+                resolution = resolution.WithExecutable(selection.SelectedPath);
             }
 
             return WindowsInstallResult.CreateSuccess(resolution.ExecutablePath, resolution.Arguments, InstallType.Installer);
@@ -678,6 +689,28 @@ namespace RomMbox.Services.Install
             return args;
         }
 
+        internal static string NormalizeGameFolderNameInternal(string gameName, string fallback)
+        {
+            return NormalizeGameFolderName(gameName, fallback);
+        }
+
+        private static string BuildInnoLogPath(string installDir, string gameName)
+        {
+            try
+            {
+                var logRoot = Path.Combine(Paths.PluginPaths.GetPluginRootDirectory(), "temp", "install", "installer-logs");
+                Directory.CreateDirectory(logRoot);
+                var safeName = NormalizeGameFolderName(gameName, "Game");
+                var timestamp = DateTimeOffset.UtcNow.ToString("yyyyMMdd-HHmmss");
+                var fileName = $"{safeName}-{timestamp}.log";
+                return Path.Combine(logRoot, fileName);
+            }
+            catch
+            {
+                return string.Empty;
+            }
+        }
+
 
         private bool IsInnoInstallerCached(string exePath)
         {
@@ -768,21 +801,36 @@ namespace RomMbox.Services.Install
                     .Where(path => IsInnoInstallerCached(path) || rootIsInno)
                     .ToList();
 
-                if (autoSilent && innoSetups.Count == setups.Count && innoSetups.Count > 1)
+                if (setups.Count > 1)
                 {
-                    var argumentList = BuildArgumentList(targetInstallDir, mapping?.InstallerSilentArgs);
-                    _logger?.Info($"{label} running {innoSetups.Count} Inno installers in elevated batch with args: {string.Join(" ", argumentList)}");
-                    var labeledSetups = innoSetups.Select(path => (Label: label, Path: path));
+                    var useSilentArgs = autoSilent && innoSetups.Count == setups.Count;
+                    var argumentList = useSilentArgs
+                        ? BuildArgumentList(targetInstallDir, mapping?.InstallerSilentArgs)
+                        : new List<string>();
+                    var innoLogPath = useSilentArgs ? BuildInnoLogPath(installDir, gameName) : string.Empty;
+                    if (useSilentArgs && !string.IsNullOrWhiteSpace(innoLogPath))
+                    {
+                        argumentList.Add($"/LOG=\"{innoLogPath}\"");
+                        _logger?.Info($"{label} installer log configured: {innoLogPath}");
+                    }
+                    _logger?.Info($"{label} running {setups.Count} installers in elevated helper batch to avoid repeated UAC prompts. Args='{string.Join(" ", argumentList)}'.");
+                    var labeledSetups = setups.Select(path => (Label: label, Path: path));
+                    int? batchExitCode = null;
                     try
                     {
-                        await ProcessRunner.RunElevatedBatchAsync(labeledSetups, argumentList, cancellationToken, _logger).ConfigureAwait(false);
+                        batchExitCode = await ProcessRunner.RunElevatedBatchAsync(labeledSetups, argumentList, cancellationToken, _logger, innoLogPath).ConfigureAwait(false);
                     }
                     catch (Exception ex)
                     {
-                        _logger?.Warning($"{label} installer batch failed: {ex.Message}");
+                        var logHint = string.IsNullOrWhiteSpace(innoLogPath) ? string.Empty : $" Installer log: {innoLogPath}";
+                        _logger?.Warning($"{label} installer batch failed: {ex.Message}.{logHint}");
                         throw;
                     }
-                    var confirmed = ConfirmInstallerSuccess(targetInstallDir, false);
+                    var confirmed = ConfirmInstallerSuccess(targetInstallDir, false, innoLogPath, batchExitCode);
+                    if (confirmed && batchExitCode.HasValue && batchExitCode.Value != 0)
+                    {
+                        batchExitCode = 0;
+                    }
                     if (!confirmed)
                     {
                         _logger?.Warning($"{label} installers did not complete successfully.");
@@ -812,7 +860,7 @@ namespace RomMbox.Services.Install
                     try
                     {
                         await ProcessRunner.RunAsync(setup, args, cancellationToken, useShellExecute: args.Length == 0).ConfigureAwait(false);
-                        var confirmed = ConfirmInstallerSuccess(targetInstallDir, false);
+                        var confirmed = ConfirmInstallerSuccess(targetInstallDir, false, string.Empty, null);
                         if (!confirmed)
                         {
                             _logger?.Warning($"{label} installer did not complete successfully: {setup}");
@@ -1111,8 +1159,38 @@ namespace RomMbox.Services.Install
         /// <summary>
         /// Confirms installer success by checking for files and prompting the user if needed.
         /// </summary>
-        private bool ConfirmInstallerSuccess(string installDir, bool wasEmpty)
+        private bool ConfirmInstallerSuccess(string installDir, bool wasEmpty, string installerLogPath, int? exitCode)
         {
+            if (WasInstallerLogSuccessful(installerLogPath))
+            {
+                if (exitCode.HasValue && exitCode.Value != 0)
+                {
+                    var detail = ProcessRunner.MapNtStatusCode(exitCode.Value);
+                    _logger?.Warning($"Installer log indicates success despite exit code {exitCode.Value} ({detail}).");
+                }
+                else if (exitCode.HasValue)
+                {
+                    _logger?.Info($"Installer log indicates success (exit code {exitCode.Value}).");
+                }
+                else
+                {
+                    _logger?.Info("Installer log indicates success.");
+                }
+                return true;
+            }
+
+            if (exitCode.HasValue && exitCode.Value != 0)
+            {
+                var detail = ProcessRunner.MapNtStatusCode(exitCode.Value);
+                _logger?.Warning($"Installer exited with code {exitCode.Value} ({detail}) and no success indicator was found in the installer log.");
+            }
+
+            if (IsProgramRegisteredWithInstallLocation(installDir))
+            {
+                _logger?.Info("Install location found in installed programs list.");
+                return true;
+            }
+
             var hasFiles = Directory.Exists(installDir) && Directory.EnumerateFileSystemEntries(installDir).Any();
             if (!hasFiles)
             {
@@ -1125,6 +1203,96 @@ namespace RomMbox.Services.Install
             }
 
             return AskUserConfirmation("Installer Confirmation", "Did the installer complete successfully?", installDir);
+        }
+
+        private bool WasInstallerLogSuccessful(string installerLogPath)
+        {
+            if (string.IsNullOrWhiteSpace(installerLogPath))
+            {
+                return false;
+            }
+
+            try
+            {
+                if (!File.Exists(installerLogPath))
+                {
+                    return false;
+                }
+
+                foreach (var line in File.ReadLines(installerLogPath))
+                {
+                    if (line.IndexOf("Installation process succeeded", StringComparison.OrdinalIgnoreCase) >= 0)
+                    {
+                        return true;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.Warning($"Failed to read installer log '{installerLogPath}': {ex.Message}");
+            }
+
+            return false;
+        }
+
+        private bool IsProgramRegisteredWithInstallLocation(string installDir)
+        {
+            if (string.IsNullOrWhiteSpace(installDir))
+            {
+                return false;
+            }
+
+            try
+            {
+                var normalizedInstallDir = Path.GetFullPath(installDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
+                    + Path.DirectorySeparatorChar;
+                return IsProgramRegisteredWithInstallLocation(Microsoft.Win32.Registry.LocalMachine, normalizedInstallDir)
+                    || IsProgramRegisteredWithInstallLocation(Microsoft.Win32.Registry.CurrentUser, normalizedInstallDir);
+            }
+            catch (Exception ex)
+            {
+                _logger?.Warning($"Failed to query installed programs list: {ex.Message}");
+                return false;
+            }
+        }
+
+        private bool IsProgramRegisteredWithInstallLocation(Microsoft.Win32.RegistryKey root, string normalizedInstallDir)
+        {
+            return IsProgramRegisteredWithInstallLocation(root, @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall", normalizedInstallDir)
+                || IsProgramRegisteredWithInstallLocation(root, @"SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall", normalizedInstallDir);
+        }
+
+        private bool IsProgramRegisteredWithInstallLocation(Microsoft.Win32.RegistryKey root, string subKeyPath, string normalizedInstallDir)
+        {
+            using var uninstallKey = root.OpenSubKey(subKeyPath);
+            if (uninstallKey == null)
+            {
+                return false;
+            }
+
+            foreach (var name in uninstallKey.GetSubKeyNames())
+            {
+                using var entryKey = uninstallKey.OpenSubKey(name);
+                if (entryKey == null)
+                {
+                    continue;
+                }
+
+                var installLocation = entryKey.GetValue("InstallLocation") as string;
+                if (string.IsNullOrWhiteSpace(installLocation))
+                {
+                    continue;
+                }
+
+                var normalizedLocation = Path.GetFullPath(installLocation.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
+                    + Path.DirectorySeparatorChar;
+                if (normalizedLocation.StartsWith(normalizedInstallDir, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -1151,6 +1319,164 @@ namespace RomMbox.Services.Install
                 var result = dialog.ShowDialog();
                 return result == true;
             });
+        }
+
+        private (bool Confirmed, string SelectedPath) SelectExecutableCandidate(
+            string gameName,
+            string installRoot,
+            IReadOnlyList<string> candidates,
+            PlatformMapping mapping)
+        {
+            if (candidates == null || candidates.Count == 0)
+            {
+                return (false, null);
+            }
+
+            if (candidates.Count == 1)
+            {
+                return (true, candidates[0]);
+            }
+
+            var recommended = candidates.FirstOrDefault(path => !string.IsNullOrWhiteSpace(path))
+                ?? candidates[0];
+
+            var rows = BuildExecutableCandidateRows(installRoot, candidates, recommended).ToList();
+            var recommendedRow = rows.FirstOrDefault(row => string.Equals(row.FullPath, recommended, StringComparison.OrdinalIgnoreCase))
+                ?? rows.FirstOrDefault();
+
+            _logger?.Info($"Executable selection required for '{gameName}'. Recommended='{recommended}'. Candidates=[{string.Join(", ", candidates)}]");
+
+            if (Application.Current == null)
+            {
+                return (AskUserConfirmation("Executable Selection", "Multiple executable candidates detected. Use selected executable?", recommended), recommended);
+            }
+
+            return Application.Current.Dispatcher.Invoke(() =>
+            {
+                var viewModel = new RomMbox.UI.ViewModels.ExecutableSelectionViewModel(
+                    "Executable Selection",
+                    "Multiple executables were detected. Choose the executable to launch.",
+                    rows,
+                    recommendedRow);
+
+                var dialog = new RomMbox.UI.Views.ExecutableSelectionDialog
+                {
+                    Owner = Application.Current.MainWindow,
+                    Topmost = true,
+                    DataContext = viewModel
+                };
+
+                viewModel.RequestClose += confirmed =>
+                {
+                    dialog.DialogResult = confirmed;
+                    dialog.Close();
+                };
+
+                dialog.ShowActivated = true;
+                dialog.Activate();
+                var result = dialog.ShowDialog();
+                var selected = viewModel.SelectedCandidate?.FullPath ?? recommendedRow?.FullPath ?? recommended;
+                return (result == true, selected);
+            });
+        }
+
+        private IEnumerable<RomMbox.UI.Models.ExecutableCandidateRow> BuildExecutableCandidateRows(
+            string installRoot,
+            IReadOnlyList<string> candidates,
+            string recommended)
+        {
+            foreach (var path in candidates)
+            {
+                if (string.IsNullOrWhiteSpace(path))
+                {
+                    continue;
+                }
+
+                var fileName = Path.GetFileName(path) ?? path;
+                var displayPath = path;
+                try
+                {
+                    if (!string.IsNullOrWhiteSpace(installRoot))
+                    {
+                        var relative = Path.GetRelativePath(installRoot, path);
+                        displayPath = relative.StartsWith("..", StringComparison.OrdinalIgnoreCase) ? path : relative;
+                    }
+                }
+                catch
+                {
+                    displayPath = path;
+                }
+
+                long fileSize = 0;
+                string fileSizeDisplay = string.Empty;
+                string version = string.Empty;
+                DateTime lastModified = DateTime.MinValue;
+                string lastModifiedDisplay = string.Empty;
+                var architecture = ExecutableArchitectureDetector.GetArchitecture(path);
+                var architectureDisplay = ExecutableArchitectureDetector.GetDisplayName(architecture);
+                try
+                {
+                    var info = new FileInfo(path);
+                    if (info.Exists)
+                    {
+                        fileSize = info.Length;
+                        fileSizeDisplay = FormatFileSize(fileSize);
+                        lastModified = info.LastWriteTime;
+                        lastModifiedDisplay = info.LastWriteTime.ToString("yyyy-MM-dd HH:mm");
+                    }
+                }
+                catch
+                {
+                    fileSizeDisplay = string.Empty;
+                    lastModifiedDisplay = string.Empty;
+                }
+
+                try
+                {
+                    var versionInfo = System.Diagnostics.FileVersionInfo.GetVersionInfo(path);
+                    version = string.IsNullOrWhiteSpace(versionInfo.FileVersion)
+                        ? versionInfo.ProductVersion ?? string.Empty
+                        : versionInfo.FileVersion;
+                }
+                catch
+                {
+                    version = string.Empty;
+                }
+
+                yield return new RomMbox.UI.Models.ExecutableCandidateRow
+                {
+                    IsRecommended = string.Equals(path, recommended, StringComparison.OrdinalIgnoreCase),
+                    FileName = fileName,
+                    FullPath = path,
+                    DisplayPath = displayPath,
+                    FileSizeBytes = fileSize,
+                    FileSizeDisplay = fileSizeDisplay,
+                    Version = version,
+                    LastModified = lastModified,
+                    LastModifiedDisplay = lastModifiedDisplay,
+                    ArchitectureValue = architecture,
+                    Architecture = architectureDisplay
+                };
+            }
+        }
+
+        private static string FormatFileSize(long bytes)
+        {
+            if (bytes <= 0)
+            {
+                return string.Empty;
+            }
+
+            string[] suffixes = { "B", "KB", "MB", "GB", "TB" };
+            var size = (double)bytes;
+            var index = 0;
+            while (size >= 1024 && index < suffixes.Length - 1)
+            {
+                size /= 1024;
+                index++;
+            }
+
+            return $"{size:0.##} {suffixes[index]}";
         }
 
         /// <summary>
@@ -1246,6 +1572,15 @@ namespace RomMbox.Services.Install
 
             _logger?.Warning("Installer confirmation failed, but executable resolution succeeded. Proceeding with resolved executable.");
             return WindowsInstallResult.CreateSuccess(resolution.ExecutablePath, resolution.Arguments, InstallType.Installer);
+        }
+
+        private (bool Confirmed, string SelectedPath) SelectExecutableCandidate(
+            string gameName,
+            string installRoot,
+            ExecutableResolutionResult resolution,
+            PlatformMapping mapping)
+        {
+            return SelectExecutableCandidate(gameName, installRoot, resolution?.Candidates, mapping);
         }
 
         private void ValidateTargetInstallDir(string installDir, string targetInstallDir, string gameName)
@@ -1448,11 +1783,12 @@ namespace RomMbox.Services.Install
             }, cancellationToken).ConfigureAwait(false);
         }
 
-        public static async Task RunElevatedBatchAsync(
+        public static async Task<int> RunElevatedBatchAsync(
             IEnumerable<(string Label, string Path)> installers,
             IReadOnlyList<string> arguments,
             CancellationToken cancellationToken,
-            LoggingService logger = null)
+            LoggingService logger = null,
+            string installerLogPath = null)
         {
             if (installers == null)
             {
@@ -1464,7 +1800,7 @@ namespace RomMbox.Services.Install
                 .ToList();
             if (installerList.Count == 0)
             {
-                return;
+                return 0;
             }
 
             cancellationToken.ThrowIfCancellationRequested();
@@ -1492,12 +1828,12 @@ namespace RomMbox.Services.Install
                 logger?.Info($"Installer batch item: {installer.Label} -> {installer.Path}");
             }
 
-            await Task.Run(() =>
+            var exitCode = await Task.Run(() =>
             {
                 var startInfo = new System.Diagnostics.ProcessStartInfo
                 {
                     FileName = "powershell",
-                    Arguments = $"-NoProfile -ExecutionPolicy Bypass -File \"{batchScriptPath}\"",
+                    Arguments = $"-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"{batchScriptPath}\"",
                     UseShellExecute = true,
                     Verb = "runas",
                     CreateNoWindow = true
@@ -1526,11 +1862,37 @@ namespace RomMbox.Services.Install
                 {
                     logger?.Warning($"Failed to read installer batch log '{batchLogPath}': {ex.Message}");
                 }
-                if (process.ExitCode != 0)
-                {
-                    throw new InvalidOperationException($"Elevated installer batch failed. ExitCode={process.ExitCode}.");
-                }
+                return process.ExitCode;
             }, cancellationToken).ConfigureAwait(false);
+
+            if (exitCode != 0)
+            {
+                var detail = MapNtStatusCode(exitCode);
+                var logHint = string.IsNullOrWhiteSpace(installerLogPath) ? string.Empty : $" Installer log: {installerLogPath}.";
+                logger?.Warning($"Elevated installer batch exit code: {exitCode} ({detail}).{logHint}");
+            }
+
+            return exitCode;
+        }
+
+        internal static string MapNtStatusCode(int exitCode)
+        {
+            unchecked
+            {
+                switch ((uint)exitCode)
+                {
+                    case 0xC000041D:
+                        return "STATUS_FATAL_USER_CALLBACK_EXCEPTION";
+                    case 0xC0000005:
+                        return "STATUS_ACCESS_VIOLATION";
+                    case 0xC0000135:
+                        return "STATUS_DLL_NOT_FOUND";
+                    case 0xC0000142:
+                        return "STATUS_DLL_INIT_FAILED";
+                    default:
+                        return "UNKNOWN_NTSTATUS";
+                }
+            }
         }
 
         private static string BuildInstallerBatchScript(
@@ -1562,11 +1924,11 @@ if (Test-Path $logPath) {{ Remove-Item -Path $logPath -Force }}
 $arguments = @({argumentsArray})
 $installers = @({installersArray})
 foreach ($installer in $installers) {{
-    if ($batchExit -ne 0) {{ break }}
     if ([string]::IsNullOrWhiteSpace($installer.Path)) {{ continue }}
+    Add-Content -Path $logPath -Value (""Installer "" + $installer.Label + "" Starting="" + $installer.Path)
     $p = Start-Process -FilePath $installer.Path -ArgumentList $arguments -Wait -PassThru
-    Add-Content -Path $logPath -Value (""Installer $($installer.Label) ExitCode="" + $p.ExitCode)
-    if ($p.ExitCode -ne 0) {{ $batchExit = $p.ExitCode }}
+    Add-Content -Path $logPath -Value (""Installer "" + $installer.Label + "" Completed ExitCode="" + $p.ExitCode)
+    if ($p.ExitCode -ne 0 -and $batchExit -eq 0) {{ $batchExit = $p.ExitCode }}
 }}
 exit $batchExit
 ";

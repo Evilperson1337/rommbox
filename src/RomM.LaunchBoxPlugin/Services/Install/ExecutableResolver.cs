@@ -28,9 +28,10 @@ namespace RomMbox.Services.Install
         /// Resolves an executable from the install root, optionally excluding subfolders.
         /// </summary>
         /// <param name="installRoot">The install root directory.</param>
+        /// <param name="gameName">Optional game name for filename similarity matching.</param>
         /// <param name="excludedRoots">Subfolder names to exclude from searches.</param>
         /// <returns>The executable resolution result.</returns>
-        public ExecutableResolutionResult Resolve(string installRoot, IReadOnlyCollection<string> excludedRoots = null)
+        public ExecutableResolutionResult Resolve(string installRoot, string gameName, IReadOnlyCollection<string> excludedRoots = null)
         {
             if (string.IsNullOrWhiteSpace(installRoot) || !Directory.Exists(installRoot))
             {
@@ -48,11 +49,19 @@ namespace RomMbox.Services.Install
             }
 
             var excluded = new HashSet<string>(excludedRoots ?? Array.Empty<string>(), StringComparer.OrdinalIgnoreCase);
-            var executables = Directory.EnumerateFiles(installRoot, "*.exe", SearchOption.TopDirectoryOnly)
+            var normalizedGameName = NormalizeName(gameName);
+            var shortcutTarget = ResolveShortcutTarget(installRoot, normalizedGameName, excluded);
+            var executables = Directory.EnumerateFiles(installRoot, "*.exe", SearchOption.AllDirectories)
                 .Where(path => !IsInExcludedRoot(installRoot, path, excluded))
                 .Where(path => !IsUninstaller(path))
-                .OrderBy(path => path.Length)
+                .Where(path => !IsInRedistFolder(installRoot, path))
+                .Where(path => !IsUnityCrashExecutable(path))
                 .ToList();
+            if (!string.IsNullOrWhiteSpace(shortcutTarget)
+                && !executables.Contains(shortcutTarget, StringComparer.OrdinalIgnoreCase))
+            {
+                executables.Add(shortcutTarget);
+            }
             if (executables.Count == 0)
             {
                 return ExecutableResolutionResult.Failed("No executables found in install directory.");
@@ -64,11 +73,22 @@ namespace RomMbox.Services.Install
                 return ExecutableResolutionResult.CreateSuccess(executables[0], Array.Empty<string>());
             }
 
-            var preferred = executables
-                .FirstOrDefault(path => Path.GetFileName(path).IndexOf("setup", StringComparison.OrdinalIgnoreCase) < 0)
-                ?? executables.First();
-            _logger?.Info($"Executable resolver found {executables.Count} candidates. Heuristic selected '{preferred}'. Confirmation required. Candidates=[{string.Join(", ", executables)}]");
-            return ExecutableResolutionResult.NeedsConfirmation(preferred, executables);
+            var ordered = OrderExecutableCandidates(installRoot, normalizedGameName, executables, shortcutTarget);
+            var preferred = ordered.First();
+            var preferredScore = ScoreExecutable(installRoot, normalizedGameName, preferred, shortcutTarget);
+            _logger?.Info($"Executable resolver found {executables.Count} candidates. Heuristic selected '{preferred}' (RootFirst={(preferredScore?.IsRoot == true)}, NameDistance={preferredScore?.NameDistance}, Arch={preferredScore?.Architecture}, ShortcutMatch={(preferredScore?.ShortcutMatch == true)}). Confirmation required. Candidates=[{string.Join(", ", ordered)}]");
+            return ExecutableResolutionResult.NeedsConfirmation(preferred, ordered);
+        }
+
+        /// <summary>
+        /// Resolves an executable from the install root, optionally excluding subfolders.
+        /// </summary>
+        /// <param name="installRoot">The install root directory.</param>
+        /// <param name="excludedRoots">Subfolder names to exclude from searches.</param>
+        /// <returns>The executable resolution result.</returns>
+        public ExecutableResolutionResult Resolve(string installRoot, IReadOnlyCollection<string> excludedRoots = null)
+        {
+            return Resolve(installRoot, null, excludedRoots);
         }
 
         /// <summary>
@@ -172,6 +192,293 @@ namespace RomMbox.Services.Install
             return fileName.IndexOf("uninstall", StringComparison.OrdinalIgnoreCase) >= 0
                 || fileName.IndexOf("unins", StringComparison.OrdinalIgnoreCase) >= 0;
         }
+
+        private static bool IsUnityCrashExecutable(string path)
+        {
+            var fileName = Path.GetFileNameWithoutExtension(path) ?? string.Empty;
+            return fileName.IndexOf("UnityCrash", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private static bool IsInRedistFolder(string root, string filePath)
+        {
+            if (string.IsNullOrWhiteSpace(root) || string.IsNullOrWhiteSpace(filePath))
+            {
+                return false;
+            }
+
+            var relative = Path.GetRelativePath(root, filePath);
+            var parts = relative.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries);
+            return parts.Any(part => string.Equals(part.Trim('_'), "redist", StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static List<string> OrderExecutableCandidates(string installRoot, string normalizedGameName, IReadOnlyList<string> executables, string shortcutTarget)
+        {
+            var scores = executables
+                .Select(path => ScoreExecutable(installRoot, normalizedGameName, path, shortcutTarget))
+                .Where(score => score != null)
+                .ToList();
+
+            if (string.IsNullOrWhiteSpace(normalizedGameName))
+            {
+                return scores
+                    .OrderBy(score => score.RootPenalty)
+                    .ThenBy(score => score.ShortcutPenalty)
+                    .ThenBy(score => score.ArchitecturePenalty)
+                    .ThenBy(score => score.SetupPenalty)
+                    .ThenBy(score => score.PathLength)
+                    .Select(score => score.Path)
+                    .ToList();
+            }
+
+            return scores
+                .OrderBy(score => score.RootPenalty)
+                .ThenBy(score => score.ShortcutPenalty)
+                .ThenBy(score => score.ArchitecturePenalty)
+                .ThenBy(score => score.NameDistance)
+                .ThenBy(score => score.SetupPenalty)
+                .ThenBy(score => score.PathLength)
+                .Select(score => score.Path)
+                .ToList();
+        }
+
+        private static ExecutableScore ScoreExecutable(string installRoot, string normalizedGameName, string path, string shortcutTarget)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return null;
+            }
+
+            var relative = Path.GetRelativePath(installRoot, path);
+            var depth = relative.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries).Length;
+            var isRoot = depth <= 1;
+            var fileName = Path.GetFileNameWithoutExtension(path) ?? string.Empty;
+            var normalizedFile = NormalizeName(fileName);
+            var nameDistance = string.IsNullOrWhiteSpace(normalizedGameName)
+                ? int.MaxValue
+                : ComputeLevenshteinDistance(normalizedGameName, normalizedFile);
+            var setupPenalty = fileName.IndexOf("setup", StringComparison.OrdinalIgnoreCase) >= 0 ? 1 : 0;
+            var architecture = ExecutableArchitectureDetector.GetArchitecture(path);
+            var architecturePenalty = ExecutableArchitectureDetector.GetPreferencePenalty(architecture);
+            var shortcutMatch = !string.IsNullOrWhiteSpace(shortcutTarget)
+                && string.Equals(path, shortcutTarget, StringComparison.OrdinalIgnoreCase);
+
+            return new ExecutableScore
+            {
+                Path = path,
+                IsRoot = isRoot,
+                RootPenalty = isRoot ? 0 : 1,
+                NameDistance = nameDistance,
+                SetupPenalty = setupPenalty,
+                PathLength = path.Length,
+                Architecture = architecture,
+                ArchitecturePenalty = architecturePenalty,
+                ShortcutMatch = shortcutMatch,
+                ShortcutPenalty = shortcutMatch ? 0 : 1
+            };
+        }
+
+        private string ResolveShortcutTarget(string installRoot, string normalizedGameName, IReadOnlyCollection<string> excludedRoots)
+        {
+            if (string.IsNullOrWhiteSpace(installRoot) || string.IsNullOrWhiteSpace(normalizedGameName))
+            {
+                return null;
+            }
+
+            var shortcuts = Directory.EnumerateFiles(installRoot, "*.lnk", SearchOption.AllDirectories)
+                .Where(path => !IsInExcludedRoot(installRoot, path, excludedRoots))
+                .Where(path => !IsInRedistFolder(installRoot, path))
+                .ToList();
+            if (shortcuts.Count == 0)
+            {
+                return null;
+            }
+
+            string bestTarget = null;
+            int bestDistance = int.MaxValue;
+            int bestPathLength = int.MaxValue;
+
+            foreach (var shortcut in shortcuts)
+            {
+                var shortcutName = NormalizeName(Path.GetFileNameWithoutExtension(shortcut));
+                var distance = string.IsNullOrWhiteSpace(shortcutName)
+                    ? int.MaxValue
+                    : ComputeLevenshteinDistance(normalizedGameName, shortcutName);
+
+                var target = TryGetShortcutTarget(shortcut);
+                if (string.IsNullOrWhiteSpace(target))
+                {
+                    continue;
+                }
+
+                target = ExpandEnvironmentPath(target, installRoot);
+                if (string.IsNullOrWhiteSpace(target) || !target.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (!Path.IsPathRooted(target))
+                {
+                    target = Path.GetFullPath(Path.Combine(installRoot, target));
+                }
+
+                if (!File.Exists(target))
+                {
+                    continue;
+                }
+
+                if (!IsUnderRoot(installRoot, target))
+                {
+                    continue;
+                }
+
+                if (IsInRedistFolder(installRoot, target) || IsUnityCrashExecutable(target))
+                {
+                    continue;
+                }
+
+                var pathLength = target.Length;
+                if (distance < bestDistance || (distance == bestDistance && pathLength < bestPathLength))
+                {
+                    bestDistance = distance;
+                    bestPathLength = pathLength;
+                    bestTarget = target;
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(bestTarget))
+            {
+                _logger?.Info($"Executable resolver shortcut hint selected '{bestTarget}' from .lnk targets.");
+            }
+
+            return bestTarget;
+        }
+
+        private static string TryGetShortcutTarget(string shortcutPath)
+        {
+            try
+            {
+                var shellType = Type.GetTypeFromProgID("WScript.Shell");
+                if (shellType == null)
+                {
+                    return null;
+                }
+
+                var shell = Activator.CreateInstance(shellType);
+                if (shell == null)
+                {
+                    return null;
+                }
+
+                try
+                {
+                    dynamic shortcut = shellType.InvokeMember("CreateShortcut", System.Reflection.BindingFlags.InvokeMethod, null, shell, new object[] { shortcutPath });
+                    return shortcut?.TargetPath as string;
+                }
+                finally
+                {
+                    if (System.Runtime.InteropServices.Marshal.IsComObject(shell))
+                    {
+                        System.Runtime.InteropServices.Marshal.FinalReleaseComObject(shell);
+                    }
+                }
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static string ExpandEnvironmentPath(string path, string installRoot)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return path;
+            }
+
+            var expanded = Environment.ExpandEnvironmentVariables(path);
+            return expanded.Replace("%GAME_DIR%", installRoot ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsUnderRoot(string root, string path)
+        {
+            if (string.IsNullOrWhiteSpace(root) || string.IsNullOrWhiteSpace(path))
+            {
+                return false;
+            }
+
+            var normalizedRoot = Path.GetFullPath(root.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)) + Path.DirectorySeparatorChar;
+            var normalizedPath = Path.GetFullPath(path);
+            return normalizedPath.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string NormalizeName(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return string.Empty;
+            }
+
+            var buffer = new System.Text.StringBuilder(value.Length);
+            foreach (var ch in value)
+            {
+                if (char.IsLetterOrDigit(ch))
+                {
+                    buffer.Append(char.ToLowerInvariant(ch));
+                }
+            }
+
+            return buffer.ToString();
+        }
+
+        private static int ComputeLevenshteinDistance(string a, string b)
+        {
+            if (string.IsNullOrEmpty(a))
+            {
+                return string.IsNullOrEmpty(b) ? 0 : b.Length;
+            }
+
+            if (string.IsNullOrEmpty(b))
+            {
+                return a.Length;
+            }
+
+            var costs = new int[b.Length + 1];
+            for (var j = 0; j < costs.Length; j++)
+            {
+                costs[j] = j;
+            }
+
+            for (var i = 1; i <= a.Length; i++)
+            {
+                costs[0] = i;
+                var prev = i - 1;
+                for (var j = 1; j <= b.Length; j++)
+                {
+                    var current = costs[j];
+                    var add = costs[j] + 1;
+                    var delete = costs[j - 1] + 1;
+                    var replace = prev + (a[i - 1] == b[j - 1] ? 0 : 1);
+                    costs[j] = Math.Min(add, Math.Min(delete, replace));
+                    prev = current;
+                }
+            }
+
+            return costs[b.Length];
+        }
+
+        private sealed class ExecutableScore
+        {
+            public string Path { get; set; }
+            public bool IsRoot { get; set; }
+            public int RootPenalty { get; set; }
+            public int NameDistance { get; set; }
+            public int SetupPenalty { get; set; }
+            public int PathLength { get; set; }
+            public ExecutableArchitecture Architecture { get; set; }
+            public int ArchitecturePenalty { get; set; }
+            public bool ShortcutMatch { get; set; }
+            public int ShortcutPenalty { get; set; }
+        }
     }
 
     /// <summary>
@@ -217,6 +524,24 @@ namespace RomMbox.Services.Install
                 Success = true,
                 ExecutablePath = path,
                 Arguments = args ?? Array.Empty<string>()
+            };
+        }
+
+        /// <summary>
+        /// Returns a new result with the executable updated after user selection.
+        /// </summary>
+        /// <param name="path">The selected executable path.</param>
+        /// <returns>The updated resolution result.</returns>
+        public ExecutableResolutionResult WithExecutable(string path)
+        {
+            return new ExecutableResolutionResult
+            {
+                Success = Success,
+                RequiresConfirmation = false,
+                ExecutablePath = path,
+                Arguments = Arguments,
+                Candidates = Candidates,
+                Message = Message
             };
         }
 

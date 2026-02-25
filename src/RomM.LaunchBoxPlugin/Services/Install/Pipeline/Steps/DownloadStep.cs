@@ -39,6 +39,10 @@ namespace RomMbox.Services.Install.Pipeline.Steps
 
             var downloadProgress = new Progress<DownloadProgress>(update =>
             {
+                if (!context.DownloadStartedUtc.HasValue)
+                {
+                    context.DownloadStartedUtc = DateTimeOffset.UtcNow;
+                }
                 if (update.TotalBytes.HasValue && update.TotalBytes.Value > 0)
                 {
                     var percent = Math.Clamp((update.BytesReceived / (double)update.TotalBytes.Value) * 100d, 0, 100);
@@ -57,6 +61,11 @@ namespace RomMbox.Services.Install.Pipeline.Steps
                 if (!shouldReportExtraction)
                 {
                     return;
+                }
+
+                if (!context.ExtractionStartedUtc.HasValue)
+                {
+                    context.ExtractionStartedUtc = DateTimeOffset.UtcNow;
                 }
 
                 if (update.TotalBytes.HasValue && update.TotalBytes.Value > 0)
@@ -85,6 +94,12 @@ namespace RomMbox.Services.Install.Pipeline.Steps
             if (!result.Success)
             {
                 return InstallResult.Failed(Phase, result.ErrorMessage ?? "Download failed.");
+            }
+
+            context.DownloadCompletedUtc = context.DownloadCompletedUtc ?? DateTimeOffset.UtcNow;
+            if (shouldReportExtraction && !string.IsNullOrWhiteSpace(result.ExtractedPath))
+            {
+                context.ExtractionCompletedUtc = context.ExtractionCompletedUtc ?? DateTimeOffset.UtcNow;
             }
 
             if (shouldReportExtraction && string.IsNullOrWhiteSpace(result.ExtractedPath))

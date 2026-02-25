@@ -25,6 +25,8 @@ namespace RomMbox.Services
         private readonly LoggingService _logger;
         private readonly SemaphoreSlim _sync = new SemaphoreSlim(1, 1);
         private readonly SemaphoreSlim _initSync = new SemaphoreSlim(1, 1);
+        private readonly TimeSpan _syncWaitWarningThreshold = TimeSpan.FromMilliseconds(500);
+        private readonly TimeSpan _syncWaitTimeout = TimeSpan.FromSeconds(10);
         private readonly string _databasePath;
         private bool _initialized;
 
@@ -47,7 +49,10 @@ namespace RomMbox.Services
         /// </summary>
         public async Task InitializeAsync(CancellationToken cancellationToken)
         {
-            await _sync.WaitAsync(cancellationToken).ConfigureAwait(false);
+            if (!await WaitForSyncAsync(cancellationToken, "InitializeAsync").ConfigureAwait(false))
+            {
+                return;
+            }
             try
             {
                 EnsureDatabaseFileNameMigration();
@@ -70,6 +75,12 @@ CREATE TABLE IF NOT EXISTS InstallState (
     IsInstalled INTEGER NOT NULL,
     InstalledUtc TEXT,
     LastValidatedUtc TEXT,
+    InstallStatus TEXT,
+    InstallPhase TEXT,
+    LastError TEXT,
+    LastAttemptUtc TEXT,
+    LastCompletedUtc TEXT,
+    LastOperationId TEXT,
     RommAdditionalAppId TEXT,
     RommMergedBaseGameId TEXT,
     RommLaunchPath TEXT,
@@ -124,6 +135,12 @@ CREATE TABLE IF NOT EXISTS ExcludedRommPlatforms (
                 var hasLocalMd5 = false;
                 var hasWindowsInstallType = false;
                 var hasServerUrl = false;
+                var hasInstallStatus = false;
+                var hasInstallPhase = false;
+                var hasLastError = false;
+                var hasLastAttemptUtc = false;
+                var hasLastCompletedUtc = false;
+                var hasLastOperationId = false;
                 var hasRommAdditionalAppId = false;
                 var hasRommMergedBaseGameId = false;
                 var hasRommLaunchPath = false;
@@ -158,6 +175,36 @@ CREATE TABLE IF NOT EXISTS ExcludedRommPlatforms (
                         if (string.Equals(columnName, "ServerUrl", StringComparison.OrdinalIgnoreCase))
                         {
                             hasServerUrl = true;
+                        }
+
+                        if (string.Equals(columnName, "InstallStatus", StringComparison.OrdinalIgnoreCase))
+                        {
+                            hasInstallStatus = true;
+                        }
+
+                        if (string.Equals(columnName, "InstallPhase", StringComparison.OrdinalIgnoreCase))
+                        {
+                            hasInstallPhase = true;
+                        }
+
+                        if (string.Equals(columnName, "LastError", StringComparison.OrdinalIgnoreCase))
+                        {
+                            hasLastError = true;
+                        }
+
+                        if (string.Equals(columnName, "LastAttemptUtc", StringComparison.OrdinalIgnoreCase))
+                        {
+                            hasLastAttemptUtc = true;
+                        }
+
+                        if (string.Equals(columnName, "LastCompletedUtc", StringComparison.OrdinalIgnoreCase))
+                        {
+                            hasLastCompletedUtc = true;
+                        }
+
+                        if (string.Equals(columnName, "LastOperationId", StringComparison.OrdinalIgnoreCase))
+                        {
+                            hasLastOperationId = true;
                         }
 
                         if (string.Equals(columnName, "RommAdditionalAppId", StringComparison.OrdinalIgnoreCase))
@@ -222,6 +269,48 @@ CREATE TABLE IF NOT EXISTS ExcludedRommPlatforms (
                     await alter.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
                 }
 
+                if (!hasInstallStatus)
+                {
+                    var alter = connection.CreateCommand();
+                    alter.CommandText = "ALTER TABLE InstallState ADD COLUMN InstallStatus TEXT";
+                    await alter.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+                }
+
+                if (!hasInstallPhase)
+                {
+                    var alter = connection.CreateCommand();
+                    alter.CommandText = "ALTER TABLE InstallState ADD COLUMN InstallPhase TEXT";
+                    await alter.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+                }
+
+                if (!hasLastError)
+                {
+                    var alter = connection.CreateCommand();
+                    alter.CommandText = "ALTER TABLE InstallState ADD COLUMN LastError TEXT";
+                    await alter.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+                }
+
+                if (!hasLastAttemptUtc)
+                {
+                    var alter = connection.CreateCommand();
+                    alter.CommandText = "ALTER TABLE InstallState ADD COLUMN LastAttemptUtc TEXT";
+                    await alter.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+                }
+
+                if (!hasLastCompletedUtc)
+                {
+                    var alter = connection.CreateCommand();
+                    alter.CommandText = "ALTER TABLE InstallState ADD COLUMN LastCompletedUtc TEXT";
+                    await alter.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+                }
+
+                if (!hasLastOperationId)
+                {
+                    var alter = connection.CreateCommand();
+                    alter.CommandText = "ALTER TABLE InstallState ADD COLUMN LastOperationId TEXT";
+                    await alter.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+                }
+
                 if (!hasRommAdditionalAppId)
                 {
                     var alter = connection.CreateCommand();
@@ -267,7 +356,7 @@ CREATE TABLE IF NOT EXISTS ExcludedRommPlatforms (
             }
             finally
             {
-                _sync.Release();
+                ReleaseSync("InitializeAsync");
             }
         }
 
@@ -299,6 +388,78 @@ CREATE TABLE IF NOT EXISTS ExcludedRommPlatforms (
         }
 
         /// <summary>
+        /// Attempts to recover from stale install state markers (InProgress/Cancelled) on startup.
+        /// </summary>
+        public async Task RecoverStaleOperationsAsync(TimeSpan? staleThreshold, CancellationToken cancellationToken)
+        {
+            var threshold = staleThreshold ?? TimeSpan.FromHours(2);
+            await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
+            if (!await WaitForSyncAsync(cancellationToken, "RecoverStaleOperationsAsync").ConfigureAwait(false))
+            {
+                return;
+            }
+
+            try
+            {
+                using var connection = new SqliteConnection(BuildConnectionString());
+                await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+
+                var select = connection.CreateCommand();
+                select.CommandText = @"
+SELECT LaunchBoxGameId, InstallStatus, InstallPhase, LastAttemptUtc, LastError
+FROM InstallState
+WHERE InstallStatus IN ('InProgress', 'Cancelled') OR InstallPhase IN ('Pending', 'Downloading', 'Extracting', 'Installing', 'Cancelled');
+";
+
+                var toUpdate = new List<(string GameId, string InstallStatus, string InstallPhase, DateTimeOffset? LastAttemptUtc)>();
+                using (var reader = await select.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                    {
+                        var gameId = reader.IsDBNull(0) ? string.Empty : reader.GetString(0);
+                        var status = reader.IsDBNull(1) ? string.Empty : reader.GetString(1);
+                        var phase = reader.IsDBNull(2) ? string.Empty : reader.GetString(2);
+                        var lastAttempt = reader.IsDBNull(3) ? (DateTimeOffset?)null : FromDbTimestamp(reader.GetValue(3));
+                        if (string.IsNullOrWhiteSpace(gameId))
+                        {
+                            continue;
+                        }
+
+                        if (!lastAttempt.HasValue || DateTimeOffset.UtcNow - lastAttempt.Value >= threshold)
+                        {
+                            toUpdate.Add((gameId, status, phase, lastAttempt));
+                        }
+                    }
+                }
+
+                foreach (var entry in toUpdate)
+                {
+                    var update = connection.CreateCommand();
+                    update.CommandText = @"
+UPDATE InstallState
+SET InstallStatus = 'Failed',
+    InstallPhase = 'Failed',
+    LastError = 'Recovered from stale operation',
+    LastValidatedUtc = $now
+WHERE LaunchBoxGameId = $id;
+";
+                    update.Parameters.AddWithValue("$id", entry.GameId);
+                    update.Parameters.AddWithValue("$now", ToDbTimestamp(DateTimeOffset.UtcNow));
+                    await update.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+                    _logger?.Warning($"Recovered stale install state. GameId={entry.GameId}, PrevStatus={entry.InstallStatus}, PrevPhase={entry.InstallPhase}.");
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger?.Warning($"InstallState recovery failed. {ex.Message}");
+            }
+            finally
+            {
+                ReleaseSync("RecoverStaleOperationsAsync");
+            }
+        }
+
+        /// <summary>
         /// Retrieves install state for a specific LaunchBox game id.
         /// </summary>
         public async Task<InstallState> GetStateAsync(string launchBoxGameId, CancellationToken cancellationToken)
@@ -308,15 +469,32 @@ CREATE TABLE IF NOT EXISTS ExcludedRommPlatforms (
                 return null;
             }
 
+            var initStopwatch = System.Diagnostics.Stopwatch.StartNew();
             await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
-            await _sync.WaitAsync(cancellationToken).ConfigureAwait(false);
+            initStopwatch.Stop();
+            if (initStopwatch.ElapsedMilliseconds > 100)
+            {
+                _logger?.Warning($"InstallState initialization slow. DurationMs={initStopwatch.ElapsedMilliseconds}, GameId={launchBoxGameId}.");
+            }
+            var waitStopwatch = System.Diagnostics.Stopwatch.StartNew();
+            if (!await WaitForSyncAsync(cancellationToken, "GetStateAsync").ConfigureAwait(false))
+            {
+                return null;
+            }
+            waitStopwatch.Stop();
+            if (waitStopwatch.ElapsedMilliseconds > 50)
+            {
+                _logger?.Warning($"InstallState lock wait slow. WaitMs={waitStopwatch.ElapsedMilliseconds}, GameId={launchBoxGameId}.");
+            }
             try
             {
+                var queryStopwatch = System.Diagnostics.Stopwatch.StartNew();
                 using var connection = new SqliteConnection(BuildConnectionString());
                 await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
                 var command = connection.CreateCommand();
                 command.CommandText = @"
 SELECT LaunchBoxGameId, RommRomId, RommPlatformId, ServerUrl, RemoteMd5, LocalMd5, WindowsInstallType, InstalledPath, ArchivePath, InstallRootPath, IsInstalled, InstalledUtc, LastValidatedUtc,
+       InstallStatus, InstallPhase, LastError, LastAttemptUtc, LastCompletedUtc, LastOperationId,
        RommAdditionalAppId, RommMergedBaseGameId, RommLaunchPath, RommLaunchArgs, RommAdditionalAppSyncedUtc
 FROM InstallState
 WHERE LaunchBoxGameId = $id;
@@ -325,10 +503,21 @@ WHERE LaunchBoxGameId = $id;
                 using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
                 if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
                 {
+                    queryStopwatch.Stop();
+                    if (queryStopwatch.ElapsedMilliseconds > 100)
+                    {
+                        _logger?.Warning($"InstallState query slow (no result). DurationMs={queryStopwatch.ElapsedMilliseconds}, GameId={launchBoxGameId}.");
+                    }
                     return null;
                 }
 
-                return MapState(reader);
+                var state = MapState(reader);
+                queryStopwatch.Stop();
+                if (queryStopwatch.ElapsedMilliseconds > 100)
+                {
+                    _logger?.Warning($"InstallState query slow. DurationMs={queryStopwatch.ElapsedMilliseconds}, GameId={launchBoxGameId}.");
+                }
+                return state;
             }
             catch (Exception ex)
             {
@@ -337,7 +526,7 @@ WHERE LaunchBoxGameId = $id;
             }
             finally
             {
-                _sync.Release();
+                ReleaseSync("GetStateAsync");
             }
         }
 
@@ -353,7 +542,10 @@ WHERE LaunchBoxGameId = $id;
             }
 
             await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
-            await _sync.WaitAsync(cancellationToken).ConfigureAwait(false);
+            if (!await WaitForSyncAsync(cancellationToken, "GetStatesByPlatformAsync").ConfigureAwait(false))
+            {
+                return results;
+            }
             try
             {
                 using var connection = new SqliteConnection(BuildConnectionString());
@@ -361,6 +553,7 @@ WHERE LaunchBoxGameId = $id;
                 var command = connection.CreateCommand();
                 command.CommandText = @"
 SELECT LaunchBoxGameId, RommRomId, RommPlatformId, ServerUrl, RemoteMd5, LocalMd5, WindowsInstallType, InstalledPath, ArchivePath, InstallRootPath, IsInstalled, InstalledUtc, LastValidatedUtc,
+       InstallStatus, InstallPhase, LastError, LastAttemptUtc, LastCompletedUtc, LastOperationId,
        RommAdditionalAppId, RommMergedBaseGameId, RommLaunchPath, RommLaunchArgs, RommAdditionalAppSyncedUtc
 FROM InstallState
 WHERE RommPlatformId = $platform;
@@ -381,7 +574,7 @@ WHERE RommPlatformId = $platform;
             }
             finally
             {
-                _sync.Release();
+                ReleaseSync("GetStatesByPlatformAsync");
             }
         }
 
@@ -456,7 +649,10 @@ WHERE RommPlatformId = $platform;
             }
 
             await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
-            await _sync.WaitAsync(cancellationToken).ConfigureAwait(false);
+            if (!await WaitForSyncAsync(cancellationToken, "UpsertStateAsync").ConfigureAwait(false))
+            {
+                return;
+            }
             try
             {
                 using var connection = new SqliteConnection(BuildConnectionString());
@@ -465,9 +661,11 @@ WHERE RommPlatformId = $platform;
                 command.CommandText = @"
 INSERT INTO InstallState (
     LaunchBoxGameId, RommRomId, RommPlatformId, ServerUrl, RemoteMd5, LocalMd5, WindowsInstallType, InstalledPath, ArchivePath, InstallRootPath, IsInstalled, InstalledUtc, LastValidatedUtc,
+    InstallStatus, InstallPhase, LastError, LastAttemptUtc, LastCompletedUtc, LastOperationId,
     RommAdditionalAppId, RommMergedBaseGameId, RommLaunchPath, RommLaunchArgs, RommAdditionalAppSyncedUtc
 ) VALUES (
     $gameId, $romId, $platformId, $serverUrl, $remoteMd5, $localMd5, $windowsInstallType, $installedPath, $archivePath, $installRootPath, $isInstalled, $installedUtc, $lastValidatedUtc,
+    $installStatus, $installPhase, $lastError, $lastAttemptUtc, $lastCompletedUtc, $lastOperationId,
     $rommAdditionalAppId, $rommMergedBaseGameId, $rommLaunchPath, $rommLaunchArgs, $rommAdditionalAppSyncedUtc
 )
 ON CONFLICT(LaunchBoxGameId) DO UPDATE SET
@@ -483,6 +681,12 @@ ON CONFLICT(LaunchBoxGameId) DO UPDATE SET
     IsInstalled = excluded.IsInstalled,
     InstalledUtc = excluded.InstalledUtc,
     LastValidatedUtc = excluded.LastValidatedUtc,
+    InstallStatus = excluded.InstallStatus,
+    InstallPhase = excluded.InstallPhase,
+    LastError = excluded.LastError,
+    LastAttemptUtc = excluded.LastAttemptUtc,
+    LastCompletedUtc = excluded.LastCompletedUtc,
+    LastOperationId = excluded.LastOperationId,
     RommAdditionalAppId = excluded.RommAdditionalAppId,
     RommMergedBaseGameId = excluded.RommMergedBaseGameId,
     RommLaunchPath = excluded.RommLaunchPath,
@@ -502,6 +706,12 @@ ON CONFLICT(LaunchBoxGameId) DO UPDATE SET
                 command.Parameters.AddWithValue("$isInstalled", state.IsInstalled ? 1 : 0);
                 command.Parameters.AddWithValue("$installedUtc", ToDbTimestamp(state.InstalledUtc));
                 command.Parameters.AddWithValue("$lastValidatedUtc", ToDbTimestamp(state.LastValidatedUtc));
+                command.Parameters.AddWithValue("$installStatus", state.InstallStatus ?? string.Empty);
+                command.Parameters.AddWithValue("$installPhase", state.InstallPhase ?? string.Empty);
+                command.Parameters.AddWithValue("$lastError", state.LastError ?? string.Empty);
+                command.Parameters.AddWithValue("$lastAttemptUtc", ToDbTimestamp(state.LastAttemptUtc));
+                command.Parameters.AddWithValue("$lastCompletedUtc", ToDbTimestamp(state.LastCompletedUtc));
+                command.Parameters.AddWithValue("$lastOperationId", state.LastOperationId ?? string.Empty);
                 command.Parameters.AddWithValue("$rommAdditionalAppId", state.RommAdditionalAppId ?? string.Empty);
                 command.Parameters.AddWithValue("$rommMergedBaseGameId", state.RommMergedBaseGameId ?? string.Empty);
                 command.Parameters.AddWithValue("$rommLaunchPath", state.RommLaunchPath ?? string.Empty);
@@ -515,7 +725,7 @@ ON CONFLICT(LaunchBoxGameId) DO UPDATE SET
             }
             finally
             {
-                _sync.Release();
+                ReleaseSync("UpsertStateAsync");
             }
         }
 
@@ -539,22 +749,12 @@ ON CONFLICT(LaunchBoxGameId) DO UPDATE SET
             {
                 _logger?.Warning($"Failed to read install state before delete. {ex.Message}");
             }
-            await _sync.WaitAsync(cancellationToken).ConfigureAwait(false);
+            if (!await WaitForSyncAsync(cancellationToken, "DeleteStateAsync").ConfigureAwait(false))
+            {
+                return;
+            }
             try
             {
-                if (existing != null)
-                {
-                    await UpsertIdentityAsync(
-                            launchBoxGameId,
-                            existing.RommRomId,
-                            existing.RommPlatformId,
-                            existing.RemoteMd5,
-                            existing.LocalMd5,
-                            existing.WindowsInstallType,
-                            cancellationToken)
-                        .ConfigureAwait(false);
-                }
-
                 using var connection = new SqliteConnection(BuildConnectionString());
                 await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
                 var command = connection.CreateCommand();
@@ -568,7 +768,20 @@ ON CONFLICT(LaunchBoxGameId) DO UPDATE SET
             }
             finally
             {
-                _sync.Release();
+                ReleaseSync("DeleteStateAsync");
+            }
+
+            if (existing != null)
+            {
+                await UpsertIdentityAsync(
+                        launchBoxGameId,
+                        existing.RommRomId,
+                        existing.RommPlatformId,
+                        existing.RemoteMd5,
+                        existing.LocalMd5,
+                        existing.WindowsInstallType,
+                        cancellationToken)
+                    .ConfigureAwait(false);
             }
         }
 
@@ -593,39 +806,36 @@ ON CONFLICT(LaunchBoxGameId) DO UPDATE SET
                 _logger?.Warning($"Failed to read install state before delete. {ex.Message}");
             }
 
-            await _sync.WaitAsync(cancellationToken).ConfigureAwait(false);
+            if (!await WaitForSyncAsync(cancellationToken, "DeleteStatePreserveMergeAsync").ConfigureAwait(false))
+            {
+                return;
+            }
             try
             {
-                using var connection = new SqliteConnection(BuildConnectionString());
-                await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
-                var command = connection.CreateCommand();
-                command.CommandText = "DELETE FROM InstallState WHERE LaunchBoxGameId = $id";
-                command.Parameters.AddWithValue("$id", launchBoxGameId);
-                await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-
                 if (existing != null)
                 {
-                    await UpsertStateAsync(new InstallState
-                    {
-                        LaunchBoxGameId = existing.LaunchBoxGameId,
-                        RommRomId = existing.RommRomId,
-                        RommPlatformId = existing.RommPlatformId,
-                        ServerUrl = existing.ServerUrl,
-                        RemoteMd5 = existing.RemoteMd5,
-                        LocalMd5 = existing.LocalMd5,
-                        WindowsInstallType = existing.WindowsInstallType,
-                        InstalledPath = string.Empty,
-                        ArchivePath = string.Empty,
-                        InstallRootPath = string.Empty,
-                        IsInstalled = false,
-                        InstalledUtc = null,
-                        LastValidatedUtc = null,
-                        RommAdditionalAppId = existing.RommAdditionalAppId,
-                        RommMergedBaseGameId = existing.RommMergedBaseGameId,
-                        RommLaunchPath = string.Empty,
-                        RommLaunchArgs = string.Empty,
-                        RommAdditionalAppSyncedUtc = existing.RommAdditionalAppSyncedUtc
-                    }, cancellationToken).ConfigureAwait(false);
+                    using var connection = new SqliteConnection(BuildConnectionString());
+                    await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+                    var command = connection.CreateCommand();
+                    command.CommandText = @"
+UPDATE InstallState
+SET InstalledPath = '',
+    ArchivePath = '',
+    InstallRootPath = '',
+    IsInstalled = 0,
+    InstalledUtc = '',
+    LastValidatedUtc = '',
+    InstallStatus = 'NotInstalled',
+    InstallPhase = '',
+    LastError = '',
+    LastAttemptUtc = '',
+    LastCompletedUtc = '',
+    RommLaunchPath = '',
+    RommLaunchArgs = ''
+WHERE LaunchBoxGameId = $id;
+";
+                    command.Parameters.AddWithValue("$id", launchBoxGameId);
+                    await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
                 }
             }
             catch (Exception ex)
@@ -634,7 +844,7 @@ ON CONFLICT(LaunchBoxGameId) DO UPDATE SET
             }
             finally
             {
-                _sync.Release();
+                ReleaseSync("DeleteStatePreserveMergeAsync");
             }
         }
 
@@ -726,7 +936,10 @@ ON CONFLICT(LaunchBoxGameId) DO UPDATE SET
             }
 
             await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
-            await _sync.WaitAsync(cancellationToken).ConfigureAwait(false);
+            if (!await WaitForSyncAsync(cancellationToken, "UpsertIdentityAsync").ConfigureAwait(false))
+            {
+                return;
+            }
             try
             {
                 using var connection = new SqliteConnection(BuildConnectionString());
@@ -734,9 +947,11 @@ ON CONFLICT(LaunchBoxGameId) DO UPDATE SET
                 var command = connection.CreateCommand();
                 command.CommandText = @"
 INSERT INTO InstallState (
-    LaunchBoxGameId, RommRomId, RommPlatformId, ServerUrl, RemoteMd5, LocalMd5, WindowsInstallType, IsInstalled, InstalledUtc, LastValidatedUtc
+    LaunchBoxGameId, RommRomId, RommPlatformId, ServerUrl, RemoteMd5, LocalMd5, WindowsInstallType, IsInstalled, InstalledUtc, LastValidatedUtc,
+    InstallStatus, InstallPhase, LastError, LastAttemptUtc, LastCompletedUtc, LastOperationId
 ) VALUES (
-    $gameId, $romId, $platformId, $serverUrl, $remoteMd5, $localMd5, $windowsInstallType, 0, '', ''
+    $gameId, $romId, $platformId, $serverUrl, $remoteMd5, $localMd5, $windowsInstallType, 0, '', '',
+    '', '', '', '', '', ''
 )
 ON CONFLICT(LaunchBoxGameId) DO UPDATE SET
     RommRomId = excluded.RommRomId,
@@ -744,7 +959,13 @@ ON CONFLICT(LaunchBoxGameId) DO UPDATE SET
     ServerUrl = excluded.ServerUrl,
     RemoteMd5 = excluded.RemoteMd5,
     LocalMd5 = excluded.LocalMd5,
-    WindowsInstallType = excluded.WindowsInstallType;
+    WindowsInstallType = excluded.WindowsInstallType,
+    InstallStatus = excluded.InstallStatus,
+    InstallPhase = excluded.InstallPhase,
+    LastError = excluded.LastError,
+    LastAttemptUtc = excluded.LastAttemptUtc,
+    LastCompletedUtc = excluded.LastCompletedUtc,
+    LastOperationId = excluded.LastOperationId;
 ";
                 command.Parameters.AddWithValue("$gameId", launchBoxGameId);
                 command.Parameters.AddWithValue("$romId", rommRomId ?? string.Empty);
@@ -761,7 +982,7 @@ ON CONFLICT(LaunchBoxGameId) DO UPDATE SET
             }
             finally
             {
-                _sync.Release();
+                ReleaseSync("UpsertIdentityAsync");
             }
         }
 
@@ -786,7 +1007,10 @@ ON CONFLICT(LaunchBoxGameId) DO UPDATE SET
             }
 
             await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
-            await _sync.WaitAsync(cancellationToken).ConfigureAwait(false);
+            if (!await WaitForSyncAsync(cancellationToken, "UpdateLocalMd5Async").ConfigureAwait(false))
+            {
+                return;
+            }
             try
             {
                 using var connection = new SqliteConnection(BuildConnectionString());
@@ -807,7 +1031,7 @@ WHERE LaunchBoxGameId = $gameId;
             }
             finally
             {
-                _sync.Release();
+                ReleaseSync("UpdateLocalMd5Async");
             }
         }
 
@@ -822,7 +1046,10 @@ WHERE LaunchBoxGameId = $gameId;
             }
 
             await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
-            await _sync.WaitAsync(cancellationToken).ConfigureAwait(false);
+            if (!await WaitForSyncAsync(cancellationToken, "UpdateInstalledPathAsync").ConfigureAwait(false))
+            {
+                return;
+            }
             try
             {
                 using var connection = new SqliteConnection(BuildConnectionString());
@@ -830,11 +1057,19 @@ WHERE LaunchBoxGameId = $gameId;
                 var command = connection.CreateCommand();
                 command.CommandText = @"
 UPDATE InstallState
-SET InstalledPath = $installedPath
+SET InstalledPath = $installedPath,
+    IsInstalled = $isInstalled,
+    InstalledUtc = $installedUtc,
+    LastValidatedUtc = $lastValidatedUtc
 WHERE LaunchBoxGameId = $gameId;
 ";
                 command.Parameters.AddWithValue("$gameId", launchBoxGameId);
                 command.Parameters.AddWithValue("$installedPath", installedPath ?? string.Empty);
+                var isInstalled = !string.IsNullOrWhiteSpace(installedPath)
+                    && (File.Exists(installedPath) || Directory.Exists(installedPath));
+                command.Parameters.AddWithValue("$isInstalled", isInstalled ? 1 : 0);
+                command.Parameters.AddWithValue("$installedUtc", ToDbTimestamp(isInstalled ? DateTimeOffset.UtcNow : (DateTimeOffset?)null));
+                command.Parameters.AddWithValue("$lastValidatedUtc", ToDbTimestamp(DateTimeOffset.UtcNow));
                 await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
             }
             catch (Exception ex)
@@ -843,7 +1078,7 @@ WHERE LaunchBoxGameId = $gameId;
             }
             finally
             {
-                _sync.Release();
+                ReleaseSync("UpdateInstalledPathAsync");
             }
         }
 
@@ -858,7 +1093,10 @@ WHERE LaunchBoxGameId = $gameId;
             }
 
             await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
-            await _sync.WaitAsync(cancellationToken).ConfigureAwait(false);
+            if (!await WaitForSyncAsync(cancellationToken, "GetRommAdditionalAppIdAsync").ConfigureAwait(false))
+            {
+                return null;
+            }
             try
             {
                 using var connection = new SqliteConnection(BuildConnectionString());
@@ -876,7 +1114,7 @@ WHERE LaunchBoxGameId = $gameId;
             }
             finally
             {
-                _sync.Release();
+                ReleaseSync("GetRommAdditionalAppIdAsync");
             }
         }
 
@@ -891,7 +1129,10 @@ WHERE LaunchBoxGameId = $gameId;
             }
 
             await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
-            await _sync.WaitAsync(cancellationToken).ConfigureAwait(false);
+            if (!await WaitForSyncAsync(cancellationToken, "UpdateRommAdditionalAppIdAsync").ConfigureAwait(false))
+            {
+                return;
+            }
             try
             {
                 using var connection = new SqliteConnection(BuildConnectionString());
@@ -912,7 +1153,7 @@ WHERE LaunchBoxGameId = $gameId;
             }
             finally
             {
-                _sync.Release();
+                ReleaseSync("UpdateRommAdditionalAppIdAsync");
             }
         }
 
@@ -933,7 +1174,10 @@ WHERE LaunchBoxGameId = $gameId;
             }
 
             await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
-            await _sync.WaitAsync(cancellationToken).ConfigureAwait(false);
+            if (!await WaitForSyncAsync(cancellationToken, "UpdateRommAdditionalAppStateAsync").ConfigureAwait(false))
+            {
+                return;
+            }
             try
             {
                 using var connection = new SqliteConnection(BuildConnectionString());
@@ -960,7 +1204,7 @@ WHERE LaunchBoxGameId = $gameId;
             }
             finally
             {
-                _sync.Release();
+                ReleaseSync("UpdateRommAdditionalAppStateAsync");
             }
         }
 
@@ -975,7 +1219,10 @@ WHERE LaunchBoxGameId = $gameId;
             }
 
             await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
-            await _sync.WaitAsync(cancellationToken).ConfigureAwait(false);
+            if (!await WaitForSyncAsync(cancellationToken, "GetMergedStateForBaseGameAsync").ConfigureAwait(false))
+            {
+                return null;
+            }
             try
             {
                 using var connection = new SqliteConnection(BuildConnectionString());
@@ -983,6 +1230,7 @@ WHERE LaunchBoxGameId = $gameId;
                 var command = connection.CreateCommand();
                 command.CommandText = @"
 SELECT LaunchBoxGameId, RommRomId, RommPlatformId, ServerUrl, RemoteMd5, LocalMd5, WindowsInstallType, InstalledPath, ArchivePath, InstallRootPath, IsInstalled, InstalledUtc, LastValidatedUtc,
+       InstallStatus, InstallPhase, LastError, LastAttemptUtc, LastCompletedUtc, LastOperationId,
        RommAdditionalAppId, RommMergedBaseGameId, RommLaunchPath, RommLaunchArgs, RommAdditionalAppSyncedUtc
 FROM InstallState
 WHERE RommMergedBaseGameId = $id
@@ -1004,7 +1252,7 @@ LIMIT 1;
             }
             finally
             {
-                _sync.Release();
+                ReleaseSync("GetMergedStateForBaseGameAsync");
             }
         }
 
@@ -1019,7 +1267,10 @@ LIMIT 1;
             }
 
             await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
-            await _sync.WaitAsync(cancellationToken).ConfigureAwait(false);
+            if (!await WaitForSyncAsync(cancellationToken, "UpdateServerUrlAsync").ConfigureAwait(false))
+            {
+                return;
+            }
             try
             {
                 using var connection = new SqliteConnection(BuildConnectionString());
@@ -1040,7 +1291,7 @@ WHERE LaunchBoxGameId = $gameId;
             }
             finally
             {
-                _sync.Release();
+                ReleaseSync("UpdateServerUrlAsync");
             }
         }
 
@@ -1055,7 +1306,10 @@ WHERE LaunchBoxGameId = $gameId;
             }
 
             await EnsureInitializedAsync(cancellationToken).ConfigureAwait(false);
-            await _sync.WaitAsync(cancellationToken).ConfigureAwait(false);
+            if (!await WaitForSyncAsync(cancellationToken, "EnsureRommAdditionalAppIdAsync").ConfigureAwait(false))
+            {
+                return null;
+            }
             try
             {
                 using var connection = new SqliteConnection(BuildConnectionString());
@@ -1093,14 +1347,17 @@ ON CONFLICT(LaunchBoxGameId) DO UPDATE SET
             }
             finally
             {
-                _sync.Release();
+                ReleaseSync("EnsureRommAdditionalAppIdAsync");
             }
         }
 
 
         private async Task<bool> IsMigrationCompleteAsync(CancellationToken cancellationToken)
         {
-            await _sync.WaitAsync(cancellationToken).ConfigureAwait(false);
+            if (!await WaitForSyncAsync(cancellationToken, "IsMigrationCompleteAsync").ConfigureAwait(false))
+            {
+                return false;
+            }
             try
             {
                 using var connection = new SqliteConnection(BuildConnectionString());
@@ -1118,13 +1375,16 @@ ON CONFLICT(LaunchBoxGameId) DO UPDATE SET
             }
             finally
             {
-                _sync.Release();
+                ReleaseSync("IsMigrationCompleteAsync");
             }
         }
 
         private async Task MarkMigrationCompleteAsync(CancellationToken cancellationToken)
         {
-            await _sync.WaitAsync(cancellationToken).ConfigureAwait(false);
+            if (!await WaitForSyncAsync(cancellationToken, "MarkMigrationCompleteAsync").ConfigureAwait(false))
+            {
+                return;
+            }
             try
             {
                 using var connection = new SqliteConnection(BuildConnectionString());
@@ -1145,7 +1405,45 @@ ON CONFLICT(Key) DO UPDATE SET Value = excluded.Value;
             }
             finally
             {
+                ReleaseSync("MarkMigrationCompleteAsync");
+            }
+        }
+
+        private async Task<bool> WaitForSyncAsync(CancellationToken cancellationToken, string operation)
+        {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            try
+            {
+                var acquired = await _sync.WaitAsync(_syncWaitTimeout, cancellationToken).ConfigureAwait(false);
+                sw.Stop();
+                if (!acquired)
+                {
+                    _logger?.Warning($"InstallState lock timeout. Operation={operation}, WaitMs={sw.ElapsedMilliseconds}.");
+                    return false;
+                }
+                if (sw.Elapsed > _syncWaitWarningThreshold)
+                {
+                    _logger?.Warning($"InstallState lock wait slow. Operation={operation}, WaitMs={sw.ElapsedMilliseconds}.");
+                }
+                return true;
+            }
+            catch (OperationCanceledException)
+            {
+                sw.Stop();
+                _logger?.Warning($"InstallState lock wait cancelled. Operation={operation}, WaitMs={sw.ElapsedMilliseconds}.");
+                return false;
+            }
+        }
+
+        private void ReleaseSync(string operation)
+        {
+            try
+            {
                 _sync.Release();
+            }
+            catch (SemaphoreFullException)
+            {
+                _logger?.Warning($"InstallState lock released too many times. Operation={operation}.");
             }
         }
 
@@ -1254,11 +1552,17 @@ ON CONFLICT(Key) DO UPDATE SET Value = excluded.Value;
                 IsInstalled = reader.GetInt32(10) == 1,
                 InstalledUtc = reader.IsDBNull(11) ? null : FromDbTimestamp(reader.GetValue(11)),
                 LastValidatedUtc = reader.IsDBNull(12) ? null : FromDbTimestamp(reader.GetValue(12)),
-                RommAdditionalAppId = reader.IsDBNull(13) ? null : reader.GetString(13),
-                RommMergedBaseGameId = reader.IsDBNull(14) ? null : reader.GetString(14),
-                RommLaunchPath = reader.IsDBNull(15) ? null : reader.GetString(15),
-                RommLaunchArgs = reader.IsDBNull(16) ? null : reader.GetString(16),
-                RommAdditionalAppSyncedUtc = reader.IsDBNull(17) ? null : FromDbTimestamp(reader.GetValue(17))
+                InstallStatus = reader.IsDBNull(13) ? null : reader.GetString(13),
+                InstallPhase = reader.IsDBNull(14) ? null : reader.GetString(14),
+                LastError = reader.IsDBNull(15) ? null : reader.GetString(15),
+                LastAttemptUtc = reader.IsDBNull(16) ? null : FromDbTimestamp(reader.GetValue(16)),
+                LastCompletedUtc = reader.IsDBNull(17) ? null : FromDbTimestamp(reader.GetValue(17)),
+                LastOperationId = reader.IsDBNull(18) ? null : reader.GetString(18),
+                RommAdditionalAppId = reader.IsDBNull(19) ? null : reader.GetString(19),
+                RommMergedBaseGameId = reader.IsDBNull(20) ? null : reader.GetString(20),
+                RommLaunchPath = reader.IsDBNull(21) ? null : reader.GetString(21),
+                RommLaunchArgs = reader.IsDBNull(22) ? null : reader.GetString(22),
+                RommAdditionalAppSyncedUtc = reader.IsDBNull(23) ? null : FromDbTimestamp(reader.GetValue(23))
             };
         }
 

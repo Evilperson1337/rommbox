@@ -28,6 +28,7 @@
 
     <!-- Converters -->
     <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibility"/>
+    <converters:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
 
     <!-- Base Text -->
     <Style TargetType="TextBlock">

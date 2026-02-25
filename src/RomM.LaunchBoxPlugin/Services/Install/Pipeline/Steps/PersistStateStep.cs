@@ -34,20 +34,33 @@ namespace RomMbox.Services.Install.Pipeline.Steps
                     "BaseGameId", context.Game?.Id ?? string.Empty);
             }
 
-            SaveAndReloadDataManager(context.DataManager);
+            SaveAndReloadDataManager(context.DataManager, context.Logger);
             return InstallResult.Successful();
         }
 
-        private static void SaveAndReloadDataManager(Unbroken.LaunchBox.Plugins.Data.IDataManager dataManager)
+        private static void SaveAndReloadDataManager(Unbroken.LaunchBox.Plugins.Data.IDataManager dataManager, Services.Logging.LoggingService logger)
         {
             if (dataManager == null)
             {
                 return;
             }
 
-            dataManager.Save(true);
-            dataManager.ReloadIfNeeded();
-            dataManager.ForceReload();
+            try
+            {
+                var operationId = Guid.NewGuid().ToString("N");
+                var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+                logger?.Debug($"PersistState save/reload started. OpId={operationId}.");
+                dataManager.Save(false);
+                logger?.Debug($"PersistState Save(false) completed. OpId={operationId}, ElapsedMs={stopwatch.ElapsedMilliseconds}.");
+                dataManager.ReloadIfNeeded();
+                logger?.Debug($"PersistState ReloadIfNeeded completed. OpId={operationId}, ElapsedMs={stopwatch.ElapsedMilliseconds}.");
+                dataManager.ForceReload();
+                logger?.Debug($"PersistState ForceReload completed. OpId={operationId}, ElapsedMs={stopwatch.ElapsedMilliseconds}.");
+            }
+            catch (Exception ex)
+            {
+                logger?.Warning($"Save/Reload failed after install: {ex.Message}");
+            }
         }
     }
 }

@@ -1,3 +1,4 @@
+using System;
 using RomMbox.Models.PlatformMapping;
 using RomMbox.Models.Romm;
 using RomMbox.Services.Logging;
@@ -34,5 +35,12 @@ namespace RomMbox.Services.Install.Pipeline
         public string InstalledExecutablePath { get; set; }
         public string[] InstallerArguments { get; set; }
         public InstallStateSnapshot InstallStateSnapshot { get; set; }
+        public string OperationId { get; set; }
+        public DateTimeOffset InstallStartedUtc { get; set; }
+        public DateTimeOffset? DownloadStartedUtc { get; set; }
+        public DateTimeOffset? DownloadCompletedUtc { get; set; }
+        public DateTimeOffset? ExtractionStartedUtc { get; set; }
+        public DateTimeOffset? ExtractionCompletedUtc { get; set; }
+        public DateTimeOffset? InstallCompletedUtc { get; set; }
     }
 }

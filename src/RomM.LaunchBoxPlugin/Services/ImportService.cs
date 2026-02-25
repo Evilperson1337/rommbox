@@ -2281,6 +2281,13 @@ namespace RomMbox.Services
                 return string.Empty;
             }
 
+            if (Uri.TryCreate(game.ApplicationPath, UriKind.Absolute, out var applicationUri)
+                && !string.Equals(applicationUri.Scheme, Uri.UriSchemeFile, StringComparison.OrdinalIgnoreCase))
+            {
+                _logger?.Warning($"MD5 skipped for '{game.Title}': ApplicationPath uses unsupported URI scheme '{applicationUri.Scheme}'. Path='{game.ApplicationPath}'.");
+                return string.Empty;
+            }
+
             var resolvedPath = game.ApplicationPath;
             try
             {

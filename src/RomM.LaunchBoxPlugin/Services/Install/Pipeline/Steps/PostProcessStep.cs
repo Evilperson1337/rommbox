@@ -55,6 +55,8 @@ namespace RomMbox.Services.Install.Pipeline.Steps
             context.InstallStateSnapshot.IsInstalled = true;
             context.InstallStateSnapshot.InstalledUtc = DateTimeOffset.UtcNow;
             context.InstallStateSnapshot.LastValidatedUtc = DateTimeOffset.UtcNow;
+            context.InstallStateSnapshot.InstallStatus = "Completed";
+            context.InstallStateSnapshot.InstallPhase = Phase.ToString();
 
             return Task.FromResult(InstallResult.Successful());
         }

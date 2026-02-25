@@ -35,6 +35,8 @@ namespace RomMbox.Services.Install.Pipeline
             _logger.Info($"Install pipeline started for '{request.Game?.Title ?? "<unknown>"}'.");
 
             var context = new InstallContext(request, _logger, _settingsManager, _installStateService);
+            context.OperationId = operationId;
+            context.InstallStartedUtc = DateTimeOffset.UtcNow;
             try
             {
                 foreach (var step in _steps)
@@ -45,6 +47,7 @@ namespace RomMbox.Services.Install.Pipeline
                     var result = await step.ExecuteAsync(context, progress, cancellationToken).ConfigureAwait(false);
                     if (!result.Success)
                     {
+                        UpdateInstallStateFailure(context, step.Phase, result.Message);
                         LogStepFailed(step.Phase, result.Message);
                         _logger.Warning($"Install pipeline failed at {step.Phase}: {result.Message}");
                         return result;
@@ -53,18 +56,21 @@ namespace RomMbox.Services.Install.Pipeline
                     LogStepCompleted(step.Phase, context);
                 }
 
+                UpdateInstallStateSuccess(context);
                 progress?.Report(new InstallProgressEvent(InstallPhase.Completed, "Install completed.", 100));
                 _logger.Info("InstallCompleted.");
                 return InstallResult.Successful();
             }
             catch (OperationCanceledException)
             {
+                UpdateInstallStateCancelled(context);
                 _logger.Warning("Install pipeline cancelled.");
                 _logger.Warning("InstallFailed: Cancelled.");
                 return InstallResult.Cancelled();
             }
             catch (Exception ex)
             {
+                UpdateInstallStateException(context, ex);
                 _logger.Error("Install pipeline failed.", ex);
                 _logger.Error("InstallFailed: Exception.", ex);
                 return InstallResult.Failed(InstallPhase.Failed, ex.Message);
@@ -89,12 +95,19 @@ namespace RomMbox.Services.Install.Pipeline
 
         private void LogStepStarted(InstallPhase phase, InstallContext context)
         {
+            UpdateInstallStatePhase(context, phase, "InProgress");
             switch (phase)
             {
                 case InstallPhase.Downloading:
+                    context.DownloadStartedUtc = DateTimeOffset.UtcNow;
                     _logger.Info("DownloadStarted.");
                     break;
+                case InstallPhase.Extracting:
+                    context.ExtractionStartedUtc = DateTimeOffset.UtcNow;
+                    _logger.Info("ExtractionStarted.");
+                    break;
                 case InstallPhase.Installing:
+                    context.ExtractionCompletedUtc = context.ExtractionCompletedUtc ?? DateTimeOffset.UtcNow;
                     _logger.Info("InstallStarted.");
                     break;
             }
@@ -105,6 +118,7 @@ namespace RomMbox.Services.Install.Pipeline
             switch (phase)
             {
                 case InstallPhase.Downloading:
+                    context.DownloadCompletedUtc = DateTimeOffset.UtcNow;
                     _logger.Info("DownloadCompleted.");
                     if (!string.IsNullOrWhiteSpace(context?.ExtractedPath))
                     {
@@ -112,6 +126,7 @@ namespace RomMbox.Services.Install.Pipeline
                     }
                     break;
                 case InstallPhase.Installing:
+                    context.InstallCompletedUtc = DateTimeOffset.UtcNow;
                     _logger.Info("InstallStepCompleted.");
                     break;
             }
@@ -123,6 +138,135 @@ namespace RomMbox.Services.Install.Pipeline
             {
                 _logger.Warning($"InstallFailed. Message='{message}'.");
             }
+        }
+
+        private void UpdateInstallStatePhase(InstallContext context, InstallPhase phase, string status)
+        {
+            if (context?.InstallStateSnapshot == null)
+            {
+                return;
+            }
+
+            context.InstallStateSnapshot.InstallStatus = status;
+            context.InstallStateSnapshot.InstallPhase = phase.ToString();
+            context.InstallStateSnapshot.LastOperationId = context.OperationId;
+            context.InstallStateSnapshot.LastAttemptUtc = context.InstallStateSnapshot.LastAttemptUtc ?? context.InstallStartedUtc;
+        }
+
+        private void UpdateInstallStateFailure(InstallContext context, InstallPhase phase, string message)
+        {
+            if (context?.InstallStateSnapshot == null)
+            {
+                return;
+            }
+
+            context.InstallStateSnapshot.InstallStatus = "Failed";
+            context.InstallStateSnapshot.InstallPhase = phase.ToString();
+            context.InstallStateSnapshot.LastError = message;
+            context.InstallStateSnapshot.LastOperationId = context.OperationId;
+            context.InstallStateSnapshot.LastAttemptUtc = context.InstallStateSnapshot.LastAttemptUtc ?? context.InstallStartedUtc;
+            context.InstallStateSnapshot.IsInstalled = false;
+            context.InstallStateSnapshot.InstalledUtc = null;
+            context.InstallStateSnapshot.LastValidatedUtc = DateTimeOffset.UtcNow;
+            PersistInstallState(context);
+            LogTimingMetrics(context, phase, "Failed");
+        }
+
+        private void UpdateInstallStateCancelled(InstallContext context)
+        {
+            if (context?.InstallStateSnapshot == null)
+            {
+                return;
+            }
+
+            context.InstallStateSnapshot.InstallStatus = "Cancelled";
+            context.InstallStateSnapshot.InstallPhase = InstallPhase.Cancelled.ToString();
+            context.InstallStateSnapshot.LastOperationId = context.OperationId;
+            context.InstallStateSnapshot.LastAttemptUtc = context.InstallStateSnapshot.LastAttemptUtc ?? context.InstallStartedUtc;
+            context.InstallStateSnapshot.LastValidatedUtc = DateTimeOffset.UtcNow;
+            PersistInstallState(context);
+            LogTimingMetrics(context, InstallPhase.Cancelled, "Cancelled");
+        }
+
+        private void UpdateInstallStateException(InstallContext context, Exception ex)
+        {
+            if (context?.InstallStateSnapshot == null)
+            {
+                return;
+            }
+
+            context.InstallStateSnapshot.InstallStatus = "Failed";
+            context.InstallStateSnapshot.InstallPhase = InstallPhase.Failed.ToString();
+            context.InstallStateSnapshot.LastError = ex?.Message ?? "Install failed.";
+            context.InstallStateSnapshot.LastOperationId = context.OperationId;
+            context.InstallStateSnapshot.LastAttemptUtc = context.InstallStateSnapshot.LastAttemptUtc ?? context.InstallStartedUtc;
+            context.InstallStateSnapshot.IsInstalled = false;
+            context.InstallStateSnapshot.InstalledUtc = null;
+            context.InstallStateSnapshot.LastValidatedUtc = DateTimeOffset.UtcNow;
+            PersistInstallState(context);
+            LogTimingMetrics(context, InstallPhase.Failed, "Failed");
+        }
+
+        private void UpdateInstallStateSuccess(InstallContext context)
+        {
+            if (context?.InstallStateSnapshot == null)
+            {
+                return;
+            }
+
+            context.InstallStateSnapshot.InstallStatus = "Completed";
+            context.InstallStateSnapshot.InstallPhase = InstallPhase.Completed.ToString();
+            context.InstallStateSnapshot.LastError = string.Empty;
+            context.InstallStateSnapshot.LastOperationId = context.OperationId;
+            context.InstallStateSnapshot.LastCompletedUtc = DateTimeOffset.UtcNow;
+            context.InstallStateSnapshot.LastValidatedUtc = DateTimeOffset.UtcNow;
+            LogTimingMetrics(context, InstallPhase.Completed, "Completed");
+        }
+
+        private void PersistInstallState(InstallContext context)
+        {
+            try
+            {
+                var snapshot = context?.InstallStateSnapshot;
+                if (snapshot == null)
+                {
+                    return;
+                }
+
+                context.InstallStateService
+                    .UpsertStateAsync(snapshot.ToInstallState(), CancellationToken.None)
+                    .ConfigureAwait(false)
+                    .GetAwaiter()
+                    .GetResult();
+            }
+            catch (Exception ex)
+            {
+                _logger?.Warning($"Failed to persist install state snapshot: {ex.Message}");
+            }
+        }
+
+        private void LogTimingMetrics(InstallContext context, InstallPhase phase, string status)
+        {
+            if (context == null)
+            {
+                return;
+            }
+
+            var downloadMs = GetDurationMs(context.DownloadStartedUtc, context.DownloadCompletedUtc);
+            var extractionMs = GetDurationMs(context.ExtractionStartedUtc, context.ExtractionCompletedUtc);
+            var installMs = GetDurationMs(context.InstallStartedUtc, context.InstallCompletedUtc);
+            _logger?.Info($"InstallTiming | Status={status}, Phase={phase}, DownloadMs={downloadMs}, ExtractionMs={extractionMs}, InstallMs={installMs}");
+        }
+
+        private static long? GetDurationMs(DateTimeOffset? start, DateTimeOffset? end)
+        {
+            if (!start.HasValue || !end.HasValue)
+            {
+                return null;
+            }
+
+            var duration = end.Value - start.Value;
+            return (long)Math.Max(0, duration.TotalMilliseconds);
         }
     }
 }
