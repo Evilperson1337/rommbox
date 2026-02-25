@@ -63,6 +63,31 @@ namespace RomMbox.Models
         public bool IsInstalled { get; set; }
 
         /// <summary>
+        /// Additional application identifier for the RomM merged variant.
+        /// </summary>
+        public string RommAdditionalAppId { get; set; }
+
+        /// <summary>
+        /// The base game's LaunchBox ID when RomM is merged into a parent entry.
+        /// </summary>
+        public string RommMergedBaseGameId { get; set; }
+
+        /// <summary>
+        /// Launch path to use for the RomM merged additional application.
+        /// </summary>
+        public string RommLaunchPath { get; set; }
+
+        /// <summary>
+        /// Launch arguments to use for the RomM merged additional application.
+        /// </summary>
+        public string RommLaunchArgs { get; set; }
+
+        /// <summary>
+        /// Last sync timestamp for the RomM merged AdditionalApplication in platform XML.
+        /// </summary>
+        public DateTimeOffset? RommAdditionalAppSyncedUtc { get; set; }
+
+        /// <summary>
         /// When the game was installed (UTC).
         /// </summary>
         public DateTimeOffset? InstalledUtc { get; set; }

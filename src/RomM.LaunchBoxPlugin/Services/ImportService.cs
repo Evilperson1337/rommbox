@@ -1857,6 +1857,44 @@ namespace RomMbox.Services
             }
 
             ApplyRomMIdentity(game, rom, match: null);
+
+            var platformName = game.Platform ?? string.Empty;
+            if (!string.Equals(platformName, "Windows", StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+
+            var operationId = Guid.NewGuid().ToString("N");
+            using (_logger.BeginOperation(operationId))
+            {
+                _logger?.Write(LogLevel.Info, "RomMImportMergeRequested", null,
+                    "BaseGameId", game.Id ?? string.Empty,
+                    "Title", game.Title ?? string.Empty,
+                    "Platform", platformName);
+            }
+
+            try
+            {
+                var mergeService = new RommAdditionalApplicationService(_logger, _installStateService);
+                var state = _installStateService.GetStateAsync(game.Id, CancellationToken.None)
+                    .ConfigureAwait(false)
+                    .GetAwaiter()
+                    .GetResult();
+                mergeService.EnsureMergedAdditionalApplicationAsync(game, state, operationId, CancellationToken.None)
+                    .ConfigureAwait(false)
+                    .GetAwaiter()
+                    .GetResult();
+            }
+            catch (Exception ex)
+            {
+                using (_logger.BeginOperation(operationId))
+                {
+                    _logger?.Write(LogLevel.Error, "RomMImportMergeFailed", ex,
+                        "BaseGameId", game.Id ?? string.Empty,
+                        "Title", game.Title ?? string.Empty,
+                        "Platform", platformName);
+                }
+            }
         }
 
         private void LogInstalledGamesForPlatform(IReadOnlyCollection<IGame> games, string platformName)

@@ -83,8 +83,18 @@ namespace RomMbox.Services.Install
                             .ConfigureAwait(false)
                             .GetAwaiter()
                             .GetResult();
+                        _installStateService.UpdateRommAdditionalAppStateAsync(
+                                game.Id,
+                                state.RommMergedBaseGameId,
+                                launchPath: string.Empty,
+                                launchArgs: string.Empty,
+                                syncedUtc: DateTimeOffset.UtcNow,
+                                cancellationToken)
+                            .ConfigureAwait(false)
+                            .GetAwaiter()
+                            .GetResult();
                     }
-                    QueueLaunchBoxSaveAndCleanup(dataManager, game.Id, cancellationToken);
+                    QueueLaunchBoxSaveAndCleanup(dataManager, game.Id, cancellationToken, preserveMerge: true);
                     return RomMDeleteResult.UninstallResult(stubCreated);
                 }
 
@@ -105,8 +115,18 @@ namespace RomMbox.Services.Install
                         .ConfigureAwait(false)
                         .GetAwaiter()
                         .GetResult();
+                    _installStateService.UpdateRommAdditionalAppStateAsync(
+                            game.Id,
+                            state.RommMergedBaseGameId,
+                            launchPath: string.Empty,
+                            launchArgs: string.Empty,
+                            syncedUtc: DateTimeOffset.UtcNow,
+                            cancellationToken)
+                        .ConfigureAwait(false)
+                        .GetAwaiter()
+                        .GetResult();
                 }
-                QueueLaunchBoxSaveAndCleanup(dataManager, game.Id, cancellationToken);
+                QueueLaunchBoxSaveAndCleanup(dataManager, game.Id, cancellationToken, preserveMerge: true);
                 return RomMDeleteResult.UninstallResult(stubCreated: false);
             }
             catch (Exception ex)
@@ -116,7 +136,7 @@ namespace RomMbox.Services.Install
             }
         }
 
-        private void QueueLaunchBoxSaveAndCleanup(IDataManager dataManager, string launchBoxGameId, CancellationToken cancellationToken)
+        private void QueueLaunchBoxSaveAndCleanup(IDataManager dataManager, string launchBoxGameId, CancellationToken cancellationToken, bool preserveMerge)
         {
             if (dataManager == null || string.IsNullOrWhiteSpace(launchBoxGameId))
             {
@@ -128,10 +148,20 @@ namespace RomMbox.Services.Install
                 try
                 {
                     dataManager.Save(true);
-                    _installStateService.DeleteStateAsync(launchBoxGameId, cancellationToken)
-                        .ConfigureAwait(false)
-                        .GetAwaiter()
-                        .GetResult();
+                    if (preserveMerge)
+                    {
+                        _installStateService.DeleteStatePreserveMergeAsync(launchBoxGameId, cancellationToken)
+                            .ConfigureAwait(false)
+                            .GetAwaiter()
+                            .GetResult();
+                    }
+                    else
+                    {
+                        _installStateService.DeleteStateAsync(launchBoxGameId, cancellationToken)
+                            .ConfigureAwait(false)
+                            .GetAwaiter()
+                            .GetResult();
+                    }
                     RefreshLaunchBoxData(dataManager);
                     _logger?.Info("LaunchBox data saved and install state cleaned up after uninstall.");
                 }

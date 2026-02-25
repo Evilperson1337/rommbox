@@ -194,6 +194,10 @@ namespace RomMbox.Services.Install
                         ServerUrl = details.ServerUrl,
                         WindowsInstallType = installResult.InstallType?.ToString(),
                         InstalledPath = installResult.ExecutablePath ?? finalPath,
+                        RommLaunchPath = installResult.ExecutablePath ?? finalPath,
+                        RommLaunchArgs = installResult.Arguments != null && installResult.Arguments.Count > 0
+                            ? string.Join(" ", installResult.Arguments)
+                            : string.Empty,
                         ArchivePath = downloadResult.ArchivePath,
                         InstallRootPath = windowsInstallRoot,
                         IsInstalled = true,
@@ -204,6 +208,7 @@ namespace RomMbox.Services.Install
                         .ConfigureAwait(false)
                         .GetAwaiter()
                         .GetResult();
+                    TrySyncAdditionalApplication(game, windowsState, cancellationToken);
                     ExecuteWithRetry(() =>
                     {
                         dataManager.Save(true);
@@ -267,6 +272,8 @@ namespace RomMbox.Services.Install
                     RommPlatformId = details.RommPlatformId,
                     ServerUrl = details.ServerUrl,
                     InstalledPath = finalPath,
+                    RommLaunchPath = finalPath,
+                    RommLaunchArgs = string.Empty,
                     ArchivePath = downloadResult.ArchivePath,
                     InstallRootPath = installRootPath,
                     IsInstalled = true,
@@ -277,6 +284,7 @@ namespace RomMbox.Services.Install
                     .ConfigureAwait(false)
                     .GetAwaiter()
                     .GetResult();
+                TrySyncAdditionalApplication(game, state, cancellationToken);
                 ExecuteWithRetry(() =>
                 {
                     dataManager.Save(true);
@@ -581,6 +589,29 @@ namespace RomMbox.Services.Install
                 {
                 }
                 delayMs = Math.Min(delayMs * 2, 1500);
+            }
+        }
+
+        private void TrySyncAdditionalApplication(IGame game, InstallState state, CancellationToken cancellationToken)
+        {
+            if (game == null || state == null)
+            {
+                return;
+            }
+
+            try
+            {
+                var operationId = Guid.NewGuid().ToString("N");
+                var service = new RommAdditionalApplicationService(_logger, _installStateService);
+                service.SyncAdditionalApplicationAsync(game, state, operationId, cancellationToken)
+                    .ConfigureAwait(false)
+                    .GetAwaiter()
+                    .GetResult();
+            }
+            catch (Exception ex)
+            {
+                _logger?.Write(LogLevel.Error, "RomMAdditionalAppSyncFailed", ex,
+                    "BaseGameId", game?.Id ?? string.Empty);
             }
         }
     }

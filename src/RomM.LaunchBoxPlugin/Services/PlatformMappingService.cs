@@ -76,6 +76,7 @@ namespace RomMbox.Services
         private readonly LoggingService _logger;
         private readonly PlatformMappingStore _mappingStore;
         private readonly IRommClient _rommClient;
+        private readonly SettingsManager _settingsManager;
 
         /// <summary>
         /// Creates the mapping service used to resolve RomM platform IDs to LaunchBox names.
@@ -84,6 +85,7 @@ namespace RomMbox.Services
         {
             _logger = logger;
             _mappingStore = new PlatformMappingStore(logger);
+            _settingsManager = settingsManager;
             _rommClient = rommClient;
         }
 
@@ -100,10 +102,7 @@ namespace RomMbox.Services
                 foreach (var platform in platforms)
                 {
                     var mappingResult = ResolveLaunchBoxPlatform(platform.Id, platform.Name);
-                    var saved = _mappingStore.GetPlatformMappingAsync(platform.Id ?? string.Empty, cancellationToken)
-                        .ConfigureAwait(false)
-                        .GetAwaiter()
-                        .GetResult();
+                    var saved = GetSavedMapping(platform.Id ?? string.Empty, cancellationToken);
                     mappings.Add(new PlatformMapping
                     {
                         RommPlatformId = platform.Id ?? string.Empty,
@@ -209,10 +208,7 @@ namespace RomMbox.Services
 
         public PlatformMapping GetMapping(string rommPlatformId)
         {
-            return _mappingStore.GetPlatformMappingAsync(rommPlatformId ?? string.Empty, CancellationToken.None)
-                .ConfigureAwait(false)
-                .GetAwaiter()
-                .GetResult();
+            return GetSavedMapping(rommPlatformId ?? string.Empty, CancellationToken.None);
         }
 
         /// <summary>
@@ -225,10 +221,7 @@ namespace RomMbox.Services
                 return (string.Empty, false);
             }
 
-            var saved = _mappingStore.GetPlatformMappingAsync(rommPlatformId ?? string.Empty, CancellationToken.None)
-                .ConfigureAwait(false)
-                .GetAwaiter()
-                .GetResult();
+            var saved = GetSavedMapping(rommPlatformId ?? string.Empty, CancellationToken.None);
             if (saved != null && !string.IsNullOrWhiteSpace(saved.LaunchBoxPlatformName))
             {
                 return (saved.LaunchBoxPlatformName, false);
@@ -439,10 +432,16 @@ namespace RomMbox.Services
         /// </summary>
         public string[] GetExcludedRommPlatformIds()
         {
-            return _mappingStore.GetExcludedRommPlatformIdsAsync(CancellationToken.None)
+            var excluded = _mappingStore.GetExcludedRommPlatformIdsAsync(CancellationToken.None)
                 .ConfigureAwait(false)
                 .GetAwaiter()
                 .GetResult();
+            if (excluded != null && excluded.Length > 0)
+            {
+                return excluded;
+            }
+
+            return _settingsManager?.GetExcludedRommPlatformIds() ?? Array.Empty<string>();
         }
 
         /// <summary>
@@ -551,10 +550,53 @@ namespace RomMbox.Services
         /// </summary>
         public PlatformAlias[] GetAliases()
         {
-            return _mappingStore.GetPlatformAliasesAsync(CancellationToken.None)
+            var aliases = _mappingStore.GetPlatformAliasesAsync(CancellationToken.None)
                 .ConfigureAwait(false)
                 .GetAwaiter()
                 .GetResult();
+            if (aliases != null && aliases.Length > 0)
+            {
+                return aliases;
+            }
+
+            return _settingsManager?.GetPlatformAliases() ?? Array.Empty<PlatformAlias>();
+        }
+
+        private PlatformMapping GetSavedMapping(string rommPlatformId, CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(rommPlatformId))
+            {
+                return null;
+            }
+
+            var saved = _mappingStore.GetPlatformMappingAsync(rommPlatformId, cancellationToken)
+                .ConfigureAwait(false)
+                .GetAwaiter()
+                .GetResult();
+            if (saved != null)
+            {
+                return saved;
+            }
+
+            var legacy = _settingsManager?.GetPlatformMapping(rommPlatformId);
+            if (legacy == null)
+            {
+                return null;
+            }
+
+            try
+            {
+                _mappingStore.SavePlatformMappingAsync(legacy, cancellationToken)
+                    .ConfigureAwait(false)
+                    .GetAwaiter()
+                    .GetResult();
+            }
+            catch (Exception ex)
+            {
+                _logger?.Warning($"Failed to migrate legacy mapping for '{rommPlatformId}'. {ex.Message}");
+            }
+
+            return legacy;
         }
 
         /// <summary>

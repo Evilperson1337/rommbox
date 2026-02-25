@@ -10,6 +10,8 @@ namespace RomMbox.Services.Install.Pipeline
         public string RommPlatformId { get; set; }
         public string ServerUrl { get; set; }
         public string InstalledPath { get; set; }
+        public string RommLaunchPath { get; set; }
+        public string RommLaunchArgs { get; set; }
         public string ArchivePath { get; set; }
         public string InstallRootPath { get; set; }
         public bool IsInstalled { get; set; }
@@ -26,6 +28,8 @@ namespace RomMbox.Services.Install.Pipeline
                 RommPlatformId = RommPlatformId,
                 ServerUrl = ServerUrl,
                 InstalledPath = InstalledPath,
+                RommLaunchPath = RommLaunchPath,
+                RommLaunchArgs = RommLaunchArgs,
                 ArchivePath = ArchivePath,
                 InstallRootPath = InstallRootPath,
                 IsInstalled = IsInstalled,

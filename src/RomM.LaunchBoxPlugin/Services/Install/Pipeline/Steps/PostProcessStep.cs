@@ -43,6 +43,10 @@ namespace RomMbox.Services.Install.Pipeline.Steps
             }
 
             context.InstallStateSnapshot.InstalledPath = finalPath;
+            context.InstallStateSnapshot.RommLaunchPath = finalPath;
+            context.InstallStateSnapshot.RommLaunchArgs = context.InstallerArguments != null && context.InstallerArguments.Length > 0
+                ? string.Join(" ", context.InstallerArguments)
+                : string.Empty;
             context.InstallStateSnapshot.ArchivePath = context.ArchivePath;
             if (string.IsNullOrWhiteSpace(context.InstallStateSnapshot.InstallRootPath))
             {
