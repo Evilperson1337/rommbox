@@ -6,7 +6,7 @@ Use this tab to configure the RomM → LaunchBox platform mapping as well as the
 ## Platform List
 The platform list will display the RomM platforms that were detected along with the LaunchBox platform.  The system will attempt to automatically map common platforms. or you can manually select the correct LaunchBox platform using the drop down.
 
-### Exlcude
+### Exclude
 Should you want to exclude a platform from being mapped, you just need to select the **Exclude** checkbox before the RomM platform on the rowm like the *Browser (Flash/HTML5)* platform above.
 
 ### Configure
