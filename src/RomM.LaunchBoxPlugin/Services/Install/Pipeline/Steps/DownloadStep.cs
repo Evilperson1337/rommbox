@@ -48,6 +48,7 @@ namespace RomMbox.Services.Install.Pipeline.Steps
                 extractAfterDownload = false;
             }
             context.Logger?.Info($"ExtractionDecision | ExtractAfterDownload={extractAfterDownload}, Behavior={extractionBehavior}, IsWindows={isWindowsPlatform}, InstallScenario={installScenario}.");
+            context.Logger?.Info($"Archive download requested. RomId={context.RommDetails.Id ?? string.Empty}, PlatformId={context.RommDetails.PlatformId ?? string.Empty}.");
             var shouldReportExtraction = extractAfterDownload;
 
             var downloadProgress = new Progress<DownloadProgress>(update =>
@@ -125,10 +126,12 @@ namespace RomMbox.Services.Install.Pipeline.Steps
                 if (!string.IsNullOrWhiteSpace(result.ExtractedPath))
                 {
                     result.ExtractedPath = InstallContentRelocator.RelocateExtractedContent(result.ExtractedPath, context.DownloadDirectory, context.Logger);
+                    context.Logger?.Info($"Archive extracted to: '{result.ExtractedPath}'.");
                 }
                 else if (!string.IsNullOrWhiteSpace(result.ArchivePath))
                 {
                     result.ArchivePath = InstallContentRelocator.RelocateArchive(result.ArchivePath, context.DownloadDirectory, context.Logger);
+                    context.Logger?.Info($"Archive downloaded: '{result.ArchivePath}'.");
                 }
             }
 

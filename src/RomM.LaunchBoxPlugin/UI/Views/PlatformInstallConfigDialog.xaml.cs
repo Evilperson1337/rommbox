@@ -82,6 +82,62 @@ namespace RomMbox.UI.Views;
     }
 
     /// <summary>
+    /// Opens a folder picker for the PS3 games directory.
+    /// </summary>
+    /// <param name="sender">The event sender.</param>
+    /// <param name="e">The routed event arguments.</param>
+    private void BrowsePs3Games_Click(object sender, RoutedEventArgs e)
+    {
+        BrowseForFolder("Select PS3 games directory", selectedPath =>
+        {
+            if (DataContext is ViewModels.PlatformInstallConfigViewModel viewModel)
+            {
+                viewModel.Ps3GameDirectory = selectedPath;
+            }
+        });
+    }
+
+    /// <summary>
+    /// Opens a file picker for the RPCS3 executable.
+    /// </summary>
+    /// <param name="sender">The event sender.</param>
+    /// <param name="e">The routed event arguments.</param>
+    private void BrowseRpcs3Executable_Click(object sender, RoutedEventArgs e)
+    {
+        using (var dialog = new OpenFileDialog
+        {
+            Title = "Select RPCS3 executable",
+            Filter = "Executable (*.exe)|*.exe|All Files (*.*)|*.*",
+            CheckFileExists = true
+        })
+        {
+            if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            {
+                if (DataContext is ViewModels.PlatformInstallConfigViewModel viewModel)
+                {
+                    viewModel.Rpcs3ExecutablePath = dialog.FileName;
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Opens a folder picker for the RPCS3 license directory.
+    /// </summary>
+    /// <param name="sender">The event sender.</param>
+    /// <param name="e">The routed event arguments.</param>
+    private void BrowseRpcs3License_Click(object sender, RoutedEventArgs e)
+    {
+        BrowseForFolder("Select RPCS3 license directory", selectedPath =>
+        {
+            if (DataContext is ViewModels.PlatformInstallConfigViewModel viewModel)
+            {
+                viewModel.Rpcs3LicenseDirectory = selectedPath;
+            }
+        });
+    }
+
+    /// <summary>
     /// Displays a folder browser dialog and invokes the callback when a path is selected.
     /// </summary>
     /// <param name="description">Dialog description shown to the user.</param>

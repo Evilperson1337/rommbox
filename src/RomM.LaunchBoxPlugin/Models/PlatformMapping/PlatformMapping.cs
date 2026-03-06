@@ -177,5 +177,53 @@ namespace RomMbox.Models.PlatformMapping
         /// </summary>
         [DataMember(Name = "customInstallDirectory", EmitDefaultValue = false)]
         public string CustomInstallDirectory { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the PS3 game directory override.
+        /// </summary>
+        [DataMember(Name = "ps3GameDirectory", EmitDefaultValue = false)]
+        public string Ps3GameDirectory { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the RPCS3 executable path for PS3 installs.
+        /// </summary>
+        [DataMember(Name = "rpcs3ExecutablePath", EmitDefaultValue = false)]
+        public string Rpcs3ExecutablePath { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets whether DLC packages should be installed automatically.
+        /// </summary>
+        [DataMember(Name = "installDlcAutomatically", EmitDefaultValue = false)]
+        public bool InstallDlcAutomatically { get; set; }
+
+        /// <summary>
+        /// Gets or sets whether update packages should be installed automatically.
+        /// </summary>
+        [DataMember(Name = "installUpdatesAutomatically", EmitDefaultValue = false)]
+        public bool InstallUpdatesAutomatically { get; set; }
+
+        /// <summary>
+        /// Gets or sets the RPCS3 license directory override.
+        /// </summary>
+        [DataMember(Name = "rpcs3LicenseDirectory", EmitDefaultValue = false)]
+        public string Rpcs3LicenseDirectory { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets whether region-mismatched DLC should be skipped.
+        /// </summary>
+        [DataMember(Name = "skipRegionMismatchedDlc", EmitDefaultValue = false)]
+        public bool SkipRegionMismatchedDlc { get; set; }
+
+        /// <summary>
+        /// Gets or sets whether unmatched RAP files should be skipped.
+        /// </summary>
+        [DataMember(Name = "skipUnmatchedRapFiles", EmitDefaultValue = false)]
+        public bool SkipUnmatchedRapFiles { get; set; }
+
+        /// <summary>
+        /// Gets or sets whether metadata-based package matching should be preferred.
+        /// </summary>
+        [DataMember(Name = "preferMetadataBasedPackageMatching", EmitDefaultValue = false)]
+        public bool PreferMetadataBasedPackageMatching { get; set; }
     }
 }

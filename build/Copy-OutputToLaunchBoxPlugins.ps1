@@ -38,6 +38,7 @@ $files = @(
     "system\platforms\RomM.Platforms.Windows.dll",
     "system\platforms\RomM.Platforms.Snes.dll",
     "system\platforms\RomM.Platforms.Arcade.dll",
+    "system\platforms\RomM.Platforms.PS3.dll",
     "RomM.Platforms.Abstractions.dll",
     "RomM.Platforms.RomBase.dll",
     "RomMbox.dll"

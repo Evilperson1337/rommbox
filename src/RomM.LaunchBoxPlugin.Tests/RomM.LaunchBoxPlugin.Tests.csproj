@@ -26,6 +26,7 @@
   <ItemGroup>
     <ProjectReference Include="..\RomM.LaunchBoxPlugin\RomMbox.csproj" />
     <ProjectReference Include="..\RomM.Platforms.Windows\RomM.Platforms.Windows.csproj" />
+    <ProjectReference Include="..\RomM.Platforms.PS3\RomM.Platforms.PS3.csproj" />
     <Reference Include="Unbroken.LaunchBox.Plugins">
       <HintPath>..\..\deps\launchbox\Unbroken.LaunchBox.Plugins.dll</HintPath>
       <Private>True</Private>

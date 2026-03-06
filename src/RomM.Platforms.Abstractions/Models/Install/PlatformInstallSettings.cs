@@ -12,6 +12,14 @@ namespace RomM.Platforms.Abstractions.Models.Install
         public bool InstallBonus { get; set; }
         public string? BonusRootPath { get; set; }
         public OptionalContentLocation BonusInstallLocation { get; set; } = OptionalContentLocation.Default;
+        public string? Ps3GameDirectory { get; set; }
+        public string? Rpcs3ExecutablePath { get; set; }
+        public bool InstallDlcAutomatically { get; set; }
+        public bool InstallUpdatesAutomatically { get; set; }
+        public string? Rpcs3LicenseDirectory { get; set; }
+        public bool SkipRegionMismatchedDlc { get; set; }
+        public bool SkipUnmatchedRapFiles { get; set; }
+        public bool PreferMetadataBasedPackageMatching { get; set; }
     }
 }
 

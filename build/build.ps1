@@ -22,7 +22,8 @@ $romBaseProject = Join-Path $root "src\RomM.Platforms.RomBase\RomM.Platforms.Rom
 $platformProjects = @(
     "src\RomM.Platforms.Windows\RomM.Platforms.Windows.csproj",
     "src\RomM.Platforms.Snes\RomM.Platforms.Snes.csproj",
-    "src\RomM.Platforms.Arcade\RomM.Platforms.Arcade.csproj"
+    "src\RomM.Platforms.Arcade\RomM.Platforms.Arcade.csproj",
+    "src\RomM.Platforms.PS3\RomM.Platforms.PS3.csproj"
 )
 $outputRoot = Join-Path $root "output\RomMbox"
 $buildRoot = Join-Path $root "output\.build"

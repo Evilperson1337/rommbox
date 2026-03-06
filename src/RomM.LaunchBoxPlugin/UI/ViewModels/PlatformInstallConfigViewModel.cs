@@ -62,6 +62,15 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
         InstallPreReqs = mapping?.InstallPreReqs ?? false;
         PreReqsRootPath = mapping?.PreReqsRootPath ?? string.Empty;
 
+        Ps3GameDirectory = mapping?.Ps3GameDirectory ?? string.Empty;
+        Rpcs3ExecutablePath = mapping?.Rpcs3ExecutablePath ?? string.Empty;
+        InstallDlcAutomatically = mapping?.InstallDlcAutomatically ?? false;
+        InstallUpdatesAutomatically = mapping?.InstallUpdatesAutomatically ?? false;
+        Rpcs3LicenseDirectory = mapping?.Rpcs3LicenseDirectory ?? string.Empty;
+        SkipRegionMismatchedDlc = mapping?.SkipRegionMismatchedDlc ?? false;
+        SkipUnmatchedRapFiles = mapping?.SkipUnmatchedRapFiles ?? false;
+        PreferMetadataBasedPackageMatching = mapping?.PreferMetadataBasedPackageMatching ?? false;
+
         InstallScenario = InstallationType == InstallTypeChoice.Enhanced
             ? InstallScenario.Enhanced
             : InstallScenario.Basic;
@@ -441,6 +450,54 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
 
     public RelayCommand BackCommand { get; }
 
+    private string _ps3GameDirectory = string.Empty;
+    /// <summary>
+    /// Gets or sets the PS3 games directory override.
+    /// </summary>
+    public string Ps3GameDirectory { get => _ps3GameDirectory; set => SetProperty(ref _ps3GameDirectory, value); }
+
+    private string _rpcs3ExecutablePath = string.Empty;
+    /// <summary>
+    /// Gets or sets the RPCS3 executable path.
+    /// </summary>
+    public string Rpcs3ExecutablePath { get => _rpcs3ExecutablePath; set => SetProperty(ref _rpcs3ExecutablePath, value); }
+
+    private bool _installDlcAutomatically;
+    /// <summary>
+    /// Gets or sets whether DLC packages should be installed automatically.
+    /// </summary>
+    public bool InstallDlcAutomatically { get => _installDlcAutomatically; set => SetProperty(ref _installDlcAutomatically, value); }
+
+    private bool _installUpdatesAutomatically;
+    /// <summary>
+    /// Gets or sets whether update packages should be installed automatically.
+    /// </summary>
+    public bool InstallUpdatesAutomatically { get => _installUpdatesAutomatically; set => SetProperty(ref _installUpdatesAutomatically, value); }
+
+    private string _rpcs3LicenseDirectory = string.Empty;
+    /// <summary>
+    /// Gets or sets the RPCS3 license directory override.
+    /// </summary>
+    public string Rpcs3LicenseDirectory { get => _rpcs3LicenseDirectory; set => SetProperty(ref _rpcs3LicenseDirectory, value); }
+
+    private bool _skipRegionMismatchedDlc;
+    /// <summary>
+    /// Gets or sets whether region-mismatched DLC should be skipped.
+    /// </summary>
+    public bool SkipRegionMismatchedDlc { get => _skipRegionMismatchedDlc; set => SetProperty(ref _skipRegionMismatchedDlc, value); }
+
+    private bool _skipUnmatchedRapFiles;
+    /// <summary>
+    /// Gets or sets whether unmatched RAP files should be skipped.
+    /// </summary>
+    public bool SkipUnmatchedRapFiles { get => _skipUnmatchedRapFiles; set => SetProperty(ref _skipUnmatchedRapFiles, value); }
+
+    private bool _preferMetadataBasedPackageMatching;
+    /// <summary>
+    /// Gets or sets whether metadata-based package matching is preferred.
+    /// </summary>
+    public bool PreferMetadataBasedPackageMatching { get => _preferMetadataBasedPackageMatching; set => SetProperty(ref _preferMetadataBasedPackageMatching, value); }
+
     public Models.PlatformMapping BuildMappingForSave()
     {
         if (_mapping == null)
@@ -471,6 +528,14 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
         _mapping.CustomInstallDirectory = ResolveGamesDirectoryForSave(GamesDirectory);
         _mapping.RomInstallRoot = RomInstallRoot;
         _mapping.RomArchivePolicy = RomArchivePolicy;
+        _mapping.Ps3GameDirectory = Ps3GameDirectory;
+        _mapping.Rpcs3ExecutablePath = Rpcs3ExecutablePath;
+        _mapping.InstallDlcAutomatically = InstallDlcAutomatically;
+        _mapping.InstallUpdatesAutomatically = InstallUpdatesAutomatically;
+        _mapping.Rpcs3LicenseDirectory = Rpcs3LicenseDirectory;
+        _mapping.SkipRegionMismatchedDlc = SkipRegionMismatchedDlc;
+        _mapping.SkipUnmatchedRapFiles = SkipUnmatchedRapFiles;
+        _mapping.PreferMetadataBasedPackageMatching = PreferMetadataBasedPackageMatching;
         return _mapping;
     }
 

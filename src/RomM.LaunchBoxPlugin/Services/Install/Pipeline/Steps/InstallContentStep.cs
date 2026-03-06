@@ -168,73 +168,98 @@ namespace RomMbox.Services.Install.Pipeline.Steps
                 return InstallResult.Successful();
             }
 
-            if (_platformInstallers != null && context.RommDetails != null
-                && _platformInstallers.TryGetInstaller(context.RommDetails.PlatformId ?? string.Empty, out var romInstaller))
+            if (_platformInstallers != null && context.RommDetails != null)
             {
-                progress?.Report(new InstallProgressEvent(Phase, $"Installing {context.Game.Title}...", 0));
-                context.Logger?.Info($"ROM install input: ArchivePath='{context.ArchivePath ?? string.Empty}', ExtractedPath='{context.ExtractedPath ?? string.Empty}', InstallDir='{context.InstallDirectory}'.");
+                var platformKey = context.RommDetails.PlatformId ?? string.Empty;
+                var platformDisplayName = context.RommDetails.PlatformDisplayName ?? string.Empty;
+                var launchBoxPlatformName = context.Game?.Platform ?? string.Empty;
+                context.Logger?.Info($"Detected platform: LaunchBox='{launchBoxPlatformName}', RomMId='{platformKey}', RomMName='{platformDisplayName}'.");
 
-                if (context.PlatformMapping?.ExtractAfterDownload == false
-                    && !string.IsNullOrWhiteSpace(context.ArchivePath)
-                    && _archiveService.IsSupportedArchive(context.ArchivePath))
+                var resolvedKey = ResolveInstallerKey(platformKey, platformDisplayName, launchBoxPlatformName, _platformInstallers, context.Logger);
+                if (!string.IsNullOrWhiteSpace(resolvedKey) && !string.Equals(resolvedKey, platformKey, StringComparison.OrdinalIgnoreCase))
                 {
-                    var archivePolicy = context.PlatformMapping?.RomArchivePolicy ?? string.Empty;
-                    if (!string.Equals(archivePolicy, "Preserve", StringComparison.OrdinalIgnoreCase))
+                    context.Logger?.Warning($"Platform key mismatch. Provided='{platformKey}', Resolved='{resolvedKey}'.");
+                }
+
+                var keyToUse = string.IsNullOrWhiteSpace(resolvedKey) ? platformKey : resolvedKey;
+                _platformInstallers.TryGetInstaller(keyToUse, out var romInstaller);
+
+                if (romInstaller == null)
+                {
+                    context.Logger?.Warning($"Platform installer not found for RomM platform '{platformKey}'.");
+                }
+                else
+                {
+                    context.Logger?.Info($"Matched platform plugin: {romInstaller.DisplayName} ({romInstaller.PlatformKey}).");
+                }
+
+                if (romInstaller != null)
+                {
+                    progress?.Report(new InstallProgressEvent(Phase, $"Installing {context.Game.Title}...", 0));
+                    context.Logger?.Info($"ROM install input: ArchivePath='{context.ArchivePath ?? string.Empty}', ExtractedPath='{context.ExtractedPath ?? string.Empty}', InstallDir='{context.InstallDirectory}'.");
+
+                    if (context.PlatformMapping?.ExtractAfterDownload == false
+                        && !string.IsNullOrWhiteSpace(context.ArchivePath)
+                        && _archiveService.IsSupportedArchive(context.ArchivePath))
                     {
-                        progress?.Report(new InstallProgressEvent(InstallPhase.Extracting, "Extracting ROM archive...", 0));
-                        try
+                        var archivePolicy = context.PlatformMapping?.RomArchivePolicy ?? string.Empty;
+                        if (!string.Equals(archivePolicy, "Preserve", StringComparison.OrdinalIgnoreCase))
                         {
-                            var extractionRoot = Path.Combine(context.DownloadDirectory ?? context.InstallDirectory ?? string.Empty, ".staging", context.OperationId ?? Guid.NewGuid().ToString("N"), "extracted");
-                            context.Logger?.Info($"ROM install extraction requested; extracting archive '{context.ArchivePath}' to '{extractionRoot}'.");
-                            context.ExtractedPath = await _archiveService
-                                .ExtractAsync(context.ArchivePath, extractionRoot, ExtractionBehavior.Subfolder, cancellationToken)
-                                .ConfigureAwait(false);
-                            progress?.Report(new InstallProgressEvent(InstallPhase.Extracting, "ROM archive extracted.", 100));
-                        }
-                        catch (Exception ex)
-                        {
-                            context.Logger?.Error("ROM extraction failed before install.", ex);
-                            return InstallResult.Failed(Phase, $"Extraction failed: {ex.Message}");
+                            progress?.Report(new InstallProgressEvent(InstallPhase.Extracting, "Extracting ROM archive...", 0));
+                            try
+                            {
+                                var extractionRoot = Path.Combine(context.DownloadDirectory ?? context.InstallDirectory ?? string.Empty, ".staging", context.OperationId ?? Guid.NewGuid().ToString("N"), "extracted");
+                                context.Logger?.Info($"ROM install extraction requested; extracting archive '{context.ArchivePath}' to '{extractionRoot}'.");
+                                context.ExtractedPath = await _archiveService
+                                    .ExtractAsync(context.ArchivePath, extractionRoot, ExtractionBehavior.Subfolder, cancellationToken)
+                                    .ConfigureAwait(false);
+                                progress?.Report(new InstallProgressEvent(InstallPhase.Extracting, "ROM archive extracted.", 100));
+                            }
+                            catch (Exception ex)
+                            {
+                                context.Logger?.Error("ROM extraction failed before install.", ex);
+                                return InstallResult.Failed(Phase, $"Extraction failed: {ex.Message}");
+                            }
                         }
                     }
-                }
 
-                var platformContext = new RomM.Platforms.Abstractions.Models.Install.InstallContext
-                {
-                    GameName = context.Game.Title,
-                    InstallDirectory = context.InstallDirectory,
-                    ArchivePath = context.ArchivePath,
-                    ExtractedPath = context.ExtractedPath,
-                    Settings = PlatformInstallSettingsMapper.Map(context.PlatformMapping),
-                    RomSettings = PlatformInstallSettingsMapper.MapRomSettings(context.PlatformMapping),
-                    Logger = _platformLogger
-                };
-
-                var result = await romInstaller
-                    .InstallAsync(platformContext, new Progress<PlatformInstallProgress>(update =>
+                    var platformContext = new RomM.Platforms.Abstractions.Models.Install.InstallContext
                     {
-                        var percent = update.Percent.HasValue
-                            ? Math.Clamp(update.Percent.Value, 0, 100)
-                            : (double?)null;
-                        progress?.Report(new InstallProgressEvent(Phase, update.Message ?? "Installing...", percent));
-                    }), cancellationToken)
-                    .ConfigureAwait(false);
-                if (!result.Success)
-                {
-                    return InstallResult.Failed(Phase, result.Message ?? "ROM install failed.");
-                }
+                        GameName = context.Game.Title,
+                        InstallDirectory = context.InstallDirectory,
+                        ArchivePath = context.ArchivePath,
+                        ExtractedPath = context.ExtractedPath,
+                        Settings = PlatformInstallSettingsMapper.Map(context.PlatformMapping),
+                        RomSettings = PlatformInstallSettingsMapper.MapRomSettings(context.PlatformMapping),
+                        Logger = _platformLogger
+                    };
 
-                if (!string.IsNullOrWhiteSpace(result.ExecutablePath))
-                {
-                    context.InstalledExecutablePath = result.ExecutablePath;
-                    context.InstallerArguments = result.Arguments == null
-                        ? Array.Empty<string>()
-                        : result.Arguments.ToArray();
-                }
+                    var result = await romInstaller
+                        .InstallAsync(platformContext, new Progress<PlatformInstallProgress>(update =>
+                        {
+                            var percent = update.Percent.HasValue
+                                ? Math.Clamp(update.Percent.Value, 0, 100)
+                                : (double?)null;
+                            progress?.Report(new InstallProgressEvent(Phase, update.Message ?? "Installing...", percent));
+                        }), cancellationToken)
+                        .ConfigureAwait(false);
+                    if (!result.Success)
+                    {
+                        return InstallResult.Failed(Phase, result.Message ?? "ROM install failed.");
+                    }
 
-                context.InstallStateSnapshot.WindowsInstallType = result.InstallType?.ToString();
-                context.InstallStateSnapshot.InstallRootPath = result.InstallRootPath ?? context.InstallDirectory;
-                return InstallResult.Successful();
+                    if (!string.IsNullOrWhiteSpace(result.ExecutablePath))
+                    {
+                        context.InstalledExecutablePath = result.ExecutablePath;
+                        context.InstallerArguments = result.Arguments == null
+                            ? Array.Empty<string>()
+                            : result.Arguments.ToArray();
+                    }
+
+                    context.InstallStateSnapshot.WindowsInstallType = result.InstallType?.ToString();
+                    context.InstallStateSnapshot.InstallRootPath = result.InstallRootPath ?? context.InstallDirectory;
+                    return InstallResult.Successful();
+                }
             }
 
             if (installScenario == InstallScenario.Enhanced || installScenario == InstallScenario.Installer)
@@ -538,6 +563,70 @@ namespace RomMbox.Services.Install.Pipeline.Steps
             {
                 return new StagingCommitResult(false, message ?? "Install finalization failed.", string.Empty);
             }
+        }
+
+        internal static string ResolveInstallerKey(
+            string platformKey,
+            string platformDisplayName,
+            string launchBoxPlatformName,
+            PlatformInstallerRegistry registry,
+            Services.Logging.LoggingService logger)
+        {
+            if (registry == null)
+            {
+                return platformKey ?? string.Empty;
+            }
+
+            if (!string.IsNullOrWhiteSpace(platformKey)
+                && registry.TryGetInstaller(platformKey, out _))
+            {
+                return platformKey;
+            }
+
+            var candidates = new[]
+            {
+                platformDisplayName,
+                launchBoxPlatformName
+            };
+
+            var normalizedCandidates = candidates
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(NormalizePlatformToken)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            foreach (var entry in registry.GetAll())
+            {
+                var installer = entry.Value;
+                if (installer == null)
+                {
+                    continue;
+                }
+
+                var normalizedDisplay = NormalizePlatformToken(installer.DisplayName);
+                var normalizedKey = NormalizePlatformToken(installer.PlatformKey);
+                if (normalizedCandidates.Any(candidate => string.Equals(candidate, normalizedDisplay, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(candidate, normalizedKey, StringComparison.OrdinalIgnoreCase)
+                    || normalizedDisplay.Contains(candidate, StringComparison.OrdinalIgnoreCase)
+                    || candidate.Contains(normalizedDisplay, StringComparison.OrdinalIgnoreCase)))
+                {
+                    logger?.Info($"Resolved platform installer by name match: '{installer.DisplayName}' ({installer.PlatformKey}).");
+                    return installer.PlatformKey;
+                }
+            }
+
+            return platformKey ?? string.Empty;
+        }
+
+        private static string NormalizePlatformToken(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return string.Empty;
+            }
+
+            var normalized = new string(value.ToLowerInvariant().Where(char.IsLetterOrDigit).ToArray());
+            return normalized;
         }
 
     }

@@ -41,7 +41,8 @@ namespace RomMbox.Services
         ExtractionBehavior, InstallerMode, MusicRootPath, InstallOst, BonusRootPath, InstallBonus, PreReqsRootPath, InstallPreReqs,
         CustomInstallDirectory, InstallScenario, TargetImportFile, InstallerSilentArgs, SelfContained, AssociatedEmulatorId,
         OstInstallLocation, BonusInstallLocation, EmulatorCoreId, EmulatorCoreName, EmulatorCorePath, EmulatorLaunchArgs,
-        RomInstallRoot, RomArchivePolicy
+        RomInstallRoot, RomArchivePolicy, Ps3GameDirectory, Rpcs3ExecutablePath, InstallDlcAutomatically, InstallUpdatesAutomatically,
+        Rpcs3LicenseDirectory, SkipRegionMismatchedDlc, SkipUnmatchedRapFiles, PreferMetadataBasedPackageMatching
  FROM PlatformMappings
  WHERE RommPlatformId = $rommPlatformId;
  ";
@@ -78,7 +79,8 @@ namespace RomMbox.Services
         ExtractionBehavior, InstallerMode, MusicRootPath, InstallOst, BonusRootPath, InstallBonus, PreReqsRootPath, InstallPreReqs,
         CustomInstallDirectory, InstallScenario, TargetImportFile, InstallerSilentArgs, SelfContained, AssociatedEmulatorId,
         OstInstallLocation, BonusInstallLocation, EmulatorCoreId, EmulatorCoreName, EmulatorCorePath, EmulatorLaunchArgs,
-        RomInstallRoot, RomArchivePolicy
+        RomInstallRoot, RomArchivePolicy, Ps3GameDirectory, Rpcs3ExecutablePath, InstallDlcAutomatically, InstallUpdatesAutomatically,
+        Rpcs3LicenseDirectory, SkipRegionMismatchedDlc, SkipUnmatchedRapFiles, PreferMetadataBasedPackageMatching
  FROM PlatformMappings;
  ";
                 using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
@@ -139,15 +141,17 @@ namespace RomMbox.Services
      ExtractionBehavior, InstallerMode, MusicRootPath, InstallOst, BonusRootPath, InstallBonus, PreReqsRootPath, InstallPreReqs,
      CustomInstallDirectory, InstallScenario, TargetImportFile, InstallerSilentArgs, SelfContained, AssociatedEmulatorId,
      OstInstallLocation, BonusInstallLocation, EmulatorCoreId, EmulatorCoreName, EmulatorCorePath, EmulatorLaunchArgs,
-     RomInstallRoot, RomArchivePolicy
- ) VALUES (
+     RomInstallRoot, RomArchivePolicy, Ps3GameDirectory, Rpcs3ExecutablePath, InstallDlcAutomatically, InstallUpdatesAutomatically,
+     Rpcs3LicenseDirectory, SkipRegionMismatchedDlc, SkipUnmatchedRapFiles, PreferMetadataBasedPackageMatching
+  ) VALUES (
      $rommPlatformId, $rommPlatformName, $launchBoxPlatformName, $autoMapped, $disableAutoImport, $extractAfterDownload,
      $extractionBehavior, $installerMode, $musicRootPath, $installOst, $bonusRootPath, $installBonus, $preReqsRootPath, $installPreReqs,
      $customInstallDirectory, $installScenario, $targetImportFile, $installerSilentArgs, $selfContained, $associatedEmulatorId,
      $ostInstallLocation, $bonusInstallLocation, $emulatorCoreId, $emulatorCoreName, $emulatorCorePath, $emulatorLaunchArgs,
-     $romInstallRoot, $romArchivePolicy
- )
- ON CONFLICT(RommPlatformId) DO UPDATE SET
+     $romInstallRoot, $romArchivePolicy, $ps3GameDirectory, $rpcs3ExecutablePath, $installDlcAutomatically, $installUpdatesAutomatically,
+     $rpcs3LicenseDirectory, $skipRegionMismatchedDlc, $skipUnmatchedRapFiles, $preferMetadataBasedPackageMatching
+  )
+  ON CONFLICT(RommPlatformId) DO UPDATE SET
      RommPlatformName = excluded.RommPlatformName,
      LaunchBoxPlatformName = excluded.LaunchBoxPlatformName,
      AutoMapped = excluded.AutoMapped,
@@ -174,8 +178,16 @@ namespace RomMbox.Services
      EmulatorCorePath = excluded.EmulatorCorePath,
      EmulatorLaunchArgs = excluded.EmulatorLaunchArgs,
      RomInstallRoot = excluded.RomInstallRoot,
-     RomArchivePolicy = excluded.RomArchivePolicy;
- ";
+     RomArchivePolicy = excluded.RomArchivePolicy,
+     Ps3GameDirectory = excluded.Ps3GameDirectory,
+     Rpcs3ExecutablePath = excluded.Rpcs3ExecutablePath,
+     InstallDlcAutomatically = excluded.InstallDlcAutomatically,
+     InstallUpdatesAutomatically = excluded.InstallUpdatesAutomatically,
+     Rpcs3LicenseDirectory = excluded.Rpcs3LicenseDirectory,
+     SkipRegionMismatchedDlc = excluded.SkipRegionMismatchedDlc,
+     SkipUnmatchedRapFiles = excluded.SkipUnmatchedRapFiles,
+     PreferMetadataBasedPackageMatching = excluded.PreferMetadataBasedPackageMatching;
+  ";
                     command.Parameters.AddWithValue("$rommPlatformId", mapping.RommPlatformId ?? string.Empty);
                     command.Parameters.AddWithValue("$rommPlatformName", mapping.RommPlatformName ?? string.Empty);
                     command.Parameters.AddWithValue("$launchBoxPlatformName", mapping.LaunchBoxPlatformName ?? string.Empty);
@@ -204,6 +216,14 @@ namespace RomMbox.Services
                     command.Parameters.AddWithValue("$emulatorLaunchArgs", mapping.EmulatorLaunchArgs ?? string.Empty);
                     command.Parameters.AddWithValue("$romInstallRoot", mapping.RomInstallRoot ?? string.Empty);
                     command.Parameters.AddWithValue("$romArchivePolicy", mapping.RomArchivePolicy ?? string.Empty);
+                    command.Parameters.AddWithValue("$ps3GameDirectory", mapping.Ps3GameDirectory ?? string.Empty);
+                    command.Parameters.AddWithValue("$rpcs3ExecutablePath", mapping.Rpcs3ExecutablePath ?? string.Empty);
+                    command.Parameters.AddWithValue("$installDlcAutomatically", mapping.InstallDlcAutomatically ? 1 : 0);
+                    command.Parameters.AddWithValue("$installUpdatesAutomatically", mapping.InstallUpdatesAutomatically ? 1 : 0);
+                    command.Parameters.AddWithValue("$rpcs3LicenseDirectory", mapping.Rpcs3LicenseDirectory ?? string.Empty);
+                    command.Parameters.AddWithValue("$skipRegionMismatchedDlc", mapping.SkipRegionMismatchedDlc ? 1 : 0);
+                    command.Parameters.AddWithValue("$skipUnmatchedRapFiles", mapping.SkipUnmatchedRapFiles ? 1 : 0);
+                    command.Parameters.AddWithValue("$preferMetadataBasedPackageMatching", mapping.PreferMetadataBasedPackageMatching ? 1 : 0);
                     await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
                 }
 
@@ -431,6 +451,18 @@ ON CONFLICT(AliasId) DO UPDATE SET
                 mapping.EmulatorLaunchArgs = reader.IsDBNull(25) ? string.Empty : reader.GetString(25);
                 mapping.RomInstallRoot = reader.IsDBNull(26) ? string.Empty : reader.GetString(26);
                 mapping.RomArchivePolicy = reader.IsDBNull(27) ? string.Empty : reader.GetString(27);
+            }
+
+            if (reader.FieldCount > 35)
+            {
+                mapping.Ps3GameDirectory = reader.IsDBNull(28) ? string.Empty : reader.GetString(28);
+                mapping.Rpcs3ExecutablePath = reader.IsDBNull(29) ? string.Empty : reader.GetString(29);
+                mapping.InstallDlcAutomatically = !reader.IsDBNull(30) && reader.GetInt32(30) == 1;
+                mapping.InstallUpdatesAutomatically = !reader.IsDBNull(31) && reader.GetInt32(31) == 1;
+                mapping.Rpcs3LicenseDirectory = reader.IsDBNull(32) ? string.Empty : reader.GetString(32);
+                mapping.SkipRegionMismatchedDlc = !reader.IsDBNull(33) && reader.GetInt32(33) == 1;
+                mapping.SkipUnmatchedRapFiles = !reader.IsDBNull(34) && reader.GetInt32(34) == 1;
+                mapping.PreferMetadataBasedPackageMatching = !reader.IsDBNull(35) && reader.GetInt32(35) == 1;
             }
 
             var extractionBehaviorText = reader.IsDBNull(6) ? string.Empty : reader.GetString(6);

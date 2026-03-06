@@ -295,6 +295,21 @@ namespace RomMbox.Services.Settings
                 {
                     mapping.RomArchivePolicy = string.Empty;
                 }
+
+                if (mapping.Ps3GameDirectory == null)
+                {
+                    mapping.Ps3GameDirectory = string.Empty;
+                }
+
+                if (mapping.Rpcs3ExecutablePath == null)
+                {
+                    mapping.Rpcs3ExecutablePath = string.Empty;
+                }
+
+                if (mapping.Rpcs3LicenseDirectory == null)
+                {
+                    mapping.Rpcs3LicenseDirectory = string.Empty;
+                }
             }
         }
     }

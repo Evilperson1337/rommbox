@@ -459,7 +459,15 @@ public sealed class PlatformsViewModel : ObservableObject
                         EmulatorCorePath = mapping.EmulatorCorePath,
                         EmulatorLaunchArgs = mapping.EmulatorLaunchArgs,
                         RomInstallRoot = mapping.RomInstallRoot,
-                        RomArchivePolicy = mapping.RomArchivePolicy
+                        RomArchivePolicy = mapping.RomArchivePolicy,
+                        Ps3GameDirectory = mapping.Ps3GameDirectory,
+                        Rpcs3ExecutablePath = mapping.Rpcs3ExecutablePath,
+                        InstallDlcAutomatically = mapping.InstallDlcAutomatically,
+                        InstallUpdatesAutomatically = mapping.InstallUpdatesAutomatically,
+                        Rpcs3LicenseDirectory = mapping.Rpcs3LicenseDirectory,
+                        SkipRegionMismatchedDlc = mapping.SkipRegionMismatchedDlc,
+                        SkipUnmatchedRapFiles = mapping.SkipUnmatchedRapFiles,
+                        PreferMetadataBasedPackageMatching = mapping.PreferMetadataBasedPackageMatching
                     };
                 })
                 .ToArray();

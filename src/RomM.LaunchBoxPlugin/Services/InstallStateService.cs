@@ -121,7 +121,15 @@ CREATE TABLE IF NOT EXISTS InstallStateMetadata (
      EmulatorCorePath TEXT,
      EmulatorLaunchArgs TEXT,
      RomInstallRoot TEXT,
-     RomArchivePolicy TEXT
+     RomArchivePolicy TEXT,
+     Ps3GameDirectory TEXT,
+     Rpcs3ExecutablePath TEXT,
+     InstallDlcAutomatically INTEGER NOT NULL DEFAULT 0,
+     InstallUpdatesAutomatically INTEGER NOT NULL DEFAULT 0,
+     Rpcs3LicenseDirectory TEXT,
+     SkipRegionMismatchedDlc INTEGER NOT NULL DEFAULT 0,
+     SkipUnmatchedRapFiles INTEGER NOT NULL DEFAULT 0,
+     PreferMetadataBasedPackageMatching INTEGER NOT NULL DEFAULT 0
  );
 CREATE TABLE IF NOT EXISTS PlatformMappingAliases (
     AliasId TEXT PRIMARY KEY,
@@ -1595,14 +1603,22 @@ ON CONFLICT(Key) DO UPDATE SET Value = excluded.Value;
             await AddColumnIfMissingAsync(connection, columns, "InstallerSilentArgs", "TEXT", cancellationToken).ConfigureAwait(false);
             await AddColumnIfMissingAsync(connection, columns, "SelfContained", "INTEGER NOT NULL DEFAULT 1", cancellationToken).ConfigureAwait(false);
             await AddColumnIfMissingAsync(connection, columns, "AssociatedEmulatorId", "TEXT", cancellationToken).ConfigureAwait(false);
-                await AddColumnIfMissingAsync(connection, columns, "OstInstallLocation", "TEXT", cancellationToken).ConfigureAwait(false);
-                await AddColumnIfMissingAsync(connection, columns, "BonusInstallLocation", "TEXT", cancellationToken).ConfigureAwait(false);
-                await AddColumnIfMissingAsync(connection, columns, "EmulatorCoreId", "TEXT", cancellationToken).ConfigureAwait(false);
-                await AddColumnIfMissingAsync(connection, columns, "EmulatorCoreName", "TEXT", cancellationToken).ConfigureAwait(false);
-                await AddColumnIfMissingAsync(connection, columns, "EmulatorCorePath", "TEXT", cancellationToken).ConfigureAwait(false);
-                await AddColumnIfMissingAsync(connection, columns, "EmulatorLaunchArgs", "TEXT", cancellationToken).ConfigureAwait(false);
-                await AddColumnIfMissingAsync(connection, columns, "RomInstallRoot", "TEXT", cancellationToken).ConfigureAwait(false);
-                await AddColumnIfMissingAsync(connection, columns, "RomArchivePolicy", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "OstInstallLocation", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "BonusInstallLocation", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "EmulatorCoreId", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "EmulatorCoreName", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "EmulatorCorePath", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "EmulatorLaunchArgs", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "RomInstallRoot", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "RomArchivePolicy", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "Ps3GameDirectory", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "Rpcs3ExecutablePath", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "InstallDlcAutomatically", "INTEGER NOT NULL DEFAULT 0", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "InstallUpdatesAutomatically", "INTEGER NOT NULL DEFAULT 0", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "Rpcs3LicenseDirectory", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "SkipRegionMismatchedDlc", "INTEGER NOT NULL DEFAULT 0", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "SkipUnmatchedRapFiles", "INTEGER NOT NULL DEFAULT 0", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "PreferMetadataBasedPackageMatching", "INTEGER NOT NULL DEFAULT 0", cancellationToken).ConfigureAwait(false);
         }
 
         private static async Task AddColumnIfMissingAsync(SqliteConnection connection, HashSet<string> columns, string columnName, string columnDefinition, CancellationToken cancellationToken)

@@ -177,6 +177,54 @@ public sealed class PlatformMapping : ObservableObject
     /// Gets or sets a custom install directory override.
     /// </summary>
     public string CustomInstallDirectory { get => _customInstallDirectory; set => SetProperty(ref _customInstallDirectory, value); }
+
+    private string _ps3GameDirectory = "";
+    /// <summary>
+    /// Gets or sets the PS3 games directory override.
+    /// </summary>
+    public string Ps3GameDirectory { get => _ps3GameDirectory; set => SetProperty(ref _ps3GameDirectory, value); }
+
+    private string _rpcs3ExecutablePath = "";
+    /// <summary>
+    /// Gets or sets the RPCS3 executable path.
+    /// </summary>
+    public string Rpcs3ExecutablePath { get => _rpcs3ExecutablePath; set => SetProperty(ref _rpcs3ExecutablePath, value); }
+
+    private bool _installDlcAutomatically;
+    /// <summary>
+    /// Gets or sets whether DLC should be installed automatically.
+    /// </summary>
+    public bool InstallDlcAutomatically { get => _installDlcAutomatically; set => SetProperty(ref _installDlcAutomatically, value); }
+
+    private bool _installUpdatesAutomatically;
+    /// <summary>
+    /// Gets or sets whether updates should be installed automatically.
+    /// </summary>
+    public bool InstallUpdatesAutomatically { get => _installUpdatesAutomatically; set => SetProperty(ref _installUpdatesAutomatically, value); }
+
+    private string _rpcs3LicenseDirectory = "";
+    /// <summary>
+    /// Gets or sets the RPCS3 license directory override.
+    /// </summary>
+    public string Rpcs3LicenseDirectory { get => _rpcs3LicenseDirectory; set => SetProperty(ref _rpcs3LicenseDirectory, value); }
+
+    private bool _skipRegionMismatchedDlc;
+    /// <summary>
+    /// Gets or sets whether region-mismatched DLC should be skipped.
+    /// </summary>
+    public bool SkipRegionMismatchedDlc { get => _skipRegionMismatchedDlc; set => SetProperty(ref _skipRegionMismatchedDlc, value); }
+
+    private bool _skipUnmatchedRapFiles;
+    /// <summary>
+    /// Gets or sets whether unmatched RAP files should be skipped.
+    /// </summary>
+    public bool SkipUnmatchedRapFiles { get => _skipUnmatchedRapFiles; set => SetProperty(ref _skipUnmatchedRapFiles, value); }
+
+    private bool _preferMetadataBasedPackageMatching;
+    /// <summary>
+    /// Gets or sets whether metadata-based package matching is preferred.
+    /// </summary>
+    public bool PreferMetadataBasedPackageMatching { get => _preferMetadataBasedPackageMatching; set => SetProperty(ref _preferMetadataBasedPackageMatching, value); }
 }
 
 /// <summary>

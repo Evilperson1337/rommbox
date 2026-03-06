@@ -61,9 +61,15 @@ namespace RomMbox.Services.Install
 
                 // Clean the on-disk content first, then update LaunchBox metadata.
                 _logger?.Info($"Uninstall cleanup invoking for '{game.Title}'.");
-                var (removedFiles, cleanupMessage) = CleanupLocalContent(game, state);
+                var (removedFiles, cleanupMessage, fullyRemoved) = CleanupLocalContent(game, state);
                 _logger?.Info($"Uninstall cleanup finished for '{game.Title}'. RemovedFiles={removedFiles}.");
                 _logger?.Info($"RomM delete/uninstall cleanup for '{game.Title}': RemovedFiles={removedFiles}, Message={cleanupMessage ?? "none"}.");
+
+                if (wasInstalled && (!fullyRemoved || removedFiles == 0))
+                {
+                    _logger?.Warning($"Uninstall cleanup incomplete for '{game.Title}'. Skipping metadata cleanup.");
+                    return RomMDeleteResult.Failed("Uninstall cleanup was incomplete; local files remain on disk.");
+                }
 
                 if (wasInstalled)
                 {
@@ -176,7 +182,7 @@ namespace RomMbox.Services.Install
         /// Deletes local files/directories tied to a RomM install, with safeguards
         /// to prevent deleting paths that do not clearly belong to the game.
         /// </summary>
-        private (int RemovedCount, string Message) CleanupLocalContent(IGame game, InstallState state)
+        private (int RemovedCount, string Message, bool FullyRemoved) CleanupLocalContent(IGame game, InstallState state)
         {
             var removed = 0;
             var messages = new System.Collections.Generic.List<string>();
@@ -227,9 +233,15 @@ namespace RomMbox.Services.Install
                 removed += TryDeletePath(appPath, messages);
             }
 
+            var fullyRemoved = string.IsNullOrWhiteSpace(installRoot) || !Directory.Exists(installRoot);
+            if (!fullyRemoved)
+            {
+                messages.Add($"Install root still present after uninstall: '{installRoot}'.");
+            }
+
             var emptyFolders = messages.Count == 0 ? null : string.Join("; ", messages);
             _logger?.Info($"Uninstall cleanup completed for '{game?.Title}': RemovedFiles={removed}, Message='{emptyFolders ?? "none"}'.");
-            return (removed, emptyFolders);
+            return (removed, emptyFolders, fullyRemoved);
         }
 
         /// <summary>
@@ -401,6 +413,15 @@ namespace RomMbox.Services.Install
                 return root;
             }
 
+            _logger?.Info($"Resolved install root '{normalizedRoot}', installed path '{normalizedInstalled}'.");
+            _logger?.Info($"Shared folder detection for '{normalizedRoot}': PS3GameRoot={IsPs3GameRoot(normalizedRoot)}.");
+
+            if (IsPs3GameRoot(normalizedRoot))
+            {
+                _logger?.Info($"PS3 game root detected at '{normalizedRoot}'. Using install root for uninstall.");
+                return root;
+            }
+
             if (string.Equals(normalizedRoot, normalizedInstalled, StringComparison.OrdinalIgnoreCase))
             {
                 return root;
@@ -408,6 +429,23 @@ namespace RomMbox.Services.Install
 
             messages?.Add($"Install root '{normalizedRoot}' appears to be a shared folder; uninstall will target '{normalizedInstalled}' instead.");
             return normalizedInstalled;
+        }
+
+        private static bool IsPs3GameRoot(string root)
+        {
+            if (string.IsNullOrWhiteSpace(root))
+            {
+                return false;
+            }
+
+            try
+            {
+                return Directory.Exists(Path.Combine(root, "PS3_GAME"));
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         /// <summary>
