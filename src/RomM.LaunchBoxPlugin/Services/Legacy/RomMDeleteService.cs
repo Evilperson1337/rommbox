@@ -319,7 +319,8 @@ namespace RomMbox.Services.Install
             var root = state?.InstallRootPath;
             if (!string.IsNullOrWhiteSpace(root))
             {
-                return root;
+                var adjustedRoot = TryResolveSafeInstallRoot(root, state?.InstalledPath, game?.ApplicationPath, messages);
+                return adjustedRoot;
             }
 
             var installedPath = state?.InstalledPath;
@@ -341,11 +342,72 @@ namespace RomMbox.Services.Install
 
             if (File.Exists(installedPath))
             {
-                return Path.GetDirectoryName(installedPath) ?? string.Empty;
+                var rootPath = Path.GetDirectoryName(installedPath) ?? string.Empty;
+                return TryResolveSafeInstallRoot(rootPath, installedPath, null, messages);
             }
 
             messages?.Add($"Install root not found on disk for '{installedPath}'.");
             return string.Empty;
+        }
+
+        private string TryResolveSafeInstallRoot(
+            string root,
+            string installedPath,
+            string fallbackInstalledPath,
+            System.Collections.Generic.List<string> messages)
+        {
+            if (string.IsNullOrWhiteSpace(root))
+            {
+                return string.Empty;
+            }
+
+            var resolvedInstalledPath = installedPath;
+            if (string.IsNullOrWhiteSpace(resolvedInstalledPath))
+            {
+                resolvedInstalledPath = fallbackInstalledPath;
+            }
+
+            if (string.IsNullOrWhiteSpace(resolvedInstalledPath))
+            {
+                return root;
+            }
+
+            string installedDirectory;
+            if (Directory.Exists(resolvedInstalledPath))
+            {
+                installedDirectory = resolvedInstalledPath;
+            }
+            else if (File.Exists(resolvedInstalledPath))
+            {
+                installedDirectory = Path.GetDirectoryName(resolvedInstalledPath) ?? string.Empty;
+            }
+            else
+            {
+                return root;
+            }
+
+            if (string.IsNullOrWhiteSpace(installedDirectory))
+            {
+                return root;
+            }
+
+            var normalizedRoot = Path.GetFullPath(root)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var normalizedInstalled = Path.GetFullPath(installedDirectory)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+            if (!normalizedInstalled.StartsWith(normalizedRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
+            {
+                return root;
+            }
+
+            if (string.Equals(normalizedRoot, normalizedInstalled, StringComparison.OrdinalIgnoreCase))
+            {
+                return root;
+            }
+
+            messages?.Add($"Install root '{normalizedRoot}' appears to be a shared folder; uninstall will target '{normalizedInstalled}' instead.");
+            return normalizedInstalled;
         }
 
         /// <summary>

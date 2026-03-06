@@ -144,7 +144,7 @@ namespace RomMbox.Services
                 result.Success = true;
                 if (extractedArchive)
                 {
-                    result.ArchivePath = null;
+                    result.ArchivePath = archivePath;
                 }
                 result.TempRoot = tempRoot;
                 return result;

@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.IO;
 using System.Xml.Linq;
@@ -7,9 +6,11 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using RomMbox.Models.Install;
+using RomMbox.Models.PlatformFolders;
 using RomMbox.Services.Paths;
 using RomMbox.Services.Settings;
 using RomMbox.Services.Logging;
+using RomMbox.Services.PlatformFolders;
 using Unbroken.LaunchBox.Plugins;
 using Unbroken.LaunchBox.Plugins.Data;
 
@@ -22,6 +23,7 @@ namespace RomMbox.Services.Install
     {
         private readonly LoggingService _logger;
         private readonly SettingsManager _settingsManager;
+        private readonly PlatformFolderResolver _folderResolver;
 
         /// <summary>
         /// Creates a new install destination service.
@@ -32,6 +34,7 @@ namespace RomMbox.Services.Install
         {
             _logger = logger;
             _settingsManager = settingsManager;
+            _folderResolver = new PlatformFolderResolver(_logger);
         }
 
         /// <summary>
@@ -131,28 +134,72 @@ namespace RomMbox.Services.Install
                 return string.Empty;
             }
 
-            var entries = GetPlatformFolderEntriesByMediaType(
-                platform,
-                candidate => string.Equals(candidate?.Trim(), mediaType.Trim(), StringComparison.OrdinalIgnoreCase));
-            var match = entries.FirstOrDefault(entry => !string.IsNullOrWhiteSpace(entry.Path));
-            if (match == null)
+            var entry = _folderResolver
+                .GetPlatformFolders(platform)
+                .FirstOrDefault(folder => string.Equals(folder.Name?.Trim(), mediaType.Trim(), StringComparison.OrdinalIgnoreCase));
+            if (entry == null || string.IsNullOrWhiteSpace(entry.Path))
             {
                 _logger?.Info($"No platform media folder matched '{mediaType}' for '{platform.Name ?? string.Empty}'.");
                 return string.Empty;
             }
 
-            if (Path.IsPathRooted(match.Path))
-            {
-                return match.Path;
-            }
+            return entry.Path;
+        }
 
-            var root = PluginPaths.GetLaunchBoxRootDirectory();
-            if (!string.IsNullOrWhiteSpace(root))
-            {
-                return Path.Combine(root, match.Path);
-            }
+        /// <summary>
+        /// Resolves a configured platform folder by type.
+        /// </summary>
+        /// <param name="platformName">LaunchBox platform name.</param>
+        /// <param name="folderType">The platform folder type to resolve.</param>
+        /// <returns>The resolved folder path or empty string.</returns>
+        public string GetPlatformFolder(string platformName, PlatformFolderType folderType)
+        {
+            return _folderResolver.GetPlatformFolder(platformName, folderType);
+        }
 
-            return match.Path;
+        /// <summary>
+        /// Resolves the configured platform games folder.
+        /// </summary>
+        /// <param name="platformName">LaunchBox platform name.</param>
+        public string GetPlatformGamesFolder(string platformName)
+        {
+            return _folderResolver.GetPlatformGamesFolder(platformName);
+        }
+
+        /// <summary>
+        /// Resolves the configured platform manuals folder.
+        /// </summary>
+        /// <param name="platformName">LaunchBox platform name.</param>
+        public string GetPlatformManualsFolder(string platformName)
+        {
+            return _folderResolver.GetPlatformManualsFolder(platformName);
+        }
+
+        /// <summary>
+        /// Resolves the configured platform music folder.
+        /// </summary>
+        /// <param name="platformName">LaunchBox platform name.</param>
+        public string GetPlatformMusicFolder(string platformName)
+        {
+            return _folderResolver.GetPlatformMusicFolder(platformName);
+        }
+
+        /// <summary>
+        /// Resolves the configured platform images folder.
+        /// </summary>
+        /// <param name="platformName">LaunchBox platform name.</param>
+        public string GetPlatformImagesFolder(string platformName)
+        {
+            return _folderResolver.GetPlatformImagesFolder(platformName);
+        }
+
+        /// <summary>
+        /// Resolves the configured platform videos folder.
+        /// </summary>
+        /// <param name="platformName">LaunchBox platform name.</param>
+        public string GetPlatformVideosFolder(string platformName)
+        {
+            return _folderResolver.GetPlatformVideosFolder(platformName);
         }
 
         /// <summary>
@@ -306,29 +353,10 @@ namespace RomMbox.Services.Install
             _logger?.Info($"ResolvePlatformRomFolder: Platform='{platform.Name ?? string.Empty}', PlatformFolder='{defaultFolder ?? string.Empty}'.");
             if (!string.IsNullOrWhiteSpace(defaultFolder))
             {
-                _logger?.Info($"Platform folder configured: '{defaultFolder}'.");
-                if (Path.IsPathRooted(defaultFolder))
+                var resolvedDefault = ResolveConfiguredFolder(defaultFolder, "Platform.Folder", defaultFolder);
+                if (!string.IsNullOrWhiteSpace(resolvedDefault))
                 {
-                    _logger?.Info($"Platform folder is rooted: '{defaultFolder}'. Exists={Directory.Exists(defaultFolder)}");
-                    return defaultFolder;
-                }
-
-                var launchBoxRootLocal = PluginPaths.GetLaunchBoxRootDirectory();
-                _logger?.Info($"LaunchBox root resolved to '{launchBoxRootLocal}'.");
-                if (!string.IsNullOrWhiteSpace(launchBoxRootLocal))
-                {
-                    var combined = Path.Combine(launchBoxRootLocal, defaultFolder);
-                    _logger?.Info($"Combined platform folder path: '{combined}'. Exists={Directory.Exists(combined)}");
-                    if (Directory.Exists(combined))
-                    {
-                        return combined;
-                    }
-                }
-
-                _logger?.Info($"Relative platform folder exists without root: Exists={Directory.Exists(defaultFolder)}");
-                if (Directory.Exists(defaultFolder))
-                {
-                    return defaultFolder;
+                    return resolvedDefault;
                 }
             }
             else
@@ -336,11 +364,20 @@ namespace RomMbox.Services.Install
                 _logger?.Info("Platform folder is empty; attempting to resolve from existing games and LaunchBox root.");
             }
 
+            var configuredFolder = _folderResolver.GetPlatformFolder(platform, PlatformFolderType.Games);
+            if (!string.IsNullOrWhiteSpace(configuredFolder))
+            {
+                return configuredFolder;
+            }
+
             var xmlFolder = TryResolvePlatformFolderFromXml(platform.Name);
             if (!string.IsNullOrWhiteSpace(xmlFolder))
             {
-                _logger?.Info($"Resolved platform ROM folder from platform XML: '{xmlFolder}'.");
-                return xmlFolder;
+                var resolvedXml = ResolveConfiguredFolder(xmlFolder, "PlatformXml", xmlFolder);
+                if (!string.IsNullOrWhiteSpace(resolvedXml))
+                {
+                    return resolvedXml;
+                }
             }
 
             if (!IsWindowsPlatform(platform.Name)
@@ -367,12 +404,39 @@ namespace RomMbox.Services.Install
                             }
                         }
 
-                        directory = Path.GetDirectoryName(directory);
-
-                        if (!string.IsNullOrWhiteSpace(directory) && Directory.Exists(directory))
+                        var gameDirectory = directory;
+                        if (string.IsNullOrWhiteSpace(gameDirectory))
                         {
-                            _logger?.Info($"Resolved platform ROM folder from existing game path: {directory}");
-                            return directory;
+                            continue;
+                        }
+
+                        var platformCandidate = Path.GetDirectoryName(gameDirectory);
+                        if (string.IsNullOrWhiteSpace(platformCandidate))
+                        {
+                            continue;
+                        }
+
+                        var launchBoxRootLocal = PluginPaths.GetLaunchBoxRootDirectory();
+                        var gamesRoot = string.IsNullOrWhiteSpace(launchBoxRootLocal)
+                            ? null
+                            : Path.Combine(launchBoxRootLocal, "Games");
+                        if (!string.IsNullOrWhiteSpace(gamesRoot))
+                        {
+                            var normalizedGamesRoot = Path.GetFullPath(gamesRoot)
+                                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                            var normalizedCandidate = Path.GetFullPath(platformCandidate)
+                                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                            if (string.Equals(normalizedGamesRoot, normalizedCandidate, StringComparison.OrdinalIgnoreCase))
+                            {
+                                _logger?.Info($"Existing game path resolved to shared Games root '{normalizedCandidate}'. Skipping.");
+                                continue;
+                            }
+                        }
+
+                        if (Directory.Exists(platformCandidate))
+                        {
+                            _logger?.Info($"Resolved platform ROM folder from existing game path: {platformCandidate}");
+                            return platformCandidate;
                         }
                     }
                     catch
@@ -391,11 +455,8 @@ namespace RomMbox.Services.Install
             if (!string.IsNullOrWhiteSpace(launchBoxRoot) && !string.IsNullOrWhiteSpace(platform.Name))
             {
                 var fallback = Path.Combine(launchBoxRoot, "Games", platform.Name);
-                if (Directory.Exists(fallback))
-                {
-                    _logger?.Info($"Resolved platform ROM folder from LaunchBox Games folder: {fallback}");
-                    return fallback;
-                }
+                _logger?.Warning($"Platform folder not found in metadata for '{platform.Name}'. Falling back to '{fallback}'. Exists={Directory.Exists(fallback)}");
+                return fallback;
             }
 
             return string.Empty;
@@ -419,6 +480,7 @@ namespace RomMbox.Services.Install
                 var platformPath = ResolvePlatformXmlPath(platformName, launchBoxRoot);
                 if (string.IsNullOrWhiteSpace(platformPath) || !File.Exists(platformPath))
                 {
+                    _logger?.Info($"Platform XML not found for '{platformName}'. Path='{platformPath ?? string.Empty}'.");
                     return string.Empty;
                 }
 
@@ -426,6 +488,7 @@ namespace RomMbox.Services.Install
                 var folderValue = doc.Root?.Element("Folder")?.Value?.Trim();
                 if (string.IsNullOrWhiteSpace(folderValue))
                 {
+                    _logger?.Info($"Platform XML folder value missing for '{platformName}'.");
                     return string.Empty;
                 }
 
@@ -441,6 +504,51 @@ namespace RomMbox.Services.Install
                 _logger?.Warning($"Failed to resolve platform folder from XML for '{platformName}': {ex.Message}");
                 return string.Empty;
             }
+        }
+
+        private string ResolveConfiguredFolder(string folderValue, string source, string configuredValue)
+        {
+            if (string.IsNullOrWhiteSpace(folderValue))
+            {
+                return string.Empty;
+            }
+
+            if (ShouldIgnoreConfiguredFolder(configuredValue, source))
+            {
+                return string.Empty;
+            }
+
+            var resolved = folderValue;
+            if (!Path.IsPathRooted(resolved))
+            {
+                var launchBoxRootLocal = PluginPaths.GetLaunchBoxRootDirectory();
+                _logger?.Info($"LaunchBox root resolved to '{launchBoxRootLocal}'.");
+                if (!string.IsNullOrWhiteSpace(launchBoxRootLocal))
+                {
+                    resolved = Path.Combine(launchBoxRootLocal, resolved);
+                }
+            }
+
+            _logger?.Info($"Resolved platform folder from {source}: '{resolved}'. Exists={Directory.Exists(resolved)}");
+            return resolved;
+        }
+
+        private bool ShouldIgnoreConfiguredFolder(string folderValue, string source)
+        {
+            if (string.IsNullOrWhiteSpace(folderValue))
+            {
+                return true;
+            }
+
+            var normalized = folderValue.Replace('\\', '/');
+            if (normalized.IndexOf("/images/", StringComparison.OrdinalIgnoreCase) >= 0
+                || normalized.StartsWith("images/", StringComparison.OrdinalIgnoreCase))
+            {
+                _logger?.Warning($"Ignoring {source} folder value '{folderValue}' because it points to Images.");
+                return true;
+            }
+
+            return false;
         }
 
         private static string ResolvePlatformXmlPath(string platformName, string launchBoxRoot)
@@ -491,161 +599,5 @@ namespace RomMbox.Services.Install
             return Path.Combine(launchBoxRoot, "Games", "Windows");
         }
 
-        private string TryResolvePlatformFolderFromFolders(IPlatform platform, Func<string, bool> mediaTypeFilter)
-        {
-            try
-            {
-                var entries = GetPlatformFolderEntries(platform);
-                if (entries.Count == 0)
-                {
-                    return string.Empty;
-                }
-
-                if (mediaTypeFilter != null)
-                {
-                    foreach (var entry in entries)
-                    {
-                        if (!mediaTypeFilter(entry.MediaType ?? string.Empty))
-                        {
-                            continue;
-                        }
-
-                        if (!string.IsNullOrWhiteSpace(entry.Path))
-                        {
-                            _logger?.Info($"Resolved platform folder from platform folders: '{entry.Path}' (Type='{entry.TypeName}', MediaType='{entry.MediaType ?? string.Empty}').");
-                            return entry.Path;
-                        }
-                    }
-                }
-
-                var gameEntry = entries.FirstOrDefault(entry => IsGameMediaType(entry.MediaType) && !string.IsNullOrWhiteSpace(entry.Path));
-                if (gameEntry != null)
-                {
-                    _logger?.Info($"Resolved platform folder from Game media type: '{gameEntry.Path}' (Type='{gameEntry.TypeName}', MediaType='{gameEntry.MediaType ?? string.Empty}').");
-                    return gameEntry.Path;
-                }
-
-                var fallbackEntry = entries.FirstOrDefault(entry => !string.IsNullOrWhiteSpace(entry.Path));
-                if (fallbackEntry != null)
-                {
-                    _logger?.Info($"Resolved platform folder from first available entry: '{fallbackEntry.Path}' (Type='{fallbackEntry.TypeName}', MediaType='{fallbackEntry.MediaType ?? string.Empty}').");
-                    return fallbackEntry.Path;
-                }
-
-                if (mediaTypeFilter != null)
-                {
-                    _logger?.Info($"No platform folders matched the requested media type filter for '{platform?.Name ?? string.Empty}'.");
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger?.Warning($"Failed to read platform folders for '{platform?.Name ?? string.Empty}': {ex.Message}");
-            }
-
-            return string.Empty;
-        }
-
-        private sealed class PlatformFolderEntry
-        {
-            public PlatformFolderEntry(string path, string mediaType, string typeName)
-            {
-                Path = path;
-                MediaType = mediaType;
-                TypeName = typeName;
-            }
-
-            public string Path { get; }
-            public string MediaType { get; }
-            public string TypeName { get; }
-        }
-
-        private List<PlatformFolderEntry> GetPlatformFolderEntriesByMediaType(IPlatform platform, Func<string, bool> mediaTypeFilter)
-        {
-            var entries = GetPlatformFolderEntries(platform);
-            if (mediaTypeFilter == null)
-            {
-                return entries;
-            }
-
-            return entries.FindAll(entry => mediaTypeFilter(entry.MediaType ?? string.Empty));
-        }
-
-        private List<PlatformFolderEntry> GetPlatformFolderEntries(IPlatform platform)
-        {
-            var entries = new List<PlatformFolderEntry>();
-            try
-            {
-                var folders = platform?.GetAllPlatformFolders();
-                if (folders == null || folders.Length == 0)
-                {
-                    _logger?.Info($"No platform folders returned for '{platform?.Name ?? string.Empty}'.");
-                    return entries;
-                }
-
-                _logger?.Info($"Platform folders reported: {folders.Length} for '{platform?.Name ?? string.Empty}'.");
-                foreach (var folder in folders)
-                {
-                    if (folder == null)
-                    {
-                        continue;
-                    }
-
-                    var folderType = folder.GetType();
-                    var mediaType = TryResolveFolderProperty(folder, folderType, "MediaType")
-                        ?? TryResolveFolderProperty(folder, folderType, "ImageType")
-                        ?? TryResolveFolderProperty(folder, folderType, "Type");
-                    var folderPath = TryResolveFolderProperty(folder, folderType, "FolderPath")
-                        ?? TryResolveFolderProperty(folder, folderType, "Path")
-                        ?? TryResolveFolderProperty(folder, folderType, "Folder")
-                        ?? TryResolveFolderProperty(folder, folderType, "Location");
-                    _logger?.Info($"Platform folder entry: Path='{folderPath ?? string.Empty}', MediaType='{mediaType ?? string.Empty}', Type='{folderType.FullName}'.");
-                    entries.Add(new PlatformFolderEntry(folderPath, mediaType, folderType.FullName));
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger?.Warning($"Failed to read platform folders for '{platform?.Name ?? string.Empty}': {ex.Message}");
-            }
-
-            return entries;
-        }
-
-        private static bool IsRomOrGameMediaType(string mediaType)
-        {
-            if (string.IsNullOrWhiteSpace(mediaType))
-            {
-                return false;
-            }
-
-            return mediaType.IndexOf("rom", StringComparison.OrdinalIgnoreCase) >= 0
-                || mediaType.IndexOf("game", StringComparison.OrdinalIgnoreCase) >= 0;
-        }
-
-        private static bool IsGameMediaType(string mediaType)
-        {
-            if (string.IsNullOrWhiteSpace(mediaType))
-            {
-                return false;
-            }
-
-            return string.Equals(mediaType.Trim(), "Game", StringComparison.OrdinalIgnoreCase);
-        }
-
-        private string TryResolveFolderProperty(object folder, Type folderType, string propertyName)
-        {
-            var property = folderType.GetProperty(propertyName);
-            if (property == null)
-            {
-                return null;
-            }
-
-            var value = property.GetValue(folder) as string;
-            if (!string.IsNullOrWhiteSpace(value))
-            {
-                _logger?.Info($"Platform folder property '{propertyName}' resolved to '{value}'.");
-            }
-
-            return value;
-        }
     }
 }

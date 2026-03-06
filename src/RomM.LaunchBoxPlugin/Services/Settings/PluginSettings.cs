@@ -241,6 +241,26 @@ namespace RomMbox.Services.Settings
                     mapping.AssociatedEmulatorId = string.Empty;
                 }
 
+                if (mapping.EmulatorCoreId == null)
+                {
+                    mapping.EmulatorCoreId = string.Empty;
+                }
+
+                if (mapping.EmulatorCoreName == null)
+                {
+                    mapping.EmulatorCoreName = string.Empty;
+                }
+
+                if (mapping.EmulatorCorePath == null)
+                {
+                    mapping.EmulatorCorePath = string.Empty;
+                }
+
+                if (mapping.EmulatorLaunchArgs == null)
+                {
+                    mapping.EmulatorLaunchArgs = string.Empty;
+                }
+
                 if (!Enum.IsDefined(typeof(InstallerMode), mapping.InstallerMode))
                 {
                     mapping.InstallerMode = InstallerMode.Manual;
@@ -264,6 +284,16 @@ namespace RomMbox.Services.Settings
                 if (mapping.CustomInstallDirectory == null)
                 {
                     mapping.CustomInstallDirectory = string.Empty;
+                }
+
+                if (mapping.RomInstallRoot == null)
+                {
+                    mapping.RomInstallRoot = string.Empty;
+                }
+
+                if (mapping.RomArchivePolicy == null)
+                {
+                    mapping.RomArchivePolicy = string.Empty;
                 }
             }
         }

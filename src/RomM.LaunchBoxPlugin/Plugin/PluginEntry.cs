@@ -6,6 +6,7 @@ using Unbroken.LaunchBox.Plugins;
 using RomMbox.Services;
 using RomMbox.Services.Logging;
 using RomMbox.Services.Settings;
+using RomMbox.Services.PlatformInstallers;
 using RomMbox.Utilities;
 
 namespace RomMbox.Plugin
@@ -21,6 +22,7 @@ namespace RomMbox.Plugin
         private static bool _initialized;
         private static SettingsManager _settingsManager;
         private static InstallStateService _installStateService;
+        private static PlatformInstallerRegistry _platformInstallerRegistry;
         private static bool _backgroundConnectionStarted;
         private static ConnectionTestResult _backgroundConnectionResult;
 
@@ -28,6 +30,7 @@ namespace RomMbox.Plugin
         public static PluginSettings Settings { get; private set; }
         public static SettingsManager SettingsManager => _settingsManager;
         public static InstallStateService InstallStateService => _installStateService;
+        public static PlatformInstallerRegistry PlatformInstallers => _platformInstallerRegistry;
         public static event EventHandler<ConnectionTestResult> BackgroundConnectionCompleted;
 
         /// <summary>
@@ -62,6 +65,8 @@ namespace RomMbox.Plugin
                     Logger = logger;
                     _settingsManager = settingsManager;
                     _installStateService = new InstallStateService(logger, settingsManager);
+                    var installerLoader = new PlatformInstallerLoader(logger);
+                    _platformInstallerRegistry = installerLoader.Load();
                     var dataManager = PluginHelper.DataManager;
                     if (dataManager != null)
                     {

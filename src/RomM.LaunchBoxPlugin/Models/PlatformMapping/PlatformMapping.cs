@@ -83,6 +83,42 @@ namespace RomMbox.Models.PlatformMapping
         public string AssociatedEmulatorId { get; set; } = string.Empty;
 
         /// <summary>
+        /// Gets or sets the emulator core identifier for ROM platforms.
+        /// </summary>
+        [DataMember(Name = "emulatorCoreId", EmitDefaultValue = false)]
+        public string EmulatorCoreId { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the emulator core display name.
+        /// </summary>
+        [DataMember(Name = "emulatorCoreName", EmitDefaultValue = false)]
+        public string EmulatorCoreName { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the emulator core path.
+        /// </summary>
+        [DataMember(Name = "emulatorCorePath", EmitDefaultValue = false)]
+        public string EmulatorCorePath { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the emulator launch arguments template.
+        /// </summary>
+        [DataMember(Name = "emulatorLaunchArgs", EmitDefaultValue = false)]
+        public string EmulatorLaunchArgs { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the install root override for ROM platforms.
+        /// </summary>
+        [DataMember(Name = "romInstallRoot", EmitDefaultValue = false)]
+        public string RomInstallRoot { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the archive policy for ROM platforms.
+        /// </summary>
+        [DataMember(Name = "romArchivePolicy", EmitDefaultValue = false)]
+        public string RomArchivePolicy { get; set; } = string.Empty;
+
+        /// <summary>
         /// Determines whether installers run manually or silently.
         /// </summary>
         [DataMember(Name = "installerMode", EmitDefaultValue = false)]

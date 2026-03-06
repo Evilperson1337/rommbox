@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using RomMbox.Models.Download;
 using RomMbox.Models.Install;
+using RomMbox.Services.Install;
 
 namespace RomMbox.Services.Install.Pipeline.Steps
 {
@@ -35,6 +36,18 @@ namespace RomMbox.Services.Install.Pipeline.Steps
             var installScenario = mapping?.InstallScenario ?? InstallScenario.Basic;
             var detectInstallType = installScenario != InstallScenario.Basic;
             var serverUrl = context.SettingsManager.Load().ServerUrl;
+            var isWindowsPlatform = InstallDestinationService.IsWindowsPlatform(context.Game?.Platform);
+            if (isWindowsPlatform && !extractAfterDownload)
+            {
+                context.Logger?.Info("Extraction forced for Windows install pipeline.");
+                extractAfterDownload = true;
+            }
+            else if (!isWindowsPlatform && string.Equals(mapping?.RomArchivePolicy, "Preserve", StringComparison.OrdinalIgnoreCase))
+            {
+                context.Logger?.Info("Extraction disabled for ROM platform policy (Preserve)." );
+                extractAfterDownload = false;
+            }
+            context.Logger?.Info($"ExtractionDecision | ExtractAfterDownload={extractAfterDownload}, Behavior={extractionBehavior}, IsWindows={isWindowsPlatform}, InstallScenario={installScenario}.");
             var shouldReportExtraction = extractAfterDownload;
 
             var downloadProgress = new Progress<DownloadProgress>(update =>

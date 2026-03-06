@@ -126,7 +126,13 @@ namespace RomMbox.Services
                         SelfContained = saved?.SelfContained ?? true,
                         AssociatedEmulatorId = saved?.AssociatedEmulatorId ?? string.Empty,
                         OstInstallLocation = saved?.OstInstallLocation ?? OptionalContentLocation.Centralized,
-                        BonusInstallLocation = saved?.BonusInstallLocation ?? OptionalContentLocation.Centralized
+                        BonusInstallLocation = saved?.BonusInstallLocation ?? OptionalContentLocation.Centralized,
+                        EmulatorCoreId = saved?.EmulatorCoreId ?? string.Empty,
+                        EmulatorCoreName = saved?.EmulatorCoreName ?? string.Empty,
+                        EmulatorCorePath = saved?.EmulatorCorePath ?? string.Empty,
+                        EmulatorLaunchArgs = saved?.EmulatorLaunchArgs ?? string.Empty,
+                        RomInstallRoot = saved?.RomInstallRoot ?? string.Empty,
+                        RomArchivePolicy = saved?.RomArchivePolicy ?? string.Empty
                     });
                 }
                 return new PlatformMappingResult { Mappings = mappings };

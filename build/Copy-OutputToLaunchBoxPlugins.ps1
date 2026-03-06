@@ -35,6 +35,11 @@ $files = @(
     "system\assets\upload.png",
     "system\assets\gaming.png",
     "system\assets\romm.png",
+    "system\platforms\RomM.Platforms.Windows.dll",
+    "system\platforms\RomM.Platforms.Snes.dll",
+    "system\platforms\RomM.Platforms.Arcade.dll",
+    "RomM.Platforms.Abstractions.dll",
+    "RomM.Platforms.RomBase.dll",
     "RomMbox.dll"
 )
 

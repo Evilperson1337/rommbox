@@ -64,6 +64,42 @@ public sealed class PlatformMapping : ObservableObject
     /// </summary>
     public string AssociatedEmulatorId { get => _associatedEmulatorId; set => SetProperty(ref _associatedEmulatorId, value); }
 
+    private string _emulatorCoreId = "";
+    /// <summary>
+    /// Gets or sets the emulator core id.
+    /// </summary>
+    public string EmulatorCoreId { get => _emulatorCoreId; set => SetProperty(ref _emulatorCoreId, value); }
+
+    private string _emulatorCoreName = "";
+    /// <summary>
+    /// Gets or sets the emulator core display name.
+    /// </summary>
+    public string EmulatorCoreName { get => _emulatorCoreName; set => SetProperty(ref _emulatorCoreName, value); }
+
+    private string _emulatorCorePath = "";
+    /// <summary>
+    /// Gets or sets the emulator core path.
+    /// </summary>
+    public string EmulatorCorePath { get => _emulatorCorePath; set => SetProperty(ref _emulatorCorePath, value); }
+
+    private string _emulatorLaunchArgs = "";
+    /// <summary>
+    /// Gets or sets the emulator launch arguments.
+    /// </summary>
+    public string EmulatorLaunchArgs { get => _emulatorLaunchArgs; set => SetProperty(ref _emulatorLaunchArgs, value); }
+
+    private string _romInstallRoot = "";
+    /// <summary>
+    /// Gets or sets the ROM install root override.
+    /// </summary>
+    public string RomInstallRoot { get => _romInstallRoot; set => SetProperty(ref _romInstallRoot, value); }
+
+    private string _romArchivePolicy = "";
+    /// <summary>
+    /// Gets or sets the ROM archive policy.
+    /// </summary>
+    public string RomArchivePolicy { get => _romArchivePolicy; set => SetProperty(ref _romArchivePolicy, value); }
+
     private string _installerSilentArgs = "";
     /// <summary>
     /// Gets or sets installer silent arguments when using installer-based packages.

@@ -211,7 +211,13 @@ public sealed class PlatformsViewModel : ObservableObject
                         BonusInstallLocation = RomMbox.Models.PlatformMapping.OptionalContentLocation.Centralized,
                         PreReqsRootPath = "",
                         InstallPreReqs = false,
-                        CustomInstallDirectory = ""
+                        CustomInstallDirectory = "",
+                        EmulatorCoreId = string.Empty,
+                        EmulatorCoreName = string.Empty,
+                        EmulatorCorePath = string.Empty,
+                        EmulatorLaunchArgs = string.Empty,
+                        RomInstallRoot = string.Empty,
+                        RomArchivePolicy = string.Empty
                     });
                 });
                 return;
@@ -260,7 +266,13 @@ public sealed class PlatformsViewModel : ObservableObject
                         InstallPreReqs = mapping.InstallPreReqs,
                         ExtractAfterDownload = mapping.ExtractAfterDownload,
                         ExtractionBehavior = mapping.ExtractionBehavior,
-                        CustomInstallDirectory = mapping.CustomInstallDirectory
+                        CustomInstallDirectory = mapping.CustomInstallDirectory,
+                        EmulatorCoreId = mapping.EmulatorCoreId,
+                        EmulatorCoreName = mapping.EmulatorCoreName,
+                        EmulatorCorePath = mapping.EmulatorCorePath,
+                        EmulatorLaunchArgs = mapping.EmulatorLaunchArgs,
+                        RomInstallRoot = mapping.RomInstallRoot,
+                        RomArchivePolicy = mapping.RomArchivePolicy
                     });
                 }
 
@@ -310,7 +322,13 @@ public sealed class PlatformsViewModel : ObservableObject
                         BonusInstallLocation = RomMbox.Models.PlatformMapping.OptionalContentLocation.Centralized,
                         PreReqsRootPath = "",
                         InstallPreReqs = false,
-                        CustomInstallDirectory = ""
+                        CustomInstallDirectory = "",
+                        EmulatorCoreId = string.Empty,
+                        EmulatorCoreName = string.Empty,
+                        EmulatorCorePath = string.Empty,
+                        EmulatorLaunchArgs = string.Empty,
+                        RomInstallRoot = string.Empty,
+                        RomArchivePolicy = string.Empty
                     });
                 });
             }
@@ -435,7 +453,13 @@ public sealed class PlatformsViewModel : ObservableObject
                         BonusInstallLocation = mapping.BonusInstallLocation,
                         PreReqsRootPath = mapping.PreReqsRootPath,
                         InstallPreReqs = mapping.InstallPreReqs,
-                        CustomInstallDirectory = mapping.CustomInstallDirectory
+                        CustomInstallDirectory = mapping.CustomInstallDirectory,
+                        EmulatorCoreId = mapping.EmulatorCoreId,
+                        EmulatorCoreName = mapping.EmulatorCoreName,
+                        EmulatorCorePath = mapping.EmulatorCorePath,
+                        EmulatorLaunchArgs = mapping.EmulatorLaunchArgs,
+                        RomInstallRoot = mapping.RomInstallRoot,
+                        RomArchivePolicy = mapping.RomArchivePolicy
                     };
                 })
                 .ToArray();

@@ -115,7 +115,13 @@ CREATE TABLE IF NOT EXISTS InstallStateMetadata (
      SelfContained INTEGER NOT NULL,
      AssociatedEmulatorId TEXT,
      OstInstallLocation TEXT,
-     BonusInstallLocation TEXT
+     BonusInstallLocation TEXT,
+     EmulatorCoreId TEXT,
+     EmulatorCoreName TEXT,
+     EmulatorCorePath TEXT,
+     EmulatorLaunchArgs TEXT,
+     RomInstallRoot TEXT,
+     RomArchivePolicy TEXT
  );
 CREATE TABLE IF NOT EXISTS PlatformMappingAliases (
     AliasId TEXT PRIMARY KEY,
@@ -1589,8 +1595,14 @@ ON CONFLICT(Key) DO UPDATE SET Value = excluded.Value;
             await AddColumnIfMissingAsync(connection, columns, "InstallerSilentArgs", "TEXT", cancellationToken).ConfigureAwait(false);
             await AddColumnIfMissingAsync(connection, columns, "SelfContained", "INTEGER NOT NULL DEFAULT 1", cancellationToken).ConfigureAwait(false);
             await AddColumnIfMissingAsync(connection, columns, "AssociatedEmulatorId", "TEXT", cancellationToken).ConfigureAwait(false);
-            await AddColumnIfMissingAsync(connection, columns, "OstInstallLocation", "TEXT", cancellationToken).ConfigureAwait(false);
-            await AddColumnIfMissingAsync(connection, columns, "BonusInstallLocation", "TEXT", cancellationToken).ConfigureAwait(false);
+                await AddColumnIfMissingAsync(connection, columns, "OstInstallLocation", "TEXT", cancellationToken).ConfigureAwait(false);
+                await AddColumnIfMissingAsync(connection, columns, "BonusInstallLocation", "TEXT", cancellationToken).ConfigureAwait(false);
+                await AddColumnIfMissingAsync(connection, columns, "EmulatorCoreId", "TEXT", cancellationToken).ConfigureAwait(false);
+                await AddColumnIfMissingAsync(connection, columns, "EmulatorCoreName", "TEXT", cancellationToken).ConfigureAwait(false);
+                await AddColumnIfMissingAsync(connection, columns, "EmulatorCorePath", "TEXT", cancellationToken).ConfigureAwait(false);
+                await AddColumnIfMissingAsync(connection, columns, "EmulatorLaunchArgs", "TEXT", cancellationToken).ConfigureAwait(false);
+                await AddColumnIfMissingAsync(connection, columns, "RomInstallRoot", "TEXT", cancellationToken).ConfigureAwait(false);
+                await AddColumnIfMissingAsync(connection, columns, "RomArchivePolicy", "TEXT", cancellationToken).ConfigureAwait(false);
         }
 
         private static async Task AddColumnIfMissingAsync(SqliteConnection connection, HashSet<string> columns, string columnName, string columnDefinition, CancellationToken cancellationToken)

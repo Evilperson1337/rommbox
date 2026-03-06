@@ -40,7 +40,8 @@ namespace RomMbox.Services
  SELECT RommPlatformId, RommPlatformName, LaunchBoxPlatformName, AutoMapped, DisableAutoImport, ExtractAfterDownload,
         ExtractionBehavior, InstallerMode, MusicRootPath, InstallOst, BonusRootPath, InstallBonus, PreReqsRootPath, InstallPreReqs,
         CustomInstallDirectory, InstallScenario, TargetImportFile, InstallerSilentArgs, SelfContained, AssociatedEmulatorId,
-        OstInstallLocation, BonusInstallLocation
+        OstInstallLocation, BonusInstallLocation, EmulatorCoreId, EmulatorCoreName, EmulatorCorePath, EmulatorLaunchArgs,
+        RomInstallRoot, RomArchivePolicy
  FROM PlatformMappings
  WHERE RommPlatformId = $rommPlatformId;
  ";
@@ -76,7 +77,8 @@ namespace RomMbox.Services
  SELECT RommPlatformId, RommPlatformName, LaunchBoxPlatformName, AutoMapped, DisableAutoImport, ExtractAfterDownload,
         ExtractionBehavior, InstallerMode, MusicRootPath, InstallOst, BonusRootPath, InstallBonus, PreReqsRootPath, InstallPreReqs,
         CustomInstallDirectory, InstallScenario, TargetImportFile, InstallerSilentArgs, SelfContained, AssociatedEmulatorId,
-        OstInstallLocation, BonusInstallLocation
+        OstInstallLocation, BonusInstallLocation, EmulatorCoreId, EmulatorCoreName, EmulatorCorePath, EmulatorLaunchArgs,
+        RomInstallRoot, RomArchivePolicy
  FROM PlatformMappings;
  ";
                 using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
@@ -136,12 +138,14 @@ namespace RomMbox.Services
      RommPlatformId, RommPlatformName, LaunchBoxPlatformName, AutoMapped, DisableAutoImport, ExtractAfterDownload,
      ExtractionBehavior, InstallerMode, MusicRootPath, InstallOst, BonusRootPath, InstallBonus, PreReqsRootPath, InstallPreReqs,
      CustomInstallDirectory, InstallScenario, TargetImportFile, InstallerSilentArgs, SelfContained, AssociatedEmulatorId,
-     OstInstallLocation, BonusInstallLocation
+     OstInstallLocation, BonusInstallLocation, EmulatorCoreId, EmulatorCoreName, EmulatorCorePath, EmulatorLaunchArgs,
+     RomInstallRoot, RomArchivePolicy
  ) VALUES (
      $rommPlatformId, $rommPlatformName, $launchBoxPlatformName, $autoMapped, $disableAutoImport, $extractAfterDownload,
      $extractionBehavior, $installerMode, $musicRootPath, $installOst, $bonusRootPath, $installBonus, $preReqsRootPath, $installPreReqs,
      $customInstallDirectory, $installScenario, $targetImportFile, $installerSilentArgs, $selfContained, $associatedEmulatorId,
-     $ostInstallLocation, $bonusInstallLocation
+     $ostInstallLocation, $bonusInstallLocation, $emulatorCoreId, $emulatorCoreName, $emulatorCorePath, $emulatorLaunchArgs,
+     $romInstallRoot, $romArchivePolicy
  )
  ON CONFLICT(RommPlatformId) DO UPDATE SET
      RommPlatformName = excluded.RommPlatformName,
@@ -164,7 +168,13 @@ namespace RomMbox.Services
      SelfContained = excluded.SelfContained,
      AssociatedEmulatorId = excluded.AssociatedEmulatorId,
      OstInstallLocation = excluded.OstInstallLocation,
-     BonusInstallLocation = excluded.BonusInstallLocation;
+     BonusInstallLocation = excluded.BonusInstallLocation,
+     EmulatorCoreId = excluded.EmulatorCoreId,
+     EmulatorCoreName = excluded.EmulatorCoreName,
+     EmulatorCorePath = excluded.EmulatorCorePath,
+     EmulatorLaunchArgs = excluded.EmulatorLaunchArgs,
+     RomInstallRoot = excluded.RomInstallRoot,
+     RomArchivePolicy = excluded.RomArchivePolicy;
  ";
                     command.Parameters.AddWithValue("$rommPlatformId", mapping.RommPlatformId ?? string.Empty);
                     command.Parameters.AddWithValue("$rommPlatformName", mapping.RommPlatformName ?? string.Empty);
@@ -188,6 +198,12 @@ namespace RomMbox.Services
                     command.Parameters.AddWithValue("$associatedEmulatorId", mapping.AssociatedEmulatorId ?? string.Empty);
                     command.Parameters.AddWithValue("$ostInstallLocation", mapping.OstInstallLocation.ToString());
                     command.Parameters.AddWithValue("$bonusInstallLocation", mapping.BonusInstallLocation.ToString());
+                    command.Parameters.AddWithValue("$emulatorCoreId", mapping.EmulatorCoreId ?? string.Empty);
+                    command.Parameters.AddWithValue("$emulatorCoreName", mapping.EmulatorCoreName ?? string.Empty);
+                    command.Parameters.AddWithValue("$emulatorCorePath", mapping.EmulatorCorePath ?? string.Empty);
+                    command.Parameters.AddWithValue("$emulatorLaunchArgs", mapping.EmulatorLaunchArgs ?? string.Empty);
+                    command.Parameters.AddWithValue("$romInstallRoot", mapping.RomInstallRoot ?? string.Empty);
+                    command.Parameters.AddWithValue("$romArchivePolicy", mapping.RomArchivePolicy ?? string.Empty);
                     await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
                 }
 
@@ -406,6 +422,16 @@ ON CONFLICT(AliasId) DO UPDATE SET
                 SelfContained = reader.IsDBNull(18) || reader.GetInt32(18) == 1,
                 AssociatedEmulatorId = reader.IsDBNull(19) ? string.Empty : reader.GetString(19)
             };
+
+            if (reader.FieldCount > 22)
+            {
+                mapping.EmulatorCoreId = reader.IsDBNull(22) ? string.Empty : reader.GetString(22);
+                mapping.EmulatorCoreName = reader.IsDBNull(23) ? string.Empty : reader.GetString(23);
+                mapping.EmulatorCorePath = reader.IsDBNull(24) ? string.Empty : reader.GetString(24);
+                mapping.EmulatorLaunchArgs = reader.IsDBNull(25) ? string.Empty : reader.GetString(25);
+                mapping.RomInstallRoot = reader.IsDBNull(26) ? string.Empty : reader.GetString(26);
+                mapping.RomArchivePolicy = reader.IsDBNull(27) ? string.Empty : reader.GetString(27);
+            }
 
             var extractionBehaviorText = reader.IsDBNull(6) ? string.Empty : reader.GetString(6);
             if (!Enum.TryParse(extractionBehaviorText, out ExtractionBehavior extractionBehavior))

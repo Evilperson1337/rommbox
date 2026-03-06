@@ -41,12 +41,21 @@ namespace RomMbox.Services.Install.Pipeline.Steps
             {
                 context.Game.EmulatorId = emulatorId;
             }
+            else if (!string.IsNullOrWhiteSpace(context.PlatformMapping?.AssociatedEmulatorId))
+            {
+                context.Game.EmulatorId = context.PlatformMapping.AssociatedEmulatorId;
+            }
 
             context.InstallStateSnapshot.InstalledPath = finalPath;
             context.InstallStateSnapshot.RommLaunchPath = finalPath;
             context.InstallStateSnapshot.RommLaunchArgs = context.InstallerArguments != null && context.InstallerArguments.Length > 0
                 ? string.Join(" ", context.InstallerArguments)
                 : string.Empty;
+            if (string.IsNullOrWhiteSpace(context.InstallStateSnapshot.RommLaunchArgs)
+                && !string.IsNullOrWhiteSpace(context.PlatformMapping?.EmulatorLaunchArgs))
+            {
+                context.InstallStateSnapshot.RommLaunchArgs = context.PlatformMapping.EmulatorLaunchArgs;
+            }
             context.InstallStateSnapshot.ArchivePath = context.ArchivePath;
             if (string.IsNullOrWhiteSpace(context.InstallStateSnapshot.InstallRootPath))
             {

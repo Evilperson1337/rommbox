@@ -44,6 +44,12 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
         AssociatedEmulatorId = string.IsNullOrWhiteSpace(mapping?.AssociatedEmulatorId)
             ? ResolveDefaultEmulatorId(LaunchBoxPlatformName)
             : mapping.AssociatedEmulatorId;
+        EmulatorCoreId = mapping?.EmulatorCoreId ?? string.Empty;
+        EmulatorCoreName = mapping?.EmulatorCoreName ?? string.Empty;
+        EmulatorCorePath = mapping?.EmulatorCorePath ?? string.Empty;
+        EmulatorLaunchArgs = mapping?.EmulatorLaunchArgs ?? string.Empty;
+        RomInstallRoot = mapping?.RomInstallRoot ?? string.Empty;
+        RomArchivePolicy = mapping?.RomArchivePolicy ?? string.Empty;
         Emulators = new ObservableCollection<EmulatorOption>(LoadEmulators());
 
         InstallerMode = mapping?.InstallerMode ?? InstallerMode.Manual;
@@ -354,6 +360,42 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
     /// </summary>
     public string AssociatedEmulatorId { get => _associatedEmulatorId; set => SetProperty(ref _associatedEmulatorId, value); }
 
+    private string _emulatorCoreId = string.Empty;
+    /// <summary>
+    /// Gets or sets the emulator core id.
+    /// </summary>
+    public string EmulatorCoreId { get => _emulatorCoreId; set => SetProperty(ref _emulatorCoreId, value); }
+
+    private string _emulatorCoreName = string.Empty;
+    /// <summary>
+    /// Gets or sets the emulator core name.
+    /// </summary>
+    public string EmulatorCoreName { get => _emulatorCoreName; set => SetProperty(ref _emulatorCoreName, value); }
+
+    private string _emulatorCorePath = string.Empty;
+    /// <summary>
+    /// Gets or sets the emulator core path.
+    /// </summary>
+    public string EmulatorCorePath { get => _emulatorCorePath; set => SetProperty(ref _emulatorCorePath, value); }
+
+    private string _emulatorLaunchArgs = string.Empty;
+    /// <summary>
+    /// Gets or sets the emulator launch arguments.
+    /// </summary>
+    public string EmulatorLaunchArgs { get => _emulatorLaunchArgs; set => SetProperty(ref _emulatorLaunchArgs, value); }
+
+    private string _romInstallRoot = string.Empty;
+    /// <summary>
+    /// Gets or sets the ROM install root override.
+    /// </summary>
+    public string RomInstallRoot { get => _romInstallRoot; set => SetProperty(ref _romInstallRoot, value); }
+
+    private string _romArchivePolicy = string.Empty;
+    /// <summary>
+    /// Gets or sets the ROM archive policy.
+    /// </summary>
+    public string RomArchivePolicy { get => _romArchivePolicy; set => SetProperty(ref _romArchivePolicy, value); }
+
     public ObservableCollection<EmulatorOption> Emulators { get; }
 
     public EmulatorOption SelectedEmulator
@@ -412,6 +454,10 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
         _mapping.InstallerSilentArgs = InstallerSilentArgs;
         _mapping.InstallerMode = InstallerMode;
         _mapping.AssociatedEmulatorId = AssociatedEmulatorId;
+        _mapping.EmulatorCoreId = EmulatorCoreId;
+        _mapping.EmulatorCoreName = EmulatorCoreName;
+        _mapping.EmulatorCorePath = EmulatorCorePath;
+        _mapping.EmulatorLaunchArgs = EmulatorLaunchArgs;
         _mapping.MusicRootPath = MusicRootPath;
         _mapping.InstallOst = InstallOst;
         _mapping.OstInstallLocation = OstInstallLocation;
@@ -423,6 +469,8 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
         _mapping.ExtractAfterDownload = ExtractAfterDownload;
         _mapping.ExtractionBehavior = ExtractionBehavior;
         _mapping.CustomInstallDirectory = ResolveGamesDirectoryForSave(GamesDirectory);
+        _mapping.RomInstallRoot = RomInstallRoot;
+        _mapping.RomArchivePolicy = RomArchivePolicy;
         return _mapping;
     }
 
