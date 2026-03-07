@@ -1,19 +1,23 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using RomM.Platforms.Abstractions.Models.Metadata;
 using RomMbox.Models.Download;
 using RomMbox.Models.Install;
 using RomMbox.Services.Install;
+using RomMbox.Services.PlatformInstallers;
 
 namespace RomMbox.Services.Install.Pipeline.Steps
 {
     internal sealed class DownloadStep : IInstallStep
     {
         private readonly DownloadService _downloadService;
+        private readonly PlatformInstallerRegistry _platformInstallers;
 
-        public DownloadStep(DownloadService downloadService)
+        public DownloadStep(DownloadService downloadService, PlatformInstallerRegistry platformInstallers)
         {
             _downloadService = downloadService;
+            _platformInstallers = platformInstallers;
         }
 
         public InstallPhase Phase => InstallPhase.Downloading;
@@ -37,7 +41,14 @@ namespace RomMbox.Services.Install.Pipeline.Steps
             var detectInstallType = installScenario != InstallScenario.Basic;
             var serverUrl = context.SettingsManager.Load().ServerUrl;
             var isWindowsPlatform = InstallDestinationService.IsWindowsPlatform(context.Game?.Platform);
-            if (isWindowsPlatform && !extractAfterDownload)
+
+            var capabilities = ResolveCapabilities(context);
+            if (capabilities.RequiresStagingInspection)
+            {
+                extractAfterDownload = true;
+                context.Logger?.Info("Extraction required by plugin capabilities (RequiresStagingInspection=true).");
+            }
+            else if (isWindowsPlatform && !extractAfterDownload)
             {
                 context.Logger?.Info("Extraction forced for Windows install pipeline.");
                 extractAfterDownload = true;
@@ -143,6 +154,23 @@ namespace RomMbox.Services.Install.Pipeline.Steps
                 context.ArchivePath = result.ArchivePath ?? context.ArchivePath;
             }
             return InstallResult.Successful();
+        }
+
+        private PlatformInstallerCapabilities ResolveCapabilities(InstallContext context)
+        {
+            if (_platformInstallers == null || context?.RommDetails == null)
+            {
+                return new PlatformInstallerCapabilities();
+            }
+
+            var platformKey = context.RommDetails.PlatformId ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(platformKey)
+                && InstallDestinationService.IsWindowsPlatform(context?.Game?.Platform))
+            {
+                platformKey = "windows";
+            }
+
+            return _platformInstallers.GetCapabilities(platformKey);
         }
 
         private static string FormatBytes(long bytes)

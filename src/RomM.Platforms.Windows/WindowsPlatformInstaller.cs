@@ -9,16 +9,39 @@ using RomM.Platforms.Abstractions.Logging;
 using RomM.Platforms.Abstractions.Models;
 using RomM.Platforms.Abstractions.Models.Detection;
 using RomM.Platforms.Abstractions.Models.Install;
+using RomM.Platforms.Abstractions.Models.Metadata;
 using RomM.Platforms.Abstractions.Models.Uninstall;
 using RomM.Platforms.Abstractions.Models.Verify;
 using RomM.Platforms.Windows.Install;
 
 namespace RomM.Platforms.Windows
 {
-    public sealed class WindowsPlatformInstaller : IPlatformInstaller
+    public sealed class WindowsPlatformInstaller : IPlatformInstaller, IPlatformInstallerMetadata
     {
         public string PlatformKey => "windows";
         public string DisplayName => "Windows";
+
+        public PlatformInstallerCapabilities Capabilities => new PlatformInstallerCapabilities
+        {
+            SupportsArchives = true,
+            SupportsDirectFiles = false,
+            RequiresStagingInspection = true,
+            SupportsAutoFormatDetection = true,
+            SupportsInstaller = true,
+            SupportsSilentInstaller = true,
+            SupportsUninstall = true,
+            SupportsInstallStateDetection = true,
+            SupportsApplicationPathDiscovery = true,
+            SupportsDlc = true,
+            SupportsUpdates = true,
+            SupportsRaps = false,
+            RequiresEmulatorPath = false
+        };
+
+        public PlatformConfigDescriptor? GetConfigDescriptor()
+        {
+            return null;
+        }
 
         public Task<DetectionResult> DetectAsync(PlatformContext ctx, CancellationToken ct)
         {

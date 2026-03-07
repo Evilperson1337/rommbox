@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
 using RomM.Platforms.Abstractions;
+using RomM.Platforms.Abstractions.Models.Metadata;
+
+#nullable enable
 
 namespace RomMbox.Services.PlatformInstallers
 {
@@ -13,7 +16,7 @@ namespace RomMbox.Services.PlatformInstallers
             _installers = installers ?? new Dictionary<string, IPlatformInstaller>(StringComparer.OrdinalIgnoreCase);
         }
 
-        public bool TryGetInstaller(string platformKey, out IPlatformInstaller installer)
+        public bool TryGetInstaller(string platformKey, out IPlatformInstaller? installer)
         {
             installer = null;
             if (string.IsNullOrWhiteSpace(platformKey))
@@ -27,6 +30,29 @@ namespace RomMbox.Services.PlatformInstallers
         public IReadOnlyDictionary<string, IPlatformInstaller> GetAll()
         {
             return _installers;
+        }
+
+        public PlatformInstallerCapabilities GetCapabilities(string platformKey)
+        {
+            if (TryGetInstaller(platformKey, out var installer)
+                && installer is IPlatformInstallerMetadata metadata
+                && metadata.Capabilities != null)
+            {
+                return metadata.Capabilities;
+            }
+
+            return new PlatformInstallerCapabilities();
+        }
+
+        public PlatformConfigDescriptor? GetConfigDescriptor(string platformKey)
+        {
+            if (TryGetInstaller(platformKey, out var installer)
+                && installer is IPlatformInstallerMetadata metadata)
+            {
+                return metadata.GetConfigDescriptor();
+            }
+
+            return null;
         }
     }
 }

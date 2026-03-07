@@ -246,7 +246,7 @@ namespace RomMbox.Plugin.Adapters.GameMenu
                     {
                         new ResolveMetadataStep(client),
                         new ResolveDestinationStep(destinationService, mappingStore),
-                        new DownloadStep(downloadService),
+                        new DownloadStep(downloadService, platformInstallers),
                         new InstallContentStep(platformInstallers, platformLogger, archiveService),
                         new PostProcessStep(),
                         new PersistStateStep()

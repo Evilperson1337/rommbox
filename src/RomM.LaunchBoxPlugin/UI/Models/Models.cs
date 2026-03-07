@@ -225,6 +225,18 @@ public sealed class PlatformMapping : ObservableObject
     /// Gets or sets whether metadata-based package matching is preferred.
     /// </summary>
     public bool PreferMetadataBasedPackageMatching { get => _preferMetadataBasedPackageMatching; set => SetProperty(ref _preferMetadataBasedPackageMatching, value); }
+
+    private string _readinessStatus = string.Empty;
+    /// <summary>
+    /// Gets or sets the platform readiness status.
+    /// </summary>
+    public string ReadinessStatus { get => _readinessStatus; set => SetProperty(ref _readinessStatus, value); }
+
+    private string _readinessMessage = string.Empty;
+    /// <summary>
+    /// Gets or sets the platform readiness details.
+    /// </summary>
+    public string ReadinessMessage { get => _readinessMessage; set => SetProperty(ref _readinessMessage, value); }
 }
 
 /// <summary>

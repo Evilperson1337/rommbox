@@ -10,8 +10,10 @@ using System.Threading.Tasks;
 using System.Windows;
 using RomMbox.Models.Install;
 using RomMbox.Models.PlatformMapping;
+using RomMbox.Plugin;
 using RomMbox.Services;
 using RomMbox.Services.Logging;
+using RomMbox.Services.PlatformInstallers;
 using RomMbox.Services.Settings;
 using RomMbox.UI.Infrastructure;
 using RomMbox.UI.Models;
@@ -27,6 +29,8 @@ public sealed class PlatformsViewModel : ObservableObject
     private readonly MainWindowViewModel _shell;
     private readonly LoggingService _logger;
     private readonly SettingsManager _settingsManager;
+    private readonly PlatformInstallerRegistry _platformInstallers;
+    private readonly PlatformReadinessService _readinessService;
     private PlatformMappingService _mappingService;
     private string _mappingServiceServerUrl = string.Empty;
     private bool _hasLoaded;
@@ -41,6 +45,8 @@ public sealed class PlatformsViewModel : ObservableObject
         _shell = shell;
         _logger = LoggingServiceFactory.Create();
         _settingsManager = new SettingsManager(_logger);
+        _platformInstallers = PluginEntry.PlatformInstallers ?? new PlatformInstallerLoader(_logger).Load();
+        _readinessService = new PlatformReadinessService(_platformInstallers);
         
         EnsureMappingService();
 
@@ -217,7 +223,9 @@ public sealed class PlatformsViewModel : ObservableObject
                         EmulatorCorePath = string.Empty,
                         EmulatorLaunchArgs = string.Empty,
                         RomInstallRoot = string.Empty,
-                        RomArchivePolicy = string.Empty
+                        RomArchivePolicy = string.Empty,
+                        ReadinessStatus = "Needs Connection",
+                        ReadinessMessage = "Configure and connect to RomM first."
                     });
                 });
                 return;
@@ -240,6 +248,8 @@ public sealed class PlatformsViewModel : ObservableObject
                 foreach (var mapping in result.Mappings)
                 {
                     var excludedMatch = excluded.Contains(mapping.RommPlatformId, StringComparer.OrdinalIgnoreCase);
+                    var persisted = _mappingService.GetMapping(mapping.RommPlatformId);
+                    var readiness = _readinessService.Evaluate(mapping.RommPlatformId, persisted);
                     Platforms.Add(mapping.RommPlatformName);
                     Mappings.Add(new Models.PlatformMapping
                     {
@@ -272,7 +282,9 @@ public sealed class PlatformsViewModel : ObservableObject
                         EmulatorCorePath = mapping.EmulatorCorePath,
                         EmulatorLaunchArgs = mapping.EmulatorLaunchArgs,
                         RomInstallRoot = mapping.RomInstallRoot,
-                        RomArchivePolicy = mapping.RomArchivePolicy
+                        RomArchivePolicy = mapping.RomArchivePolicy,
+                        ReadinessStatus = readiness.Status,
+                        ReadinessMessage = readiness.Message
                     });
                 }
 
@@ -328,7 +340,9 @@ public sealed class PlatformsViewModel : ObservableObject
                         EmulatorCorePath = string.Empty,
                         EmulatorLaunchArgs = string.Empty,
                         RomInstallRoot = string.Empty,
-                        RomArchivePolicy = string.Empty
+                        RomArchivePolicy = string.Empty,
+                        ReadinessStatus = "Needs Connection",
+                        ReadinessMessage = "Configure and connect to RomM first."
                     });
                 });
             }
@@ -604,9 +618,11 @@ public sealed class PlatformsViewModel : ObservableObject
         }
 
         var defaultInstallDirectory = ResolveDefaultInstallDirectory(mapping.LaunchBoxPlatform);
+        var configDescriptor = _platformInstallers.GetConfigDescriptor(mapping.RommPlatformId);
         var viewModel = new ViewModels.PlatformInstallConfigViewModel(
             mapping,
             defaultInstallDirectory,
+            configDescriptor,
             onSave: () => SaveInlineConfiguration(mapping),
             onBack: () => ExitInlineConfiguration());
         SelectedMapping = mapping;

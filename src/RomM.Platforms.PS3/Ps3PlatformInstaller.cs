@@ -11,6 +11,7 @@ using RomM.Platforms.Abstractions.Logging;
 using RomM.Platforms.Abstractions.Models;
 using RomM.Platforms.Abstractions.Models.Detection;
 using RomM.Platforms.Abstractions.Models.Install;
+using RomM.Platforms.Abstractions.Models.Metadata;
 using RomM.Platforms.Abstractions.Models.Uninstall;
 using RomM.Platforms.Abstractions.Models.Verify;
 using RomM.Platforms.PS3.Inspection;
@@ -18,10 +19,82 @@ using RomM.Platforms.PS3.Packages;
 
 namespace RomM.Platforms.PS3
 {
-    public sealed class Ps3PlatformInstaller : IPlatformInstaller
+    public sealed class Ps3PlatformInstaller : IPlatformInstaller, IPlatformInstallerMetadata
     {
         public string PlatformKey => "ps3";
         public string DisplayName => "PlayStation 3";
+
+        public PlatformInstallerCapabilities Capabilities => new PlatformInstallerCapabilities
+        {
+            SupportsArchives = true,
+            SupportsDirectFiles = true,
+            RequiresStagingInspection = true,
+            SupportsAutoFormatDetection = true,
+            SupportsInstaller = false,
+            SupportsSilentInstaller = false,
+            SupportsUninstall = true,
+            SupportsInstallStateDetection = true,
+            SupportsApplicationPathDiscovery = true,
+            SupportsDlc = true,
+            SupportsUpdates = true,
+            SupportsRaps = true,
+            RequiresEmulatorPath = false
+        };
+
+        public PlatformConfigDescriptor? GetConfigDescriptor()
+        {
+            return new PlatformConfigDescriptor
+            {
+                Fields = new List<PlatformConfigFieldDescriptor>
+                {
+                    new PlatformConfigFieldDescriptor
+                    {
+                        Key = "Rpcs3ExecutablePath",
+                        Label = "RPCS3 Executable",
+                        Description = "Optional path override. If omitted, RPCS3 is resolved from LaunchBox emulator settings.",
+                        Type = PlatformConfigFieldType.Path,
+                        Required = false,
+                        Advanced = false
+                    },
+                    new PlatformConfigFieldDescriptor
+                    {
+                        Key = "Rpcs3LicenseDirectory",
+                        Label = "RPCS3 License Directory",
+                        Description = "Optional exdata override for RAP installation.",
+                        Type = PlatformConfigFieldType.Path,
+                        Required = false,
+                        Advanced = true
+                    },
+                    new PlatformConfigFieldDescriptor
+                    {
+                        Key = "SkipRegionMismatchedDlc",
+                        Label = "Skip Region-Mismatched DLC",
+                        Type = PlatformConfigFieldType.Boolean,
+                        Required = false,
+                        Advanced = true,
+                        DefaultValue = "false"
+                    },
+                    new PlatformConfigFieldDescriptor
+                    {
+                        Key = "SkipUnmatchedRapFiles",
+                        Label = "Skip Unmatched RAP Files",
+                        Type = PlatformConfigFieldType.Boolean,
+                        Required = false,
+                        Advanced = true,
+                        DefaultValue = "false"
+                    },
+                    new PlatformConfigFieldDescriptor
+                    {
+                        Key = "PreferMetadataBasedPackageMatching",
+                        Label = "Prefer Metadata-Based Package Matching",
+                        Type = PlatformConfigFieldType.Boolean,
+                        Required = false,
+                        Advanced = true,
+                        DefaultValue = "false"
+                    }
+                }
+            };
+        }
 
         public Task<DetectionResult> DetectAsync(PlatformContext ctx, CancellationToken ct)
         {
@@ -151,13 +224,31 @@ namespace RomM.Platforms.PS3
             }
             else if (inspection.Format == Ps3GameFormat.DecryptedIso)
             {
-                progress?.Report(new InstallProgress("Installing", "Copying ISO...", 15));
+                progress?.Report(new InstallProgress("Installing", "Placing ISO...", 15));
                 var isoSource = inspection.IsoPath;
-                var isoName = ResolveIsoFileName(ctx.GameName, inspection.IsoPath);
-                var isoTarget = Path.Combine(installRoot, isoName);
-                File.Copy(isoSource, isoTarget, true);
-                finalExecutable = isoTarget;
-                installRootPath = installRoot;
+                if (string.IsNullOrWhiteSpace(isoSource) || !File.Exists(isoSource))
+                {
+                    return new InstallResult { Success = false, Message = "ISO path missing on disk." };
+                }
+
+                var sourceDirectory = Path.GetDirectoryName(isoSource) ?? installRoot;
+                var targetFolderName = ResolveGameFolderName(ctx.GameName, inspection.Title, sourceDirectory);
+                var targetRoot = Path.Combine(installRoot, targetFolderName);
+                var preferredIsoName = ResolveIsoFileName(ctx.GameName, isoSource);
+                var isoTarget = ResolveIsoTargetPath(isoSource, targetRoot, preferredIsoName);
+
+                ctx.Logger?.Write(PlatformLogLevel.Info, $"Resolved PS3 ISO install directory: '{targetRoot}'.");
+                ctx.Logger?.Write(PlatformLogLevel.Info, $"Resolved PS3 ISO destination: '{isoTarget}'.");
+
+                if (TryPlaceIso(isoSource, isoTarget, ctx.Logger))
+                {
+                    finalExecutable = isoTarget;
+                    installRootPath = targetRoot;
+                }
+                else
+                {
+                    return new InstallResult { Success = false, Message = "Failed to place PS3 ISO into install directory." };
+                }
             }
             else
             {
@@ -929,6 +1020,21 @@ namespace RomM.Platforms.PS3
 
         private static string ResolveIsoFileName(string? gameName, string isoSource)
         {
+            var sourceName = Path.GetFileName(isoSource);
+            if (!string.IsNullOrWhiteSpace(sourceName))
+            {
+                foreach (var invalid in Path.GetInvalidFileNameChars())
+                {
+                    sourceName = sourceName.Replace(invalid, '_');
+                }
+
+                sourceName = sourceName.Trim();
+                if (!string.IsNullOrWhiteSpace(sourceName))
+                {
+                    return sourceName;
+                }
+            }
+
             var baseName = !string.IsNullOrWhiteSpace(gameName)
                 ? gameName
                 : Path.GetFileNameWithoutExtension(isoSource) ?? "PS3_Game";
@@ -938,6 +1044,85 @@ namespace RomM.Platforms.PS3
             }
 
             return string.Concat(baseName.Trim(), ".iso");
+        }
+
+        private static string ResolveIsoTargetPath(string sourceIsoPath, string targetRoot, string preferredFileName)
+        {
+            Directory.CreateDirectory(targetRoot);
+            var normalizedSourceDirectory = NormalizePath(Path.GetDirectoryName(sourceIsoPath) ?? string.Empty);
+            var normalizedTargetRoot = NormalizePath(targetRoot);
+            if (string.Equals(normalizedSourceDirectory, normalizedTargetRoot, StringComparison.OrdinalIgnoreCase))
+            {
+                return sourceIsoPath;
+            }
+
+            var targetByPreferredName = Path.Combine(targetRoot, preferredFileName);
+            if (File.Exists(targetByPreferredName))
+            {
+                return targetByPreferredName;
+            }
+
+            var existingIso = Directory.EnumerateFiles(targetRoot, "*.iso", SearchOption.TopDirectoryOnly)
+                .OrderBy(path => path.Length)
+                .FirstOrDefault();
+            return string.IsNullOrWhiteSpace(existingIso) ? targetByPreferredName : existingIso;
+        }
+
+        private static bool TryPlaceIso(string sourceIsoPath, string destinationIsoPath, IPlatformLogger? logger)
+        {
+            try
+            {
+                var normalizedSource = NormalizePath(sourceIsoPath);
+                var normalizedDestination = NormalizePath(destinationIsoPath);
+                if (string.Equals(normalizedSource, normalizedDestination, StringComparison.OrdinalIgnoreCase))
+                {
+                    logger?.Write(PlatformLogLevel.Info, $"ISO already in final location: '{normalizedDestination}'.");
+                    return true;
+                }
+
+                Directory.CreateDirectory(Path.GetDirectoryName(normalizedDestination) ?? string.Empty);
+
+                if (File.Exists(normalizedDestination))
+                {
+                    var sourceInfo = new FileInfo(normalizedSource);
+                    var destinationInfo = new FileInfo(normalizedDestination);
+                    if (sourceInfo.Exists
+                        && destinationInfo.Exists
+                        && sourceInfo.Length == destinationInfo.Length)
+                    {
+                        logger?.Write(PlatformLogLevel.Info, $"Duplicate ISO detected; using existing destination and removing redundant source. Source='{normalizedSource}', Destination='{normalizedDestination}'.");
+                        File.Delete(normalizedSource);
+                        return true;
+                    }
+
+                    logger?.Write(PlatformLogLevel.Warning, $"Destination ISO exists with different size; replacing destination. Source='{normalizedSource}', Destination='{normalizedDestination}'.");
+                    File.Delete(normalizedDestination);
+                }
+
+                logger?.Write(PlatformLogLevel.Info, $"Moving ISO from staging to install directory. Source='{normalizedSource}', Destination='{normalizedDestination}'.");
+                File.Move(normalizedSource, normalizedDestination);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                logger?.Write(PlatformLogLevel.Warning, $"ISO move failed; attempting copy fallback. Source='{sourceIsoPath}', Destination='{destinationIsoPath}'. Error='{ex.Message}'.");
+            }
+
+            try
+            {
+                var normalizedSource = NormalizePath(sourceIsoPath);
+                var normalizedDestination = NormalizePath(destinationIsoPath);
+                Directory.CreateDirectory(Path.GetDirectoryName(normalizedDestination) ?? string.Empty);
+                File.Copy(normalizedSource, normalizedDestination, overwrite: true);
+                File.Delete(normalizedSource);
+                logger?.Write(PlatformLogLevel.Info, $"Copied ISO to install directory and removed source. Source='{normalizedSource}', Destination='{normalizedDestination}'.");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                logger?.Write(PlatformLogLevel.Warning, $"Failed to place ISO in install directory. Source='{sourceIsoPath}', Destination='{destinationIsoPath}'. Error='{ex.Message}'.");
+                return false;
+            }
         }
 
         private static void DirectoryCopy(string sourceDir, string destinationDir)

@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using RomM.Platforms.Abstractions.Logging;
 using RomMbox.Services.Logging;
 
+#nullable enable
+
 namespace RomMbox.Services.PlatformInstallers
 {
     internal sealed class PlatformLoggerAdapter : IPlatformLogger
@@ -16,11 +18,6 @@ namespace RomMbox.Services.PlatformInstallers
 
         public void Write(PlatformLogLevel level, string message, Exception? exception = null, IReadOnlyDictionary<string, object?>? properties = null)
         {
-            if (_logger == null)
-            {
-                return;
-            }
-
             var mapped = level switch
             {
                 PlatformLogLevel.Trace => LogLevel.Trace,
@@ -48,7 +45,7 @@ namespace RomMbox.Services.PlatformInstallers
                 return;
             }
 
-            _logger.Write(mapped, message ?? string.Empty, exception, (IReadOnlyDictionary<string, object>)null);
+            _logger.Write(mapped, message ?? string.Empty, exception, new Dictionary<string, object>(0));
         }
     }
 }

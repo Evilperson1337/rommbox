@@ -9,16 +9,39 @@ using RomM.Platforms.Abstractions.Logging;
 using RomM.Platforms.Abstractions.Models;
 using RomM.Platforms.Abstractions.Models.Detection;
 using RomM.Platforms.Abstractions.Models.Install;
+using RomM.Platforms.Abstractions.Models.Metadata;
 using RomM.Platforms.Abstractions.Models.Rom;
 using RomM.Platforms.Abstractions.Models.Uninstall;
 using RomM.Platforms.Abstractions.Models.Verify;
 
 namespace RomM.Platforms.RomBase
 {
-    public abstract class RomPlatformInstallerBase : IPlatformInstaller
+    public abstract class RomPlatformInstallerBase : IPlatformInstaller, IPlatformInstallerMetadata
     {
         public abstract string PlatformKey { get; }
         public abstract string DisplayName { get; }
+
+        public virtual PlatformInstallerCapabilities Capabilities => new PlatformInstallerCapabilities
+        {
+            SupportsArchives = true,
+            SupportsDirectFiles = true,
+            RequiresStagingInspection = false,
+            SupportsAutoFormatDetection = true,
+            SupportsInstaller = false,
+            SupportsSilentInstaller = false,
+            SupportsUninstall = true,
+            SupportsInstallStateDetection = true,
+            SupportsApplicationPathDiscovery = true,
+            SupportsDlc = false,
+            SupportsUpdates = false,
+            SupportsRaps = false,
+            RequiresEmulatorPath = false
+        };
+
+        public virtual PlatformConfigDescriptor? GetConfigDescriptor()
+        {
+            return null;
+        }
 
         protected abstract RomInstallProfile BuildProfile();
 

@@ -9,6 +9,8 @@ using RomMbox.UI.Models;
 using RomMbox.UI.ViewModels;
 using RomMbox.UI.Views;
 
+#nullable enable
+
 namespace RomMbox.Services.PlatformInstallers
 {
     internal static class PlatformInstallerUi

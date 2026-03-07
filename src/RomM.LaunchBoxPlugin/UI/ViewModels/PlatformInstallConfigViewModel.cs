@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using RomM.Platforms.Abstractions.Models.Metadata;
 using RomMbox.Models.Install;
 using RomMbox.Models.PlatformMapping;
 using RomMbox.UI.Models;
@@ -24,11 +25,17 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
     /// </summary>
     /// <param name="mapping">The platform mapping to edit.</param>
     /// <param name="defaultInstallDirectory">Default install directory for the platform.</param>
-    public PlatformInstallConfigViewModel(Models.PlatformMapping mapping, string defaultInstallDirectory, Action onSave = null, Action onBack = null)
+    public PlatformInstallConfigViewModel(
+        Models.PlatformMapping mapping,
+        string defaultInstallDirectory,
+        PlatformConfigDescriptor configDescriptor = null,
+        Action onSave = null,
+        Action onBack = null)
     {
         _onSave = onSave;
         _onBack = onBack;
         _mapping = mapping;
+        _configDescriptor = configDescriptor;
         LaunchBoxPlatformName = mapping?.LaunchBoxPlatform ?? mapping?.RomMPlatform ?? string.Empty;
         IsWindowsPlatform = InstallDestinationService.IsWindowsPlatform(LaunchBoxPlatformName);
         DefaultInstallDirectory = defaultInstallDirectory ?? string.Empty;
@@ -84,6 +91,7 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
     }
 
     private readonly Models.PlatformMapping _mapping;
+    private readonly PlatformConfigDescriptor _configDescriptor;
 
     /// <summary>
     /// Gets the LaunchBox platform name for display and defaults.
@@ -442,6 +450,13 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
 
     public bool IsAssociatedEmulatorEnabled => InstallationType == InstallTypeChoice.Basic;
 
+    public bool ShowPs3GameDirectoryField => HasConfigField("Ps3GameDirectory");
+    public bool ShowRpcs3ExecutablePathField => HasConfigField("Rpcs3ExecutablePath");
+    public bool ShowRpcs3LicenseDirectoryField => HasConfigField("Rpcs3LicenseDirectory");
+    public bool ShowSkipRegionMismatchedDlcField => HasConfigField("SkipRegionMismatchedDlc");
+    public bool ShowSkipUnmatchedRapFilesField => HasConfigField("SkipUnmatchedRapFiles");
+    public bool ShowPreferMetadataBasedPackageMatchingField => HasConfigField("PreferMetadataBasedPackageMatching");
+
     public bool IsGamesDirectoryValid => !string.IsNullOrWhiteSpace(GamesDirectory);
 
     public bool CanSave => IsGamesDirectoryValid;
@@ -722,5 +737,22 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
         }
 
         return string.Empty;
+    }
+
+    private bool HasConfigField(string key)
+    {
+        if (string.IsNullOrWhiteSpace(key))
+        {
+            return false;
+        }
+
+        if (_configDescriptor?.Fields == null || _configDescriptor.Fields.Count == 0)
+        {
+            return false;
+        }
+
+        return _configDescriptor.Fields.Any(field =>
+            field != null &&
+            string.Equals(field.Key, key, StringComparison.OrdinalIgnoreCase));
     }
 }

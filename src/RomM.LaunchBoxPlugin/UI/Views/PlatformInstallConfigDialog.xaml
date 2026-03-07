@@ -275,8 +275,8 @@
                             <TextBox Text="{Binding RomArchivePolicy, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                             <TextBlock Text="Set to Preserve to keep archives (e.g. Arcade)." Style="{StaticResource InlineHelper}" Margin="0,6,0,12"/>
 
-                            <TextBlock Text="PS3 Games Directory" Style="{StaticResource FieldLabel}"/>
-                            <Grid Margin="0,0,0,6">
+                            <TextBlock Text="PS3 Games Directory" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowPs3GameDirectoryField, Converter={StaticResource BoolToVisibility}}"/>
+                            <Grid Margin="0,0,0,6" Visibility="{Binding ShowPs3GameDirectoryField, Converter={StaticResource BoolToVisibility}}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
@@ -284,10 +284,10 @@
                                 <TextBox Text="{Binding Ps3GameDirectory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                                 <Button Grid.Column="1" Content="Browse" Margin="8,0,0,0" Width="90" Click="BrowsePs3Games_Click"/>
                             </Grid>
-                            <TextBlock Text="Override the PS3 install directory when using RPCS3." Style="{StaticResource InlineHelper}" Margin="0,0,0,12"/>
+                            <TextBlock Text="Override the PS3 install directory when using RPCS3." Style="{StaticResource InlineHelper}" Margin="0,0,0,12" Visibility="{Binding ShowPs3GameDirectoryField, Converter={StaticResource BoolToVisibility}}"/>
 
-                            <TextBlock Text="RPCS3 Executable" Style="{StaticResource FieldLabel}"/>
-                            <Grid Margin="0,0,0,6">
+                            <TextBlock Text="RPCS3 Executable" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowRpcs3ExecutablePathField, Converter={StaticResource BoolToVisibility}}"/>
+                            <Grid Margin="0,0,0,6" Visibility="{Binding ShowRpcs3ExecutablePathField, Converter={StaticResource BoolToVisibility}}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
@@ -295,10 +295,10 @@
                                 <TextBox Text="{Binding Rpcs3ExecutablePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                                 <Button Grid.Column="1" Content="Browse" Margin="8,0,0,0" Width="90" Click="BrowseRpcs3Executable_Click"/>
                             </Grid>
-                            <TextBlock Text="Required to install PKG files and launch via RPCS3." Style="{StaticResource InlineHelper}" Margin="0,0,0,12"/>
+                            <TextBlock Text="Required to install PKG files and launch via RPCS3." Style="{StaticResource InlineHelper}" Margin="0,0,0,12" Visibility="{Binding ShowRpcs3ExecutablePathField, Converter={StaticResource BoolToVisibility}}"/>
 
-                            <TextBlock Text="RPCS3 License Directory" Style="{StaticResource FieldLabel}"/>
-                            <Grid Margin="0,0,0,6">
+                            <TextBlock Text="RPCS3 License Directory" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowRpcs3LicenseDirectoryField, Converter={StaticResource BoolToVisibility}}"/>
+                            <Grid Margin="0,0,0,6" Visibility="{Binding ShowRpcs3LicenseDirectoryField, Converter={StaticResource BoolToVisibility}}">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
@@ -306,13 +306,13 @@
                                 <TextBox Text="{Binding Rpcs3LicenseDirectory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                                 <Button Grid.Column="1" Content="Browse" Margin="8,0,0,0" Width="90" Click="BrowseRpcs3License_Click"/>
                             </Grid>
-                            <TextBlock Text="Optional override for RPCS3 dev_hdd0/home/00000001/exdata." Style="{StaticResource InlineHelper}" Margin="0,0,0,12"/>
+                            <TextBlock Text="Optional override for RPCS3 dev_hdd0/home/00000001/exdata." Style="{StaticResource InlineHelper}" Margin="0,0,0,12" Visibility="{Binding ShowRpcs3LicenseDirectoryField, Converter={StaticResource BoolToVisibility}}"/>
 
-                            <CheckBox Content="Install DLC Automatically" IsChecked="{Binding InstallDlcAutomatically, Mode=TwoWay}" Margin="0,0,0,6"/>
-                            <CheckBox Content="Install Updates Automatically" IsChecked="{Binding InstallUpdatesAutomatically, Mode=TwoWay}" Margin="0,0,0,6"/>
-                            <CheckBox Content="Skip Region-Mismatched DLC" IsChecked="{Binding SkipRegionMismatchedDlc, Mode=TwoWay}" Margin="0,0,0,6"/>
-                            <CheckBox Content="Skip Unmatched RAP Files" IsChecked="{Binding SkipUnmatchedRapFiles, Mode=TwoWay}" Margin="0,0,0,6"/>
-                            <CheckBox Content="Prefer Metadata-Based Package Matching" IsChecked="{Binding PreferMetadataBasedPackageMatching, Mode=TwoWay}" Margin="0,0,0,12"/>
+                            <CheckBox Content="Install DLC Automatically" IsChecked="{Binding InstallDlcAutomatically, Mode=TwoWay}" Margin="0,0,0,6" Visibility="{Binding ShowSkipRegionMismatchedDlcField, Converter={StaticResource BoolToVisibility}}"/>
+                            <CheckBox Content="Install Updates Automatically" IsChecked="{Binding InstallUpdatesAutomatically, Mode=TwoWay}" Margin="0,0,0,6" Visibility="{Binding ShowSkipRegionMismatchedDlcField, Converter={StaticResource BoolToVisibility}}"/>
+                            <CheckBox Content="Skip Region-Mismatched DLC" IsChecked="{Binding SkipRegionMismatchedDlc, Mode=TwoWay}" Margin="0,0,0,6" Visibility="{Binding ShowSkipRegionMismatchedDlcField, Converter={StaticResource BoolToVisibility}}"/>
+                            <CheckBox Content="Skip Unmatched RAP Files" IsChecked="{Binding SkipUnmatchedRapFiles, Mode=TwoWay}" Margin="0,0,0,6" Visibility="{Binding ShowSkipUnmatchedRapFilesField, Converter={StaticResource BoolToVisibility}}"/>
+                            <CheckBox Content="Prefer Metadata-Based Package Matching" IsChecked="{Binding PreferMetadataBasedPackageMatching, Mode=TwoWay}" Margin="0,0,0,12" Visibility="{Binding ShowPreferMetadataBasedPackageMatchingField, Converter={StaticResource BoolToVisibility}}"/>
 
                             <StackPanel Margin="0,0,0,0" Visibility="{Binding IsExtractionBehaviorEnabled, Converter={StaticResource BoolToVisibility}}">
                                 <TextBlock Text="Extraction Behavior" Style="{StaticResource FieldLabel}"/>
