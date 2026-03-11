@@ -316,6 +316,54 @@ public sealed class PlatformMapping : ObservableObject
     /// </summary>
     public bool Ps4FailIfDirectPkgExtractorMissing { get => _ps4FailIfDirectPkgExtractorMissing; set => SetProperty(ref _ps4FailIfDirectPkgExtractorMissing, value); }
 
+    private string _pcsx2ExecutablePath = "";
+    public string Pcsx2ExecutablePath { get => _pcsx2ExecutablePath; set => SetProperty(ref _pcsx2ExecutablePath, value); }
+
+    private string _pspEmulatorMode = "";
+    public string PspEmulatorMode { get => _pspEmulatorMode; set => SetProperty(ref _pspEmulatorMode, value); }
+
+    private string _ppssppExecutablePath = "";
+    public string PpssppExecutablePath { get => _ppssppExecutablePath; set => SetProperty(ref _ppssppExecutablePath, value); }
+
+    private string _retroArchExecutablePath = "";
+    public string RetroArchExecutablePath { get => _retroArchExecutablePath; set => SetProperty(ref _retroArchExecutablePath, value); }
+
+    private string _retroArchPpssppCorePath = "";
+    public string RetroArchPpssppCorePath { get => _retroArchPpssppCorePath; set => SetProperty(ref _retroArchPpssppCorePath, value); }
+
+    private bool _validateRetroArchPpssppAssets = true;
+    public bool ValidateRetroArchPpssppAssets { get => _validateRetroArchPpssppAssets; set => SetProperty(ref _validateRetroArchPpssppAssets, value); }
+
+    private bool _failInstallIfEmulatorNotReady;
+    public bool FailInstallIfEmulatorNotReady { get => _failInstallIfEmulatorNotReady; set => SetProperty(ref _failInstallIfEmulatorNotReady, value); }
+
+    private string _vita3kExecutablePath = "";
+    public string Vita3kExecutablePath { get => _vita3kExecutablePath; set => SetProperty(ref _vita3kExecutablePath, value); }
+
+    private bool _vitaFailIfEmulatorNotReady;
+    public bool VitaFailIfEmulatorNotReady { get => _vitaFailIfEmulatorNotReady; set => SetProperty(ref _vitaFailIfEmulatorNotReady, value); }
+
+    private bool _vitaInstallUpdatesAutomatically;
+    public bool VitaInstallUpdatesAutomatically { get => _vitaInstallUpdatesAutomatically; set => SetProperty(ref _vitaInstallUpdatesAutomatically, value); }
+
+    private bool _vitaInstallDlcAutomatically;
+    public bool VitaInstallDlcAutomatically { get => _vitaInstallDlcAutomatically; set => SetProperty(ref _vitaInstallDlcAutomatically, value); }
+
+    private string _switchEdenExecutablePath = "";
+    public string SwitchEdenExecutablePath { get => _switchEdenExecutablePath; set => SetProperty(ref _switchEdenExecutablePath, value); }
+
+    private string _azaharExecutablePath = "";
+    public string AzaharExecutablePath { get => _azaharExecutablePath; set => SetProperty(ref _azaharExecutablePath, value); }
+
+    private string _azaharPlusExecutablePath = "";
+    public string AzaharPlusExecutablePath { get => _azaharPlusExecutablePath; set => SetProperty(ref _azaharPlusExecutablePath, value); }
+
+    private string _dolphinExecutablePath = "";
+    public string DolphinExecutablePath { get => _dolphinExecutablePath; set => SetProperty(ref _dolphinExecutablePath, value); }
+
+    private string _cemuExecutablePath = "";
+    public string CemuExecutablePath { get => _cemuExecutablePath; set => SetProperty(ref _cemuExecutablePath, value); }
+
     private string _readinessStatus = string.Empty;
     /// <summary>
     /// Gets or sets the platform readiness status.

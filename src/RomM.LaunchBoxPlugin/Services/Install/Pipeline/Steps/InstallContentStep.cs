@@ -700,6 +700,7 @@ namespace RomMbox.Services.Install.Pipeline.Steps
                 || result == null
                 || string.IsNullOrWhiteSpace(result.ExecutablePath)
                 || string.IsNullOrWhiteSpace(context.InstallDirectory)
+                || string.IsNullOrWhiteSpace(context.DownloadDirectory)
                 || InstallDestinationService.IsWindowsPlatform(context.Game?.Platform)
                 || !GameInstallPathPolicy.ShouldUseGameSubfolder(context.Game?.Platform, context.RommDetails?.PlatformId))
             {
@@ -989,12 +990,16 @@ namespace RomMbox.Services.Install.Pipeline.Steps
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToArray();
 
-            foreach (var installer in allInstallers)
+            foreach (var installer in allInstallers.OrderByDescending(candidate => NormalizePlatformToken(candidate.DisplayName).Length))
             {
                 var normalizedDisplay = NormalizePlatformToken(installer.DisplayName);
                 var normalizedKey = NormalizePlatformToken(installer.PlatformKey);
                 if (normalizedCandidates.Any(candidate => string.Equals(candidate, normalizedDisplay, StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(candidate, normalizedKey, StringComparison.OrdinalIgnoreCase)))
+                    || string.Equals(candidate, normalizedKey, StringComparison.OrdinalIgnoreCase)
+                    || (!string.IsNullOrWhiteSpace(normalizedDisplay) && normalizedDisplay.Length >= 8 && candidate.Contains(normalizedDisplay, StringComparison.OrdinalIgnoreCase))
+                    || (!string.IsNullOrWhiteSpace(normalizedDisplay) && candidate.Length >= 8 && normalizedDisplay.Contains(candidate, StringComparison.OrdinalIgnoreCase))
+                    || (!string.IsNullOrWhiteSpace(normalizedKey) && normalizedKey.Length >= 8 && candidate.Contains(normalizedKey, StringComparison.OrdinalIgnoreCase))
+                    || (!string.IsNullOrWhiteSpace(normalizedKey) && candidate.Length >= 8 && normalizedKey.Contains(candidate, StringComparison.OrdinalIgnoreCase))))
                 {
                     logger?.Info($"Resolved platform installer by name match: '{installer.DisplayName}' ({installer.PlatformKey}).");
                     return installer.PlatformKey;

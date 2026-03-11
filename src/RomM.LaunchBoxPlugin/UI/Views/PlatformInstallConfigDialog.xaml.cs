@@ -201,6 +201,24 @@ namespace RomMbox.UI.Views;
         }
     }
 
+    private void BrowsePcsx2Executable_Click(object sender, RoutedEventArgs e) => BrowseForExecutable("Select PCSX2 executable", vm => vm?.Pcsx2ExecutablePath ?? string.Empty, (vm, path) => vm.Pcsx2ExecutablePath = path);
+
+    private void BrowsePpssppExecutable_Click(object sender, RoutedEventArgs e) => BrowseForExecutable("Select PPSSPP executable", vm => vm?.PpssppExecutablePath ?? string.Empty, (vm, path) => vm.PpssppExecutablePath = path);
+
+    private void BrowseRetroArchExecutable_Click(object sender, RoutedEventArgs e) => BrowseForExecutable("Select RetroArch executable", vm => vm?.RetroArchExecutablePath ?? string.Empty, (vm, path) => vm.RetroArchExecutablePath = path);
+
+    private void BrowseVita3kExecutable_Click(object sender, RoutedEventArgs e) => BrowseForExecutable("Select Vita3K executable", vm => vm?.Vita3kExecutablePath ?? string.Empty, (vm, path) => vm.Vita3kExecutablePath = path);
+
+    private void BrowseSwitchEdenExecutable_Click(object sender, RoutedEventArgs e) => BrowseForExecutable("Select Eden executable", vm => vm?.SwitchEdenExecutablePath ?? string.Empty, (vm, path) => vm.SwitchEdenExecutablePath = path);
+
+    private void BrowseAzaharExecutable_Click(object sender, RoutedEventArgs e) => BrowseForExecutable("Select Azahar executable", vm => vm?.AzaharExecutablePath ?? string.Empty, (vm, path) => vm.AzaharExecutablePath = path);
+
+    private void BrowseAzaharPlusExecutable_Click(object sender, RoutedEventArgs e) => BrowseForExecutable("Select AzaharPlus executable", vm => vm?.AzaharPlusExecutablePath ?? string.Empty, (vm, path) => vm.AzaharPlusExecutablePath = path);
+
+    private void BrowseDolphinExecutable_Click(object sender, RoutedEventArgs e) => BrowseForExecutable("Select Dolphin executable", vm => vm?.DolphinExecutablePath ?? string.Empty, (vm, path) => vm.DolphinExecutablePath = path);
+
+    private void BrowseCemuExecutable_Click(object sender, RoutedEventArgs e) => BrowseForExecutable("Select Cemu executable", vm => vm?.CemuExecutablePath ?? string.Empty, (vm, path) => vm.CemuExecutablePath = path);
+
     /// <summary>
     /// Displays a folder browser dialog and invokes the callback when a path is selected.
     /// </summary>
@@ -218,6 +236,31 @@ namespace RomMbox.UI.Views;
             if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
             {
                 onSelected?.Invoke(dialog.SelectedPath);
+            }
+        }
+    }
+
+    private void BrowseForExecutable(string title, Func<ViewModels.PlatformInstallConfigViewModel, string> currentValueAccessor, Action<ViewModels.PlatformInstallConfigViewModel, string> setter)
+    {
+        using (var dialog = new OpenFileDialog
+        {
+            Title = title,
+            Filter = "Executable (*.exe)|*.exe|All Files (*.*)|*.*",
+            CheckFileExists = true
+        })
+        {
+            if (DataContext is ViewModels.PlatformInstallConfigViewModel viewModel)
+            {
+                var currentValue = currentValueAccessor?.Invoke(viewModel);
+                if (!string.IsNullOrWhiteSpace(currentValue))
+                {
+                    dialog.FileName = currentValue;
+                }
+            }
+
+            if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK && DataContext is ViewModels.PlatformInstallConfigViewModel vm)
+            {
+                setter?.Invoke(vm, dialog.FileName);
             }
         }
     }

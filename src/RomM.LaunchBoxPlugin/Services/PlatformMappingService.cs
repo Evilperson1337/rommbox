@@ -152,7 +152,23 @@ namespace RomMbox.Services
                         Ps4GamesDirectory = saved?.Ps4GamesDirectory ?? string.Empty,
                         ShadPs4ExecutablePath = saved?.ShadPs4ExecutablePath ?? string.Empty,
                         Ps4ExternalPkgExtractorPath = saved?.Ps4ExternalPkgExtractorPath ?? string.Empty,
-                        Ps4FailIfDirectPkgExtractorMissing = saved?.Ps4FailIfDirectPkgExtractorMissing ?? false
+                        Ps4FailIfDirectPkgExtractorMissing = saved?.Ps4FailIfDirectPkgExtractorMissing ?? false,
+                        Pcsx2ExecutablePath = saved?.Pcsx2ExecutablePath ?? string.Empty,
+                        PspEmulatorMode = saved?.PspEmulatorMode ?? string.Empty,
+                        PpssppExecutablePath = saved?.PpssppExecutablePath ?? string.Empty,
+                        RetroArchExecutablePath = saved?.RetroArchExecutablePath ?? string.Empty,
+                        RetroArchPpssppCorePath = saved?.RetroArchPpssppCorePath ?? string.Empty,
+                        ValidateRetroArchPpssppAssets = saved?.ValidateRetroArchPpssppAssets ?? true,
+                        FailInstallIfEmulatorNotReady = saved?.FailInstallIfEmulatorNotReady ?? false,
+                        Vita3kExecutablePath = saved?.Vita3kExecutablePath ?? string.Empty,
+                        VitaFailIfEmulatorNotReady = saved?.VitaFailIfEmulatorNotReady ?? false,
+                        VitaInstallUpdatesAutomatically = saved?.VitaInstallUpdatesAutomatically ?? false,
+                        VitaInstallDlcAutomatically = saved?.VitaInstallDlcAutomatically ?? false,
+                        SwitchEdenExecutablePath = saved?.SwitchEdenExecutablePath ?? string.Empty,
+                        AzaharExecutablePath = saved?.AzaharExecutablePath ?? string.Empty,
+                        AzaharPlusExecutablePath = saved?.AzaharPlusExecutablePath ?? string.Empty,
+                        DolphinExecutablePath = saved?.DolphinExecutablePath ?? string.Empty,
+                        CemuExecutablePath = saved?.CemuExecutablePath ?? string.Empty
                     });
                 }
                 return new PlatformMappingResult { Mappings = mappings };

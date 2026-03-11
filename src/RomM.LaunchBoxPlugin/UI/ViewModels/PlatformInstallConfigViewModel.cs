@@ -92,6 +92,22 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
         ShadPs4ExecutablePath = mapping?.ShadPs4ExecutablePath ?? string.Empty;
         Ps4ExternalPkgExtractorPath = mapping?.Ps4ExternalPkgExtractorPath ?? string.Empty;
         Ps4FailIfDirectPkgExtractorMissing = mapping?.Ps4FailIfDirectPkgExtractorMissing ?? false;
+        Pcsx2ExecutablePath = mapping?.Pcsx2ExecutablePath ?? string.Empty;
+        PspEmulatorMode = string.IsNullOrWhiteSpace(mapping?.PspEmulatorMode) ? ResolveDefaultPspEmulatorMode(mapping) : mapping.PspEmulatorMode;
+        PpssppExecutablePath = mapping?.PpssppExecutablePath ?? string.Empty;
+        RetroArchExecutablePath = mapping?.RetroArchExecutablePath ?? string.Empty;
+        RetroArchPpssppCorePath = mapping?.RetroArchPpssppCorePath ?? string.Empty;
+        ValidateRetroArchPpssppAssets = mapping?.ValidateRetroArchPpssppAssets ?? true;
+        FailInstallIfEmulatorNotReady = mapping?.FailInstallIfEmulatorNotReady ?? false;
+        Vita3kExecutablePath = mapping?.Vita3kExecutablePath ?? string.Empty;
+        VitaFailIfEmulatorNotReady = mapping?.VitaFailIfEmulatorNotReady ?? false;
+        VitaInstallUpdatesAutomatically = mapping?.VitaInstallUpdatesAutomatically ?? false;
+        VitaInstallDlcAutomatically = mapping?.VitaInstallDlcAutomatically ?? false;
+        SwitchEdenExecutablePath = mapping?.SwitchEdenExecutablePath ?? string.Empty;
+        AzaharExecutablePath = mapping?.AzaharExecutablePath ?? string.Empty;
+        AzaharPlusExecutablePath = mapping?.AzaharPlusExecutablePath ?? string.Empty;
+        DolphinExecutablePath = mapping?.DolphinExecutablePath ?? string.Empty;
+        CemuExecutablePath = mapping?.CemuExecutablePath ?? string.Empty;
 
         InstallScenario = InstallationType == InstallTypeChoice.Enhanced
             ? InstallScenario.Enhanced
@@ -530,6 +546,17 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
     public bool IsInstallModeAutomatic => InstallerMode == InstallerMode.AutoInnoSilent;
 
     public bool IsAssociatedEmulatorEnabled => InstallationType == InstallTypeChoice.Basic;
+    public bool IsGeneralPlugin => string.Equals(PluginKey, "general", StringComparison.OrdinalIgnoreCase);
+    public bool HasPluginDescriptorFields => _configDescriptor?.Fields != null && _configDescriptor.Fields.Count > 0;
+    public bool HasPluginSpecificTooling => HasPluginDescriptorFields && !IsGeneralPlugin;
+    public bool ShowInstallationTypeSection => IsWindowsPlatform || IsGeneralPlugin;
+    public bool ShowAssociatedEmulatorField => IsGeneralPlugin;
+    public bool ShowGenericEmulatorCoreFields => IsGeneralPlugin;
+    public bool ShowExtractAfterDownloadField => IsGeneralPlugin;
+    public bool ShowRomInstallRootField => IsGeneralPlugin;
+    public bool ShowRomArchivePolicyField => IsGeneralPlugin;
+    public bool ShowBasicOptionsSection => IsBasicSelected && IsGeneralPlugin;
+    public bool ShowEnhancedOptionsSection => IsEnhancedSelected && IsWindowsPlatform;
 
     public bool ShowPs3GameDirectoryField => HasConfigField("Ps3GameDirectory");
     public bool ShowRpcs3ExecutablePathField => HasConfigField("Rpcs3ExecutablePath");
@@ -550,6 +577,24 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
     public bool ShowShadPs4ExecutablePathField => HasConfigField("ShadPs4ExecutablePath");
     public bool ShowPs4ExternalPkgExtractorPathField => HasConfigField("Ps4ExternalPkgExtractorPath");
     public bool ShowPs4FailIfDirectPkgExtractorMissingField => HasConfigField("Ps4FailIfDirectPkgExtractorMissing");
+    public bool ShowPcsx2ExecutablePathField => HasConfigField("Pcsx2ExecutablePath");
+    public bool ShowPspEmulatorModeField => HasConfigField("PspEmulatorMode");
+    public bool ShowPpssppExecutablePathField => HasConfigField("PpssppExecutablePath");
+    public bool ShowRetroArchExecutablePathField => HasConfigField("RetroArchExecutablePath");
+    public bool ShowRetroArchPpssppCorePathField => HasConfigField("RetroArchPpssppCorePath");
+    public bool ShowValidateRetroArchPpssppAssetsField => HasConfigField("ValidateRetroArchPpssppAssets");
+    public bool ShowFailInstallIfEmulatorNotReadyField => HasConfigField("FailInstallIfEmulatorNotReady");
+    public bool ShowVita3kExecutablePathField => HasConfigField("Vita3kExecutablePath");
+    public bool ShowVitaFailIfEmulatorNotReadyField => HasConfigField("VitaFailIfEmulatorNotReady");
+    public bool ShowVitaInstallUpdatesAutomaticallyField => HasConfigField("VitaInstallUpdatesAutomatically");
+    public bool ShowVitaInstallDlcAutomaticallyField => HasConfigField("VitaInstallDlcAutomatically");
+    public bool ShowSwitchEdenExecutablePathField => HasConfigField("SwitchEdenExecutablePath");
+    public bool ShowAzaharExecutablePathField => HasConfigField("AzaharExecutablePath");
+    public bool ShowAzaharPlusExecutablePathField => HasConfigField("AzaharPlusExecutablePath");
+    public bool ShowDolphinExecutablePathField => HasConfigField("DolphinExecutablePath");
+    public bool ShowCemuExecutablePathField => HasConfigField("CemuExecutablePath");
+    public bool IsPspRetroArchMode => string.Equals(PspEmulatorMode, "RetroArchPPSSPP", StringComparison.OrdinalIgnoreCase);
+    public bool IsPspStandaloneMode => !IsPspRetroArchMode;
 
     public bool IsGamesDirectoryValid => !string.IsNullOrWhiteSpace(GamesDirectory);
 
@@ -631,6 +676,65 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
     /// </summary>
     public bool Ps4FailIfDirectPkgExtractorMissing { get => _ps4FailIfDirectPkgExtractorMissing; set => SetProperty(ref _ps4FailIfDirectPkgExtractorMissing, value); }
 
+    private string _pcsx2ExecutablePath = string.Empty;
+    public string Pcsx2ExecutablePath { get => _pcsx2ExecutablePath; set => SetProperty(ref _pcsx2ExecutablePath, value); }
+
+    private string _pspEmulatorMode = string.Empty;
+    public string PspEmulatorMode
+    {
+        get => _pspEmulatorMode;
+        set
+        {
+            if (SetProperty(ref _pspEmulatorMode, value))
+            {
+                RaisePropertyChanged(nameof(IsPspRetroArchMode));
+                RaisePropertyChanged(nameof(IsPspStandaloneMode));
+            }
+        }
+    }
+
+    private string _ppssppExecutablePath = string.Empty;
+    public string PpssppExecutablePath { get => _ppssppExecutablePath; set => SetProperty(ref _ppssppExecutablePath, value); }
+
+    private string _retroArchExecutablePath = string.Empty;
+    public string RetroArchExecutablePath { get => _retroArchExecutablePath; set => SetProperty(ref _retroArchExecutablePath, value); }
+
+    private string _retroArchPpssppCorePath = string.Empty;
+    public string RetroArchPpssppCorePath { get => _retroArchPpssppCorePath; set => SetProperty(ref _retroArchPpssppCorePath, value); }
+
+    private bool _validateRetroArchPpssppAssets = true;
+    public bool ValidateRetroArchPpssppAssets { get => _validateRetroArchPpssppAssets; set => SetProperty(ref _validateRetroArchPpssppAssets, value); }
+
+    private bool _failInstallIfEmulatorNotReady;
+    public bool FailInstallIfEmulatorNotReady { get => _failInstallIfEmulatorNotReady; set => SetProperty(ref _failInstallIfEmulatorNotReady, value); }
+
+    private string _vita3kExecutablePath = string.Empty;
+    public string Vita3kExecutablePath { get => _vita3kExecutablePath; set => SetProperty(ref _vita3kExecutablePath, value); }
+
+    private bool _vitaFailIfEmulatorNotReady;
+    public bool VitaFailIfEmulatorNotReady { get => _vitaFailIfEmulatorNotReady; set => SetProperty(ref _vitaFailIfEmulatorNotReady, value); }
+
+    private bool _vitaInstallUpdatesAutomatically;
+    public bool VitaInstallUpdatesAutomatically { get => _vitaInstallUpdatesAutomatically; set => SetProperty(ref _vitaInstallUpdatesAutomatically, value); }
+
+    private bool _vitaInstallDlcAutomatically;
+    public bool VitaInstallDlcAutomatically { get => _vitaInstallDlcAutomatically; set => SetProperty(ref _vitaInstallDlcAutomatically, value); }
+
+    private string _switchEdenExecutablePath = string.Empty;
+    public string SwitchEdenExecutablePath { get => _switchEdenExecutablePath; set => SetProperty(ref _switchEdenExecutablePath, value); }
+
+    private string _azaharExecutablePath = string.Empty;
+    public string AzaharExecutablePath { get => _azaharExecutablePath; set => SetProperty(ref _azaharExecutablePath, value); }
+
+    private string _azaharPlusExecutablePath = string.Empty;
+    public string AzaharPlusExecutablePath { get => _azaharPlusExecutablePath; set => SetProperty(ref _azaharPlusExecutablePath, value); }
+
+    private string _dolphinExecutablePath = string.Empty;
+    public string DolphinExecutablePath { get => _dolphinExecutablePath; set => SetProperty(ref _dolphinExecutablePath, value); }
+
+    private string _cemuExecutablePath = string.Empty;
+    public string CemuExecutablePath { get => _cemuExecutablePath; set => SetProperty(ref _cemuExecutablePath, value); }
+
     public Models.PlatformMapping BuildMappingForSave()
     {
         if (_mapping == null)
@@ -684,6 +788,22 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
         _mapping.ShadPs4ExecutablePath = ShadPs4ExecutablePath;
         _mapping.Ps4ExternalPkgExtractorPath = Ps4ExternalPkgExtractorPath;
         _mapping.Ps4FailIfDirectPkgExtractorMissing = Ps4FailIfDirectPkgExtractorMissing;
+        _mapping.Pcsx2ExecutablePath = Pcsx2ExecutablePath;
+        _mapping.PspEmulatorMode = PspEmulatorMode;
+        _mapping.PpssppExecutablePath = PpssppExecutablePath;
+        _mapping.RetroArchExecutablePath = RetroArchExecutablePath;
+        _mapping.RetroArchPpssppCorePath = RetroArchPpssppCorePath;
+        _mapping.ValidateRetroArchPpssppAssets = ValidateRetroArchPpssppAssets;
+        _mapping.FailInstallIfEmulatorNotReady = FailInstallIfEmulatorNotReady;
+        _mapping.Vita3kExecutablePath = Vita3kExecutablePath;
+        _mapping.VitaFailIfEmulatorNotReady = VitaFailIfEmulatorNotReady;
+        _mapping.VitaInstallUpdatesAutomatically = VitaInstallUpdatesAutomatically;
+        _mapping.VitaInstallDlcAutomatically = VitaInstallDlcAutomatically;
+        _mapping.SwitchEdenExecutablePath = SwitchEdenExecutablePath;
+        _mapping.AzaharExecutablePath = AzaharExecutablePath;
+        _mapping.AzaharPlusExecutablePath = AzaharPlusExecutablePath;
+        _mapping.DolphinExecutablePath = DolphinExecutablePath;
+        _mapping.CemuExecutablePath = CemuExecutablePath;
         return _mapping;
     }
 
@@ -870,6 +990,24 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
         }
 
         return string.Empty;
+    }
+
+    private static string ResolveDefaultPspEmulatorMode(Models.PlatformMapping mapping)
+    {
+        var combined = string.Join(" ", new[]
+        {
+            mapping?.AssociatedEmulatorId,
+            mapping?.EmulatorCoreId,
+            mapping?.EmulatorCoreName,
+            mapping?.EmulatorCorePath,
+            mapping?.RetroArchExecutablePath,
+            mapping?.RetroArchPpssppCorePath
+        });
+
+        return combined.IndexOf("retroarch", StringComparison.OrdinalIgnoreCase) >= 0
+            || combined.IndexOf("ppsspp", StringComparison.OrdinalIgnoreCase) >= 0 && !string.IsNullOrWhiteSpace(mapping?.RetroArchPpssppCorePath)
+            ? "RetroArchPPSSPP"
+            : "StandalonePPSSPP";
     }
 
     private bool HasConfigField(string key)

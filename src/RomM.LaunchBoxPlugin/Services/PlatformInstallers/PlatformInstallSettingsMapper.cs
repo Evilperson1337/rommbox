@@ -43,14 +43,22 @@ namespace RomMbox.Services.PlatformInstallers
                 ShadPs4ExecutablePath = string.IsNullOrWhiteSpace(mapping.ShadPs4ExecutablePath) ? null : mapping.ShadPs4ExecutablePath,
                 Ps4ExternalPkgExtractorPath = string.IsNullOrWhiteSpace(mapping.Ps4ExternalPkgExtractorPath) ? null : mapping.Ps4ExternalPkgExtractorPath,
                 Ps4FailIfDirectPkgExtractorMissing = mapping.Ps4FailIfDirectPkgExtractorMissing,
-                PspEmulatorMode = InferPspEmulatorMode(mapping),
-                RetroArchPpssppCorePath = ResolvePspCorePath(mapping),
-                ValidateRetroArchPpssppAssets = true,
-                FailInstallIfEmulatorNotReady = false,
-                Vita3kExecutablePath = string.Empty,
-                VitaFailIfEmulatorNotReady = false,
-                VitaInstallUpdatesAutomatically = mapping.InstallUpdatesAutomatically,
-                VitaInstallDlcAutomatically = mapping.InstallDlcAutomatically
+                Pcsx2ExecutablePath = string.IsNullOrWhiteSpace(mapping.Pcsx2ExecutablePath) ? null : mapping.Pcsx2ExecutablePath,
+                PspEmulatorMode = string.IsNullOrWhiteSpace(mapping.PspEmulatorMode) ? InferPspEmulatorMode(mapping) : mapping.PspEmulatorMode,
+                PpssppExecutablePath = string.IsNullOrWhiteSpace(mapping.PpssppExecutablePath) ? null : mapping.PpssppExecutablePath,
+                RetroArchExecutablePath = string.IsNullOrWhiteSpace(mapping.RetroArchExecutablePath) ? null : mapping.RetroArchExecutablePath,
+                RetroArchPpssppCorePath = string.IsNullOrWhiteSpace(mapping.RetroArchPpssppCorePath) ? ResolvePspCorePath(mapping) : mapping.RetroArchPpssppCorePath,
+                ValidateRetroArchPpssppAssets = mapping.ValidateRetroArchPpssppAssets,
+                FailInstallIfEmulatorNotReady = mapping.FailInstallIfEmulatorNotReady,
+                SwitchEdenExecutablePath = string.IsNullOrWhiteSpace(mapping.SwitchEdenExecutablePath) ? null : mapping.SwitchEdenExecutablePath,
+                AzaharExecutablePath = string.IsNullOrWhiteSpace(mapping.AzaharExecutablePath) ? null : mapping.AzaharExecutablePath,
+                AzaharPlusExecutablePath = string.IsNullOrWhiteSpace(mapping.AzaharPlusExecutablePath) ? null : mapping.AzaharPlusExecutablePath,
+                DolphinExecutablePath = string.IsNullOrWhiteSpace(mapping.DolphinExecutablePath) ? null : mapping.DolphinExecutablePath,
+                CemuExecutablePath = string.IsNullOrWhiteSpace(mapping.CemuExecutablePath) ? null : mapping.CemuExecutablePath,
+                Vita3kExecutablePath = string.IsNullOrWhiteSpace(mapping.Vita3kExecutablePath) ? null : mapping.Vita3kExecutablePath,
+                VitaFailIfEmulatorNotReady = mapping.VitaFailIfEmulatorNotReady,
+                VitaInstallUpdatesAutomatically = mapping.VitaInstallUpdatesAutomatically,
+                VitaInstallDlcAutomatically = mapping.VitaInstallDlcAutomatically
             };
         }
 

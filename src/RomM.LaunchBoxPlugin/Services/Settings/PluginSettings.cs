@@ -345,6 +345,61 @@ namespace RomMbox.Services.Settings
                 {
                     mapping.Ps4ExternalPkgExtractorPath = string.Empty;
                 }
+
+                if (mapping.Pcsx2ExecutablePath == null)
+                {
+                    mapping.Pcsx2ExecutablePath = string.Empty;
+                }
+
+                if (mapping.PspEmulatorMode == null)
+                {
+                    mapping.PspEmulatorMode = string.Empty;
+                }
+
+                if (mapping.PpssppExecutablePath == null)
+                {
+                    mapping.PpssppExecutablePath = string.Empty;
+                }
+
+                if (mapping.RetroArchExecutablePath == null)
+                {
+                    mapping.RetroArchExecutablePath = string.Empty;
+                }
+
+                if (mapping.RetroArchPpssppCorePath == null)
+                {
+                    mapping.RetroArchPpssppCorePath = string.Empty;
+                }
+
+                if (mapping.Vita3kExecutablePath == null)
+                {
+                    mapping.Vita3kExecutablePath = string.Empty;
+                }
+
+                if (mapping.SwitchEdenExecutablePath == null)
+                {
+                    mapping.SwitchEdenExecutablePath = string.Empty;
+                }
+
+                if (mapping.AzaharExecutablePath == null)
+                {
+                    mapping.AzaharExecutablePath = string.Empty;
+                }
+
+                if (mapping.AzaharPlusExecutablePath == null)
+                {
+                    mapping.AzaharPlusExecutablePath = string.Empty;
+                }
+
+                if (mapping.DolphinExecutablePath == null)
+                {
+                    mapping.DolphinExecutablePath = string.Empty;
+                }
+
+                if (mapping.CemuExecutablePath == null)
+                {
+                    mapping.CemuExecutablePath = string.Empty;
+                }
             }
         }
     }

@@ -315,5 +315,101 @@ namespace RomMbox.Models.PlatformMapping
         /// </summary>
         [DataMember(Name = "ps4FailIfDirectPkgExtractorMissing", EmitDefaultValue = false)]
         public bool Ps4FailIfDirectPkgExtractorMissing { get; set; }
+
+        /// <summary>
+        /// Gets or sets the PCSX2 executable path override.
+        /// </summary>
+        [DataMember(Name = "pcsx2ExecutablePath", EmitDefaultValue = false)]
+        public string Pcsx2ExecutablePath { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the PSP emulator mode.
+        /// </summary>
+        [DataMember(Name = "pspEmulatorMode", EmitDefaultValue = false)]
+        public string PspEmulatorMode { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the PPSSPP executable path override.
+        /// </summary>
+        [DataMember(Name = "ppssppExecutablePath", EmitDefaultValue = false)]
+        public string PpssppExecutablePath { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the RetroArch executable path override.
+        /// </summary>
+        [DataMember(Name = "retroArchExecutablePath", EmitDefaultValue = false)]
+        public string RetroArchExecutablePath { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the RetroArch PPSSPP core path or identifier.
+        /// </summary>
+        [DataMember(Name = "retroArchPpssppCorePath", EmitDefaultValue = false)]
+        public string RetroArchPpssppCorePath { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets whether RetroArch PPSSPP assets should be validated.
+        /// </summary>
+        [DataMember(Name = "validateRetroArchPpssppAssets", EmitDefaultValue = false)]
+        public bool ValidateRetroArchPpssppAssets { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets whether installs should fail when emulator readiness checks fail.
+        /// </summary>
+        [DataMember(Name = "failInstallIfEmulatorNotReady", EmitDefaultValue = false)]
+        public bool FailInstallIfEmulatorNotReady { get; set; }
+
+        /// <summary>
+        /// Gets or sets the Vita3K executable path override.
+        /// </summary>
+        [DataMember(Name = "vita3kExecutablePath", EmitDefaultValue = false)]
+        public string Vita3kExecutablePath { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets whether Vita installs should fail when emulator readiness checks fail.
+        /// </summary>
+        [DataMember(Name = "vitaFailIfEmulatorNotReady", EmitDefaultValue = false)]
+        public bool VitaFailIfEmulatorNotReady { get; set; }
+
+        /// <summary>
+        /// Gets or sets whether Vita updates should be installed automatically.
+        /// </summary>
+        [DataMember(Name = "vitaInstallUpdatesAutomatically", EmitDefaultValue = false)]
+        public bool VitaInstallUpdatesAutomatically { get; set; }
+
+        /// <summary>
+        /// Gets or sets whether Vita DLC should be installed automatically.
+        /// </summary>
+        [DataMember(Name = "vitaInstallDlcAutomatically", EmitDefaultValue = false)]
+        public bool VitaInstallDlcAutomatically { get; set; }
+
+        /// <summary>
+        /// Gets or sets the Eden executable path override for Switch.
+        /// </summary>
+        [DataMember(Name = "switchEdenExecutablePath", EmitDefaultValue = false)]
+        public string SwitchEdenExecutablePath { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the Azahar executable path override.
+        /// </summary>
+        [DataMember(Name = "azaharExecutablePath", EmitDefaultValue = false)]
+        public string AzaharExecutablePath { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the AzaharPlus executable path override.
+        /// </summary>
+        [DataMember(Name = "azaharPlusExecutablePath", EmitDefaultValue = false)]
+        public string AzaharPlusExecutablePath { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the Dolphin executable path override.
+        /// </summary>
+        [DataMember(Name = "dolphinExecutablePath", EmitDefaultValue = false)]
+        public string DolphinExecutablePath { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the Cemu executable path override.
+        /// </summary>
+        [DataMember(Name = "cemuExecutablePath", EmitDefaultValue = false)]
+        public string CemuExecutablePath { get; set; } = string.Empty;
     }
 }

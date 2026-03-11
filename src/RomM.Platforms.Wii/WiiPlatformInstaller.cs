@@ -50,8 +50,8 @@ namespace RomM.Platforms.Wii
             SupportsUninstall = true,
             SupportsInstallStateDetection = true,
             SupportsApplicationPathDiscovery = true,
-            SupportsDlc = false,
-            SupportsUpdates = false,
+            SupportsDlc = true,
+            SupportsUpdates = true,
             SupportsRaps = false,
             RequiresEmulatorPath = false
         };

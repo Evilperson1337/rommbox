@@ -24,12 +24,18 @@ namespace RomM.Platforms.Abstractions.Models.Install
         public string? ShadPs4ExecutablePath { get; set; }
         public string? Ps4ExternalPkgExtractorPath { get; set; }
         public bool Ps4FailIfDirectPkgExtractorMissing { get; set; }
+        public string? Pcsx2ExecutablePath { get; set; }
         public string? PspEmulatorMode { get; set; }
         public string? PpssppExecutablePath { get; set; }
         public string? RetroArchExecutablePath { get; set; }
         public string? RetroArchPpssppCorePath { get; set; }
         public bool ValidateRetroArchPpssppAssets { get; set; } = true;
         public bool FailInstallIfEmulatorNotReady { get; set; }
+        public string? SwitchEdenExecutablePath { get; set; }
+        public string? AzaharExecutablePath { get; set; }
+        public string? AzaharPlusExecutablePath { get; set; }
+        public string? DolphinExecutablePath { get; set; }
+        public string? CemuExecutablePath { get; set; }
         public string? Vita3kExecutablePath { get; set; }
         public bool VitaFailIfEmulatorNotReady { get; set; }
         public bool VitaInstallUpdatesAutomatically { get; set; }

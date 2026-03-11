@@ -145,7 +145,23 @@ CREATE TABLE IF NOT EXISTS InstallStateMetadata (
      Ps4GamesDirectory TEXT,
      ShadPs4ExecutablePath TEXT,
      Ps4ExternalPkgExtractorPath TEXT,
-     Ps4FailIfDirectPkgExtractorMissing INTEGER NOT NULL DEFAULT 0
+     Ps4FailIfDirectPkgExtractorMissing INTEGER NOT NULL DEFAULT 0,
+     Pcsx2ExecutablePath TEXT,
+     PspEmulatorMode TEXT,
+     PpssppExecutablePath TEXT,
+     RetroArchExecutablePath TEXT,
+     RetroArchPpssppCorePath TEXT,
+     ValidateRetroArchPpssppAssets INTEGER NOT NULL DEFAULT 1,
+     FailInstallIfEmulatorNotReady INTEGER NOT NULL DEFAULT 0,
+     Vita3kExecutablePath TEXT,
+     VitaFailIfEmulatorNotReady INTEGER NOT NULL DEFAULT 0,
+     VitaInstallUpdatesAutomatically INTEGER NOT NULL DEFAULT 0,
+     VitaInstallDlcAutomatically INTEGER NOT NULL DEFAULT 0,
+     SwitchEdenExecutablePath TEXT,
+     AzaharExecutablePath TEXT,
+     AzaharPlusExecutablePath TEXT,
+     DolphinExecutablePath TEXT,
+     CemuExecutablePath TEXT
  );
 CREATE TABLE IF NOT EXISTS PlatformMappingAliases (
     AliasId TEXT PRIMARY KEY,
@@ -1666,6 +1682,22 @@ ON CONFLICT(Key) DO UPDATE SET Value = excluded.Value;
             await AddColumnIfMissingAsync(connection, columns, "ShadPs4ExecutablePath", "TEXT", cancellationToken).ConfigureAwait(false);
             await AddColumnIfMissingAsync(connection, columns, "Ps4ExternalPkgExtractorPath", "TEXT", cancellationToken).ConfigureAwait(false);
             await AddColumnIfMissingAsync(connection, columns, "Ps4FailIfDirectPkgExtractorMissing", "INTEGER NOT NULL DEFAULT 0", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "Pcsx2ExecutablePath", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "PspEmulatorMode", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "PpssppExecutablePath", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "RetroArchExecutablePath", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "RetroArchPpssppCorePath", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "ValidateRetroArchPpssppAssets", "INTEGER NOT NULL DEFAULT 1", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "FailInstallIfEmulatorNotReady", "INTEGER NOT NULL DEFAULT 0", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "Vita3kExecutablePath", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "VitaFailIfEmulatorNotReady", "INTEGER NOT NULL DEFAULT 0", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "VitaInstallUpdatesAutomatically", "INTEGER NOT NULL DEFAULT 0", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "VitaInstallDlcAutomatically", "INTEGER NOT NULL DEFAULT 0", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "SwitchEdenExecutablePath", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "AzaharExecutablePath", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "AzaharPlusExecutablePath", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "DolphinExecutablePath", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "CemuExecutablePath", "TEXT", cancellationToken).ConfigureAwait(false);
         }
 
         private static async Task AddColumnIfMissingAsync(SqliteConnection connection, HashSet<string> columns, string columnName, string columnDefinition, CancellationToken cancellationToken)

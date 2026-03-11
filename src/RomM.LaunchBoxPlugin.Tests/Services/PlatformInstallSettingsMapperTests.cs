@@ -61,5 +61,67 @@ namespace RomMbox.Tests.Services
                 Environment.SetEnvironmentVariable("ROMMBOX_TEST_LAUNCHBOX_ROOT", null);
             }
         }
+
+        [Fact]
+        public void Map_UsesExplicitPluginSpecificFields_WhenProvided()
+        {
+            var mapping = new PlatformMapping
+            {
+                Pcsx2ExecutablePath = @"D:\Emulators\PCSX2\pcsx2.exe",
+                PspEmulatorMode = "RetroArchPPSSPP",
+                PpssppExecutablePath = @"D:\Emulators\PPSSPP\ppsspp.exe",
+                RetroArchExecutablePath = @"D:\Emulators\RetroArch\retroarch.exe",
+                RetroArchPpssppCorePath = @"cores\ppsspp_libretro.dll",
+                ValidateRetroArchPpssppAssets = false,
+                FailInstallIfEmulatorNotReady = true,
+                Vita3kExecutablePath = @"D:\Emulators\Vita3K\Vita3K.exe",
+                VitaFailIfEmulatorNotReady = true,
+                VitaInstallUpdatesAutomatically = true,
+                VitaInstallDlcAutomatically = true,
+                SwitchEdenExecutablePath = @"D:\Emulators\Eden\eden.exe",
+                AzaharExecutablePath = @"D:\Emulators\Azahar\azahar.exe",
+                AzaharPlusExecutablePath = @"D:\Emulators\AzaharPlus\azaharplus.exe",
+                DolphinExecutablePath = @"D:\Emulators\Dolphin\dolphin.exe",
+                CemuExecutablePath = @"D:\Emulators\Cemu\cemu.exe"
+            };
+
+            var settings = PlatformInstallSettingsMapper.Map(mapping);
+
+            settings.Pcsx2ExecutablePath.Should().Be(mapping.Pcsx2ExecutablePath);
+            settings.PspEmulatorMode.Should().Be("RetroArchPPSSPP");
+            settings.PpssppExecutablePath.Should().Be(mapping.PpssppExecutablePath);
+            settings.RetroArchExecutablePath.Should().Be(mapping.RetroArchExecutablePath);
+            settings.RetroArchPpssppCorePath.Should().Be(mapping.RetroArchPpssppCorePath);
+            settings.ValidateRetroArchPpssppAssets.Should().BeFalse();
+            settings.FailInstallIfEmulatorNotReady.Should().BeTrue();
+            settings.Vita3kExecutablePath.Should().Be(mapping.Vita3kExecutablePath);
+            settings.VitaFailIfEmulatorNotReady.Should().BeTrue();
+            settings.VitaInstallUpdatesAutomatically.Should().BeTrue();
+            settings.VitaInstallDlcAutomatically.Should().BeTrue();
+            settings.SwitchEdenExecutablePath.Should().Be(mapping.SwitchEdenExecutablePath);
+            settings.AzaharExecutablePath.Should().Be(mapping.AzaharExecutablePath);
+            settings.AzaharPlusExecutablePath.Should().Be(mapping.AzaharPlusExecutablePath);
+            settings.DolphinExecutablePath.Should().Be(mapping.DolphinExecutablePath);
+            settings.CemuExecutablePath.Should().Be(mapping.CemuExecutablePath);
+        }
+
+        [Fact]
+        public void Map_InfersPspModeAndCore_WhenExplicitValuesAreMissing()
+        {
+            var mapping = new PlatformMapping
+            {
+                AssociatedEmulatorId = "retroarch",
+                EmulatorCorePath = "cores\\ppsspp_libretro.dll",
+                ValidateRetroArchPpssppAssets = true,
+                FailInstallIfEmulatorNotReady = false
+            };
+
+            var settings = PlatformInstallSettingsMapper.Map(mapping);
+
+            settings.PspEmulatorMode.Should().Be("RetroArchPPSSPP");
+            settings.RetroArchPpssppCorePath.Should().Be("cores\\ppsspp_libretro.dll");
+            settings.ValidateRetroArchPpssppAssets.Should().BeTrue();
+            settings.FailInstallIfEmulatorNotReady.Should().BeFalse();
+        }
     }
 }
