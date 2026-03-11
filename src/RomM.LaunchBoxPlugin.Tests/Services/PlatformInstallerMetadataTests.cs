@@ -116,8 +116,8 @@ namespace RomMbox.Tests.Services
             capabilities.SupportsUninstall.Should().BeTrue();
             capabilities.SupportsInstallStateDetection.Should().BeTrue();
             capabilities.SupportsApplicationPathDiscovery.Should().BeTrue();
-            capabilities.SupportsDlc.Should().BeFalse();
-            capabilities.SupportsUpdates.Should().BeFalse();
+            capabilities.SupportsDlc.Should().BeTrue();
+            capabilities.SupportsUpdates.Should().BeTrue();
 
             var descriptor = installer.GetConfigDescriptor();
             descriptor.Should().NotBeNull();
@@ -139,8 +139,8 @@ namespace RomMbox.Tests.Services
             capabilities.SupportsUninstall.Should().BeTrue();
             capabilities.SupportsInstallStateDetection.Should().BeTrue();
             capabilities.SupportsApplicationPathDiscovery.Should().BeTrue();
-            capabilities.SupportsDlc.Should().BeFalse();
-            capabilities.SupportsUpdates.Should().BeFalse();
+            capabilities.SupportsDlc.Should().BeTrue();
+            capabilities.SupportsUpdates.Should().BeTrue();
 
             var descriptor = installer.GetConfigDescriptor();
             descriptor.Should().NotBeNull();
@@ -243,8 +243,8 @@ namespace RomMbox.Tests.Services
             capabilities.SupportsUninstall.Should().BeTrue();
             capabilities.SupportsInstallStateDetection.Should().BeTrue();
             capabilities.SupportsApplicationPathDiscovery.Should().BeTrue();
-            capabilities.SupportsDlc.Should().BeFalse();
-            capabilities.SupportsUpdates.Should().BeFalse();
+            capabilities.SupportsDlc.Should().BeTrue();
+            capabilities.SupportsUpdates.Should().BeTrue();
 
             var descriptor = installer.GetConfigDescriptor();
             descriptor.Should().NotBeNull();
@@ -329,8 +329,8 @@ namespace RomMbox.Tests.Services
             capabilities.SupportsUninstall.Should().BeTrue();
             capabilities.SupportsInstallStateDetection.Should().BeTrue();
             capabilities.SupportsApplicationPathDiscovery.Should().BeTrue();
-            capabilities.SupportsDlc.Should().BeFalse();
-            capabilities.SupportsUpdates.Should().BeFalse();
+            capabilities.SupportsDlc.Should().BeTrue();
+            capabilities.SupportsUpdates.Should().BeTrue();
 
             installer.GetConfigDescriptor().Should().BeNull();
         }

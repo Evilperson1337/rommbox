@@ -8,6 +8,8 @@ namespace RomM.Platforms.Abstractions.Models.Uninstall
         public string? InstallRootPath { get; set; }
         public string? InstalledPath { get; set; }
         public string? ArchivePath { get; set; }
+        public string? PlatformContentId { get; set; }
+        public string? EmulatorExecutablePath { get; set; }
         public string? WindowsInstallType { get; set; }
         public IPlatformLogger? Logger { get; set; }
     }

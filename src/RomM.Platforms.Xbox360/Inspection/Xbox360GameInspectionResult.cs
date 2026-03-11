@@ -21,8 +21,11 @@ namespace RomM.Platforms.Xbox360.Inspection
         public string Version { get; set; } = string.Empty;
         public string Region { get; set; } = string.Empty;
         public string MediaId { get; set; } = string.Empty;
+        public bool IsMultiDisc { get; set; }
 
         public List<Xbox360ContentCandidate> CandidateArtifacts { get; } = new();
+        public List<Xbox360ContentCandidate> AdditionalLaunchArtifacts { get; } = new();
+        public List<Xbox360ContentCandidate> PackageArchives { get; } = new();
         public List<string> Warnings { get; } = new();
     }
 }

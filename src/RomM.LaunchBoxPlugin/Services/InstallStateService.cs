@@ -84,6 +84,7 @@ CREATE TABLE IF NOT EXISTS InstallState (
     RommAdditionalAppId TEXT,
     RommMergedBaseGameId TEXT,
     RommLaunchPath TEXT,
+    PlatformContentId TEXT,
     RommLaunchArgs TEXT,
     RommAdditionalAppSyncedUtc TEXT
 );
@@ -173,6 +174,7 @@ CREATE TABLE IF NOT EXISTS ExcludedRommPlatforms (
                 var hasRommAdditionalAppId = false;
                 var hasRommMergedBaseGameId = false;
                 var hasRommLaunchPath = false;
+                var hasPlatformContentId = false;
                 var hasRommLaunchArgs = false;
                 var hasRommAdditionalAppSyncedUtc = false;
                 using (var reader = await migrateCommand.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
@@ -249,6 +251,11 @@ CREATE TABLE IF NOT EXISTS ExcludedRommPlatforms (
                         if (string.Equals(columnName, "RommLaunchPath", StringComparison.OrdinalIgnoreCase))
                         {
                             hasRommLaunchPath = true;
+                        }
+
+                        if (string.Equals(columnName, "PlatformContentId", StringComparison.OrdinalIgnoreCase))
+                        {
+                            hasPlatformContentId = true;
                         }
 
                         if (string.Equals(columnName, "RommLaunchArgs", StringComparison.OrdinalIgnoreCase))
@@ -358,6 +365,13 @@ CREATE TABLE IF NOT EXISTS ExcludedRommPlatforms (
                 {
                     var alter = connection.CreateCommand();
                     alter.CommandText = "ALTER TABLE InstallState ADD COLUMN RommLaunchPath TEXT";
+                    await alter.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+                }
+
+                if (!hasPlatformContentId)
+                {
+                    var alter = connection.CreateCommand();
+                    alter.CommandText = "ALTER TABLE InstallState ADD COLUMN PlatformContentId TEXT";
                     await alter.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
                 }
 
@@ -524,7 +538,7 @@ WHERE LaunchBoxGameId = $id;
                 command.CommandText = @"
 SELECT LaunchBoxGameId, RommRomId, RommPlatformId, ServerUrl, RemoteMd5, LocalMd5, WindowsInstallType, InstalledPath, ArchivePath, InstallRootPath, IsInstalled, InstalledUtc, LastValidatedUtc,
        InstallStatus, InstallPhase, LastError, LastAttemptUtc, LastCompletedUtc, LastOperationId,
-       RommAdditionalAppId, RommMergedBaseGameId, RommLaunchPath, RommLaunchArgs, RommAdditionalAppSyncedUtc
+       RommAdditionalAppId, RommMergedBaseGameId, RommLaunchPath, PlatformContentId, RommLaunchArgs, RommAdditionalAppSyncedUtc
 FROM InstallState
 WHERE LaunchBoxGameId = $id;
 ";
@@ -583,7 +597,7 @@ WHERE LaunchBoxGameId = $id;
                 command.CommandText = @"
 SELECT LaunchBoxGameId, RommRomId, RommPlatformId, ServerUrl, RemoteMd5, LocalMd5, WindowsInstallType, InstalledPath, ArchivePath, InstallRootPath, IsInstalled, InstalledUtc, LastValidatedUtc,
        InstallStatus, InstallPhase, LastError, LastAttemptUtc, LastCompletedUtc, LastOperationId,
-       RommAdditionalAppId, RommMergedBaseGameId, RommLaunchPath, RommLaunchArgs, RommAdditionalAppSyncedUtc
+       RommAdditionalAppId, RommMergedBaseGameId, RommLaunchPath, PlatformContentId, RommLaunchArgs, RommAdditionalAppSyncedUtc
 FROM InstallState
 WHERE RommPlatformId = $platform;
 ";
@@ -691,11 +705,11 @@ WHERE RommPlatformId = $platform;
 INSERT INTO InstallState (
     LaunchBoxGameId, RommRomId, RommPlatformId, ServerUrl, RemoteMd5, LocalMd5, WindowsInstallType, InstalledPath, ArchivePath, InstallRootPath, IsInstalled, InstalledUtc, LastValidatedUtc,
     InstallStatus, InstallPhase, LastError, LastAttemptUtc, LastCompletedUtc, LastOperationId,
-    RommAdditionalAppId, RommMergedBaseGameId, RommLaunchPath, RommLaunchArgs, RommAdditionalAppSyncedUtc
+    RommAdditionalAppId, RommMergedBaseGameId, RommLaunchPath, PlatformContentId, RommLaunchArgs, RommAdditionalAppSyncedUtc
 ) VALUES (
     $gameId, $romId, $platformId, $serverUrl, $remoteMd5, $localMd5, $windowsInstallType, $installedPath, $archivePath, $installRootPath, $isInstalled, $installedUtc, $lastValidatedUtc,
     $installStatus, $installPhase, $lastError, $lastAttemptUtc, $lastCompletedUtc, $lastOperationId,
-    $rommAdditionalAppId, $rommMergedBaseGameId, $rommLaunchPath, $rommLaunchArgs, $rommAdditionalAppSyncedUtc
+    $rommAdditionalAppId, $rommMergedBaseGameId, $rommLaunchPath, $platformContentId, $rommLaunchArgs, $rommAdditionalAppSyncedUtc
 )
 ON CONFLICT(LaunchBoxGameId) DO UPDATE SET
     RommRomId = excluded.RommRomId,
@@ -719,6 +733,7 @@ ON CONFLICT(LaunchBoxGameId) DO UPDATE SET
     RommAdditionalAppId = excluded.RommAdditionalAppId,
     RommMergedBaseGameId = excluded.RommMergedBaseGameId,
     RommLaunchPath = excluded.RommLaunchPath,
+    PlatformContentId = excluded.PlatformContentId,
     RommLaunchArgs = excluded.RommLaunchArgs,
     RommAdditionalAppSyncedUtc = excluded.RommAdditionalAppSyncedUtc;
 ";
@@ -744,6 +759,7 @@ ON CONFLICT(LaunchBoxGameId) DO UPDATE SET
                 command.Parameters.AddWithValue("$rommAdditionalAppId", state.RommAdditionalAppId ?? string.Empty);
                 command.Parameters.AddWithValue("$rommMergedBaseGameId", state.RommMergedBaseGameId ?? string.Empty);
                 command.Parameters.AddWithValue("$rommLaunchPath", state.RommLaunchPath ?? string.Empty);
+                command.Parameters.AddWithValue("$platformContentId", state.PlatformContentId ?? string.Empty);
                 command.Parameters.AddWithValue("$rommLaunchArgs", state.RommLaunchArgs ?? string.Empty);
                 command.Parameters.AddWithValue("$rommAdditionalAppSyncedUtc", ToDbTimestamp(state.RommAdditionalAppSyncedUtc));
                 await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
@@ -1260,7 +1276,7 @@ WHERE LaunchBoxGameId = $gameId;
                 command.CommandText = @"
 SELECT LaunchBoxGameId, RommRomId, RommPlatformId, ServerUrl, RemoteMd5, LocalMd5, WindowsInstallType, InstalledPath, ArchivePath, InstallRootPath, IsInstalled, InstalledUtc, LastValidatedUtc,
        InstallStatus, InstallPhase, LastError, LastAttemptUtc, LastCompletedUtc, LastOperationId,
-       RommAdditionalAppId, RommMergedBaseGameId, RommLaunchPath, RommLaunchArgs, RommAdditionalAppSyncedUtc
+       RommAdditionalAppId, RommMergedBaseGameId, RommLaunchPath, PlatformContentId, RommLaunchArgs, RommAdditionalAppSyncedUtc
 FROM InstallState
 WHERE RommMergedBaseGameId = $id
 LIMIT 1;
@@ -1590,8 +1606,9 @@ ON CONFLICT(Key) DO UPDATE SET Value = excluded.Value;
                 RommAdditionalAppId = reader.IsDBNull(19) ? null : reader.GetString(19),
                 RommMergedBaseGameId = reader.IsDBNull(20) ? null : reader.GetString(20),
                 RommLaunchPath = reader.IsDBNull(21) ? null : reader.GetString(21),
-                RommLaunchArgs = reader.IsDBNull(22) ? null : reader.GetString(22),
-                RommAdditionalAppSyncedUtc = reader.IsDBNull(23) ? null : FromDbTimestamp(reader.GetValue(23))
+                PlatformContentId = reader.IsDBNull(22) ? null : reader.GetString(22),
+                RommLaunchArgs = reader.IsDBNull(23) ? null : reader.GetString(23),
+                RommAdditionalAppSyncedUtc = reader.IsDBNull(24) ? null : FromDbTimestamp(reader.GetValue(24))
             };
         }
 

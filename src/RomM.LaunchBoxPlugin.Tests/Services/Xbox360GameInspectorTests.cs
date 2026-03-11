@@ -91,6 +91,60 @@ namespace RomMbox.Tests.Services
             result.Region.Should().Be("USA");
             result.MediaId.Should().Be("ABCD1234");
         }
+
+        [Fact]
+        public void Inspect_Directory_WithDiscPattern_GroupsMultiDiscArtifacts()
+        {
+            using var temp = new TempDirectory();
+            var root = Path.Combine(temp.Path, "staged");
+            Directory.CreateDirectory(root);
+            var disc1 = Path.Combine(root, "Lost Odyssey (Disc 1).iso");
+            var disc2 = Path.Combine(root, "Lost Odyssey (Disc 2).iso");
+            File.WriteAllText(disc1, "disc1");
+            File.WriteAllText(disc2, "disc2");
+
+            var inspector = new Xbox360GameInspector();
+            var result = inspector.Inspect(null, root, "Lost Odyssey", null);
+
+            result.IsValid.Should().BeTrue();
+            result.IsMultiDisc.Should().BeTrue();
+            result.LaunchArtifactPath.Should().Be(disc1);
+            result.AdditionalLaunchArtifacts.Should().ContainSingle().Which.Path.Should().Be(disc2);
+        }
+
+        [Fact]
+        public void Inspect_Directory_DetectsDlcAndUpdateArchives()
+        {
+            using var temp = new TempDirectory();
+            var root = Path.Combine(temp.Path, "staged");
+            Directory.CreateDirectory(root);
+            var iso = Path.Combine(root, "Halo 3.iso");
+            var updateZip = Path.Combine(root, "title_update.zip");
+            var dlcZip = Path.Combine(root, "dlc_pack.zip");
+            File.WriteAllText(iso, "iso");
+            using (var archive = System.IO.Compression.ZipFile.Open(updateZip, System.IO.Compression.ZipArchiveMode.Create))
+            {
+                var entry = archive.CreateEntry("Content/4D5307E6/000B0000/tu.bin");
+                using var stream = entry.Open();
+                using var writer = new StreamWriter(stream);
+                writer.Write("update");
+            }
+
+            using (var archive = System.IO.Compression.ZipFile.Open(dlcZip, System.IO.Compression.ZipArchiveMode.Create))
+            {
+                var entry = archive.CreateEntry("Content/4D5307E6/00000002/dlc.bin");
+                using var stream = entry.Open();
+                using var writer = new StreamWriter(stream);
+                writer.Write("dlc");
+            }
+
+            var inspector = new Xbox360GameInspector();
+            var result = inspector.Inspect(null, root, "Halo 3", null);
+
+            result.PackageArchives.Should().HaveCount(2);
+            result.PackageArchives.Should().Contain(candidate => candidate.PackageType == "update" && candidate.TitleId == "4D5307E6");
+            result.PackageArchives.Should().Contain(candidate => candidate.PackageType == "dlc" && candidate.TitleId == "4D5307E6");
+        }
     }
 }
 

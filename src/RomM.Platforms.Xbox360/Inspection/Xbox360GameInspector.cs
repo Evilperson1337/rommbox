@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.IO.Compression;
 using RomM.Platforms.Abstractions.Logging;
 
 namespace RomM.Platforms.Xbox360.Inspection
@@ -30,6 +31,7 @@ namespace RomM.Platforms.Xbox360.Inspection
         private static readonly Regex VersionRegex = new(@"(?:(?:v|ver|version)[\s_\.-]*)(\d+(?:\.\d+)*)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private static readonly Regex RegionRegex = new(@"(?:^|[^A-Za-z0-9])(USA|EUR|JPN|JAP|PAL|NTSC|NTSCU|NTSCJ)(?=[^A-Za-z0-9]|$)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private static readonly Regex MediaIdRegex = new(@"(?:mediaid|mid)[^0-9A-Fa-f]*([0-9A-Fa-f]{8})", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex DiscRegex = new(@"(?i)(?:^|[\s_\.\-\(\[])\s*(disc|disk|cd)\s*(?<number>\d{1,2})(?:$|[\s_\.\-\)\]])", RegexOptions.Compiled);
 
         public Xbox360GameInspectionResult Inspect(string? archivePath, string? extractedPath, string? gameName, IPlatformLogger? logger)
         {
@@ -129,6 +131,12 @@ namespace RomM.Platforms.Xbox360.Inspection
                 var extension = NormalizeExtension(Path.GetExtension(file));
                 if (!IsoFormats.Contains(extension) && !XexFormats.Contains(extension))
                 {
+                    if (extension.Equals(".zip", StringComparison.OrdinalIgnoreCase)
+                        && TryBuildPackageCandidate(file, out var packageCandidate, logger))
+                    {
+                        result.PackageArchives.Add(packageCandidate);
+                    }
+
                     continue;
                 }
 
@@ -156,6 +164,7 @@ namespace RomM.Platforms.Xbox360.Inspection
             var directCandidates = result.CandidateArtifacts
                 .Where(candidate => candidate.IsDirectLaunchArtifact)
                 .OrderBy(CandidatePriority)
+                .ThenBy(candidate => candidate.DiscNumber ?? 0)
                 .ThenBy(candidate => candidate.Path, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
@@ -191,8 +200,18 @@ namespace RomM.Platforms.Xbox360.Inspection
             }
 
             var selected = directCandidates[0];
+            var discGroup = ResolveDiscGroup(directCandidates, selected, logger);
+            if (discGroup.Count > 1)
+            {
+                selected = discGroup[0];
+                result.IsMultiDisc = true;
+                result.AdditionalLaunchArtifacts.AddRange(discGroup.Skip(1));
+                result.Warnings.Add($"Detected Xbox 360 multi-disc set ({discGroup.Count} discs). Primary disc: '{selected.FileName}'.");
+                logger?.Write(PlatformLogLevel.Info, $"Detected Xbox 360 multi-disc set '{selected.DiscSetName}' with {discGroup.Count} discs.");
+            }
+
             result.IsValid = true;
-            result.IsAmbiguous = directCandidates.Count > 1;
+            result.IsAmbiguous = directCandidates.Count > discGroup.Count;
             if (result.IsAmbiguous)
             {
                 result.Warnings.Add($"Multiple Xbox 360 game candidates detected ({directCandidates.Count}). Selected '{selected.FileName}'.");
@@ -241,6 +260,7 @@ namespace RomM.Platforms.Xbox360.Inspection
             var normalized = format == Xbox360ContentFormat.Xex
                 ? Xbox360ContentFormat.Executable
                 : Xbox360ContentFormat.DiscImage;
+            var (discSetName, discNumber) = ParseDiscInfo(fileName);
 
             return new Xbox360ContentCandidate
             {
@@ -251,12 +271,152 @@ namespace RomM.Platforms.Xbox360.Inspection
                 IsDirectLaunchArtifact = true,
                 IsExtractedLayoutSignal = string.Equals(fileName, "default.xex", StringComparison.OrdinalIgnoreCase),
                 IsGodLayoutSignal = false,
+                DiscNumber = discNumber,
+                DiscSetName = discSetName,
                 TitleId = ExtractTitleId(fileName),
                 TitleName = InferTitleName(fileName),
                 Version = ExtractVersion(fileName),
                 Region = ExtractRegion(fileName),
                 MediaId = ExtractMediaId(fileName)
             };
+        }
+
+        private static List<Xbox360ContentCandidate> ResolveDiscGroup(List<Xbox360ContentCandidate> directCandidates, Xbox360ContentCandidate selected, IPlatformLogger? logger)
+        {
+            if (selected.DiscNumber == null || string.IsNullOrWhiteSpace(selected.DiscSetName))
+            {
+                return new List<Xbox360ContentCandidate> { selected };
+            }
+
+            var group = directCandidates
+                .Where(candidate => candidate.DiscNumber != null
+                    && !string.IsNullOrWhiteSpace(candidate.DiscSetName)
+                    && string.Equals(candidate.DiscSetName, selected.DiscSetName, StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(Path.GetExtension(candidate.FileName), Path.GetExtension(selected.FileName), StringComparison.OrdinalIgnoreCase))
+                .OrderBy(candidate => candidate.DiscNumber ?? int.MaxValue)
+                .ThenBy(candidate => candidate.Path, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (group.Count <= 1)
+            {
+                return new List<Xbox360ContentCandidate> { selected };
+            }
+
+            logger?.Write(PlatformLogLevel.Info, $"Grouped {group.Count} Xbox 360 disc artifacts under set '{selected.DiscSetName}'.");
+            return group;
+        }
+
+        private static bool TryBuildPackageCandidate(string path, out Xbox360ContentCandidate candidate, IPlatformLogger? logger)
+        {
+            candidate = null!;
+            try
+            {
+                using var archive = ZipFile.OpenRead(path);
+                var entryNames = archive.Entries
+                    .Where(entry => !string.IsNullOrWhiteSpace(entry.FullName) && !entry.FullName.EndsWith("/", StringComparison.Ordinal))
+                    .Select(entry => entry.FullName.Replace('\\', '/'))
+                    .ToList();
+
+                if (entryNames.Count == 0)
+                {
+                    return false;
+                }
+
+                var packageType = DetectPackageType(Path.GetFileName(path) ?? string.Empty, entryNames);
+                if (string.IsNullOrWhiteSpace(packageType))
+                {
+                    return false;
+                }
+
+                var titleId = ResolvePackageTitleId(Path.GetFileName(path) ?? string.Empty, entryNames);
+                candidate = new Xbox360ContentCandidate
+                {
+                    Path = path,
+                    FileName = Path.GetFileName(path) ?? string.Empty,
+                    Format = Xbox360ContentFormat.Archive,
+                    NormalizedFormat = Xbox360ContentFormat.Archive,
+                    IsPackageArchive = true,
+                    PackageType = packageType,
+                    TitleId = titleId,
+                    TitleName = InferTitleName(Path.GetFileName(path) ?? string.Empty)
+                };
+
+                logger?.Write(PlatformLogLevel.Info, $"Detected Xbox 360 {packageType} package archive: {path}");
+                if (!string.IsNullOrWhiteSpace(titleId))
+                {
+                    logger?.Write(PlatformLogLevel.Info, $"Detected package Title ID: {titleId}");
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                logger?.Write(PlatformLogLevel.Warning, $"Failed to inspect nested Xbox 360 package archive '{path}': {ex.Message}");
+                return false;
+            }
+        }
+
+        private static string DetectPackageType(string fileName, IReadOnlyCollection<string> entryNames)
+        {
+            if (entryNames.Any(entry => entry.IndexOf("/000B0000/", StringComparison.OrdinalIgnoreCase) >= 0
+                || entry.EndsWith("/000B0000", StringComparison.OrdinalIgnoreCase)
+                || entry.IndexOf("000B0000", StringComparison.OrdinalIgnoreCase) >= 0))
+            {
+                return "update";
+            }
+
+            if (entryNames.Any(entry => entry.IndexOf("/00000002/", StringComparison.OrdinalIgnoreCase) >= 0
+                || entry.EndsWith("/00000002", StringComparison.OrdinalIgnoreCase)
+                || entry.IndexOf("00000002", StringComparison.OrdinalIgnoreCase) >= 0))
+            {
+                return "dlc";
+            }
+
+            var normalized = fileName.ToLowerInvariant();
+            if (normalized.Contains("update") || normalized.Contains("titleupdate") || normalized.Contains("tu"))
+            {
+                return "update";
+            }
+
+            if (normalized.Contains("dlc"))
+            {
+                return "dlc";
+            }
+
+            return string.Empty;
+        }
+
+        private static string ResolvePackageTitleId(string fileName, IReadOnlyCollection<string> entryNames)
+        {
+            foreach (var entry in entryNames)
+            {
+                var match = HexTitleIdRegex.Match(entry);
+                if (match.Success)
+                {
+                    return match.Groups[1].Value.ToUpperInvariant();
+                }
+            }
+
+            return ExtractTitleId(fileName);
+        }
+
+        private static (string DiscSetName, int? DiscNumber) ParseDiscInfo(string fileName)
+        {
+            if (string.IsNullOrWhiteSpace(fileName))
+            {
+                return (string.Empty, null);
+            }
+
+            var withoutExtension = Path.GetFileNameWithoutExtension(fileName) ?? string.Empty;
+            var match = DiscRegex.Match(withoutExtension);
+            if (!match.Success || !int.TryParse(match.Groups["number"].Value, out var discNumber))
+            {
+                return (string.Empty, null);
+            }
+
+            var normalized = DiscRegex.Replace(withoutExtension, " ");
+            normalized = Regex.Replace(normalized, "\\s+", " ").Trim(' ', '-', '_', '.', '(', ')', '[', ']');
+            return (normalized, discNumber);
         }
 
         private static bool LooksLikeGodLayout(string rootPath, IReadOnlyCollection<string> files)

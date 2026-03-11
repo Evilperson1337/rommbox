@@ -15,6 +15,7 @@ namespace RomM.Platforms.Abstractions.Models.Rom
         public string? ArtifactSelectionMode { get; set; }
         public string? EmulatorId { get; set; }
         public string? EmulatorName { get; set; }
+        public string? EmulatorExecutablePath { get; set; }
         public string? CoreId { get; set; }
         public string? CoreName { get; set; }
         public string? CorePath { get; set; }

@@ -1,6 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
+using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using RomM.Platforms.Abstractions;
@@ -18,6 +21,8 @@ namespace RomM.Platforms.Xbox360
 {
     public sealed class Xbox360PlatformInstaller : IPlatformInstaller, IPlatformInstallerMetadata, IPlatformInstallerIdentityMetadata
     {
+        private static readonly Regex TitleIdRegex = new(@"(?:^|[^0-9A-Fa-f])([0-9A-Fa-f]{8})(?=[^0-9A-Fa-f]|$)", RegexOptions.Compiled);
+
         private static readonly HashSet<string> SupportedExtensions = new(StringComparer.OrdinalIgnoreCase)
         {
             ".iso",
@@ -46,8 +51,8 @@ namespace RomM.Platforms.Xbox360
             SupportsUninstall = true,
             SupportsInstallStateDetection = true,
             SupportsApplicationPathDiscovery = true,
-            SupportsDlc = false,
-            SupportsUpdates = false,
+            SupportsDlc = true,
+            SupportsUpdates = true,
             SupportsRaps = false,
             RequiresEmulatorPath = false
         };
@@ -172,6 +177,7 @@ namespace RomM.Platforms.Xbox360
 
             string targetPath;
             string installRootPath;
+            var additionalApplications = new List<AdditionalApplicationLaunchInfo>();
 
             try
             {
@@ -180,9 +186,29 @@ namespace RomM.Platforms.Xbox360
                 {
                     var targetFolderName = ResolveInstallFolderName(ctx.GameName, inspection.TitleName, Path.GetDirectoryName(sourcePath) ?? installRoot);
                     var targetRoot = Path.Combine(installRoot, targetFolderName);
-                    var targetFileName = ResolveTargetFileName(sourcePath, ctx.GameName, inspection.TitleName);
+                    var discCandidates = BuildDiscCandidates(inspection);
+                    var primaryDisc = discCandidates.FirstOrDefault(candidate => string.Equals(candidate.Path, sourcePath, StringComparison.OrdinalIgnoreCase))
+                        ?? discCandidates.FirstOrDefault()
+                        ?? new Xbox360ContentCandidate { Path = sourcePath, FileName = Path.GetFileName(sourcePath) ?? string.Empty };
+                    var targetFileName = ResolveTargetFileName(primaryDisc, ctx.GameName, inspection.TitleName);
                     targetPath = Path.Combine(targetRoot, targetFileName);
-                    MoveOrReplace(sourcePath, targetPath, ctx.Logger);
+                    MoveOrReplace(primaryDisc.Path, targetPath, ctx.Logger);
+                    foreach (var disc in discCandidates.Where(candidate => !string.Equals(candidate.Path, primaryDisc.Path, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        var additionalTargetFileName = ResolveTargetFileName(disc, ctx.GameName, inspection.TitleName);
+                        var additionalTargetPath = Path.Combine(targetRoot, additionalTargetFileName);
+                        MoveOrReplace(disc.Path, additionalTargetPath, ctx.Logger);
+                        additionalApplications.Add(new AdditionalApplicationLaunchInfo
+                        {
+                            Id = $"disc-{disc.DiscNumber ?? additionalApplications.Count + 2}",
+                            Name = $"Play {Path.GetFileNameWithoutExtension(additionalTargetFileName)}",
+                            ApplicationPath = additionalTargetPath,
+                            Arguments = string.IsNullOrWhiteSpace(BuildLaunchArguments(ctx.RomSettings, additionalTargetPath))
+                                ? Array.Empty<string>()
+                                : new[] { BuildLaunchArguments(ctx.RomSettings, additionalTargetPath) }
+                        });
+                        ctx.Logger?.Write(PlatformLogLevel.Info, $"Installed additional Xbox 360 disc to: {additionalTargetPath}");
+                    }
                     installRootPath = targetRoot;
                 }
                 else
@@ -208,8 +234,10 @@ namespace RomM.Platforms.Xbox360
 
             progress?.Report(new InstallProgress("Installing", "Install completed.", 100));
             var launchArgs = BuildLaunchArguments(ctx.RomSettings, targetPath);
+            var platformContentId = ResolvePlatformContentId(inspection, ctx.Logger);
             ctx.Logger?.Write(PlatformLogLevel.Info, "Configured emulator: xenia");
             ctx.Logger?.Write(PlatformLogLevel.Info, $"Application path set to: {targetPath}");
+            TryInstallOptionalPackages(ctx, inspection, targetPath);
 
             return Task.FromResult(new InstallResult
             {
@@ -217,6 +245,8 @@ namespace RomM.Platforms.Xbox360
                 Message = "Xbox 360 install completed.",
                 ExecutablePath = targetPath,
                 Arguments = string.IsNullOrWhiteSpace(launchArgs) ? Array.Empty<string>() : new[] { launchArgs },
+                AdditionalApplications = additionalApplications,
+                PlatformContentId = platformContentId,
                 InstallType = InstallType.Portable,
                 InstallRootPath = installRootPath
             });
@@ -237,6 +267,7 @@ namespace RomM.Platforms.Xbox360
             var notes = new List<string>();
             var installRootPath = ctx.InstallRootPath ?? string.Empty;
             var installedPath = ctx.InstalledPath ?? string.Empty;
+            var platformContentId = ResolveUninstallTitleId(ctx, ctx.Logger);
             var deletedInstalledPath = false;
 
             if (!string.IsNullOrWhiteSpace(installRootPath) && Directory.Exists(installRootPath))
@@ -291,6 +322,8 @@ namespace RomM.Platforms.Xbox360
                     ctx.Logger?.Write(PlatformLogLevel.Warning, $"Failed to delete installed Xbox 360 content '{installedPath}': {ex.Message}");
                 }
             }
+
+            TryDeleteXeniaContent(platformContentId, ctx.EmulatorExecutablePath, ctx.Logger, notes, ref removed);
 
             progress?.Report(new InstallProgress("Uninstall", "Uninstall completed.", 100, false));
             ctx.Logger?.Write(PlatformLogLevel.Info, "Uninstall completed");
@@ -363,6 +396,261 @@ namespace RomM.Platforms.Xbox360
             return value.Contains(" ") ? $"\"{value}\"" : value;
         }
 
+        private static List<Xbox360ContentCandidate> BuildDiscCandidates(Xbox360GameInspectionResult inspection)
+        {
+            var discs = new List<Xbox360ContentCandidate>();
+            if (!string.IsNullOrWhiteSpace(inspection.LaunchArtifactPath))
+            {
+                discs.AddRange(inspection.CandidateArtifacts.Where(candidate => string.Equals(candidate.Path, inspection.LaunchArtifactPath, StringComparison.OrdinalIgnoreCase)));
+            }
+
+            discs.AddRange(inspection.AdditionalLaunchArtifacts);
+            return discs
+                .GroupBy(candidate => candidate.Path, StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.First())
+                .OrderBy(candidate => candidate.DiscNumber ?? 1)
+                .ThenBy(candidate => candidate.Path, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        private static void TryInstallOptionalPackages(RomM.Platforms.Abstractions.Models.Install.InstallContext ctx, Xbox360GameInspectionResult inspection, string targetPath)
+        {
+            if (inspection.PackageArchives.Count == 0)
+            {
+                ctx.Logger?.Write(PlatformLogLevel.Info, "No Xbox 360 update/DLC package archives detected during inspection.");
+                return;
+            }
+
+            var xeniaRoot = ResolveXeniaRoot(ctx.RomSettings);
+            if (string.IsNullOrWhiteSpace(xeniaRoot))
+            {
+                ctx.Logger?.Write(PlatformLogLevel.Warning, "Xbox 360 package installation skipped: unable to resolve Xenia root from emulator configuration.");
+                return;
+            }
+
+            foreach (var package in inspection.PackageArchives)
+            {
+                try
+                {
+                    var resolvedTitleId = !string.IsNullOrWhiteSpace(package.TitleId)
+                        ? package.TitleId
+                        : inspection.TitleId;
+                    if (string.IsNullOrWhiteSpace(resolvedTitleId))
+                    {
+                        ctx.Logger?.Write(PlatformLogLevel.Warning, $"Xbox 360 package skipped because Title ID could not be determined: {package.Path}");
+                        continue;
+                    }
+
+                    var contentSubdirectory = string.Equals(package.PackageType, "update", StringComparison.OrdinalIgnoreCase)
+                        ? "000B0000"
+                        : "00000002";
+                    var installDirectory = Path.Combine(xeniaRoot, "content", "0000000000000000", resolvedTitleId, contentSubdirectory);
+                    ctx.Logger?.Write(PlatformLogLevel.Info, $"Installing Xbox 360 {package.PackageType} package '{package.Path}' to '{installDirectory}'.");
+                    ExtractPackageArchive(package.Path, resolvedTitleId, contentSubdirectory, installDirectory, ctx.Logger);
+                    ctx.Logger?.Write(PlatformLogLevel.Info, $"Xbox 360 {package.PackageType} package installed successfully: {package.Path}");
+                }
+                catch (Exception ex)
+                {
+                    ctx.Logger?.Write(PlatformLogLevel.Warning, $"Xbox 360 optional package install failed for '{package.Path}': {ex.Message}");
+                }
+            }
+        }
+
+        private static string ResolveXeniaRoot(RomInstallSettings? settings)
+        {
+            var emulatorExecutablePath = settings?.EmulatorExecutablePath ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(emulatorExecutablePath))
+            {
+                return string.Empty;
+            }
+
+            return Path.GetDirectoryName(emulatorExecutablePath) ?? string.Empty;
+        }
+
+        private static string ResolveUninstallTitleId(UninstallContext ctx, IPlatformLogger? logger)
+        {
+            if (!string.IsNullOrWhiteSpace(ctx.PlatformContentId))
+            {
+                logger?.Write(PlatformLogLevel.Info, $"Xbox 360 uninstall using recorded Title ID '{ctx.PlatformContentId}'.");
+                return ctx.PlatformContentId.Trim().ToUpperInvariant();
+            }
+
+            var inspectedTitleId = TryResolveTitleIdFromInstalledContent(ctx, logger);
+            if (!string.IsNullOrWhiteSpace(inspectedTitleId))
+            {
+                logger?.Write(PlatformLogLevel.Info, $"Xbox 360 uninstall recovered Title ID '{inspectedTitleId}' by inspecting installed content.");
+                return inspectedTitleId;
+            }
+
+            var candidates = new[]
+            {
+                ctx.InstalledPath,
+                Path.GetFileName(ctx.InstalledPath ?? string.Empty),
+                ctx.InstallRootPath,
+                Path.GetFileName(ctx.InstallRootPath ?? string.Empty),
+                ctx.ArchivePath,
+                Path.GetFileName(ctx.ArchivePath ?? string.Empty),
+                ctx.GameName
+            };
+
+            foreach (var candidate in candidates.Where(value => !string.IsNullOrWhiteSpace(value)))
+            {
+                var resolved = TryExtractTitleId(candidate!);
+                if (!string.IsNullOrWhiteSpace(resolved))
+                {
+                    logger?.Write(PlatformLogLevel.Info, $"Xbox 360 uninstall recovered Title ID '{resolved}' from '{candidate}'.");
+                    return resolved;
+                }
+            }
+
+            logger?.Write(PlatformLogLevel.Info, "Xbox 360 uninstall could not recover a Title ID from uninstall context.");
+            return string.Empty;
+        }
+
+        public static string ResolvePlatformContentId(Xbox360GameInspectionResult inspection, IPlatformLogger? logger)
+        {
+            var candidates = new List<string>();
+
+            if (!string.IsNullOrWhiteSpace(inspection.TitleId))
+            {
+                candidates.Add(inspection.TitleId.Trim().ToUpperInvariant());
+            }
+
+            candidates.AddRange(inspection.CandidateArtifacts
+                .Select(candidate => candidate?.TitleId)
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(value => value!.Trim().ToUpperInvariant()));
+
+            candidates.AddRange(inspection.PackageArchives
+                .Select(package => package?.TitleId)
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(value => value!.Trim().ToUpperInvariant()));
+
+            var distinct = candidates
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (distinct.Count == 0)
+            {
+                logger?.Write(PlatformLogLevel.Warning, "Xbox 360 install could not determine a Title ID to persist for uninstall cleanup.");
+                return string.Empty;
+            }
+
+            if (distinct.Count == 1)
+            {
+                logger?.Write(PlatformLogLevel.Info, $"Xbox 360 install resolved persistent Title ID '{distinct[0]}' for uninstall cleanup.");
+                return distinct[0];
+            }
+
+            logger?.Write(PlatformLogLevel.Warning, $"Xbox 360 install found multiple Title ID candidates ({string.Join(", ", distinct)}); uninstall metadata will not be persisted to avoid mismatched cleanup.");
+            return string.Empty;
+        }
+
+        public static string TryResolveTitleIdFromInstalledContent(UninstallContext ctx, IPlatformLogger? logger)
+        {
+            try
+            {
+                var inspector = new Xbox360GameInspector();
+
+                if (!string.IsNullOrWhiteSpace(ctx.InstallRootPath)
+                    && Directory.Exists(ctx.InstallRootPath))
+                {
+                    var inspection = inspector.Inspect(null, ctx.InstallRootPath, ctx.GameName, logger);
+                    var resolved = ResolvePlatformContentId(inspection, logger);
+                    if (!string.IsNullOrWhiteSpace(resolved))
+                    {
+                        return resolved;
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(ctx.InstalledPath)
+                    && File.Exists(ctx.InstalledPath))
+                {
+                    var inspection = inspector.Inspect(ctx.InstalledPath, null, ctx.GameName, logger);
+                    var resolved = ResolvePlatformContentId(inspection, logger);
+                    if (!string.IsNullOrWhiteSpace(resolved))
+                    {
+                        return resolved;
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(ctx.ArchivePath)
+                    && File.Exists(ctx.ArchivePath))
+                {
+                    var inspection = inspector.Inspect(ctx.ArchivePath, null, ctx.GameName, logger);
+                    var resolved = ResolvePlatformContentId(inspection, logger);
+                    if (!string.IsNullOrWhiteSpace(resolved))
+                    {
+                        return resolved;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                logger?.Write(PlatformLogLevel.Warning, $"Xbox 360 uninstall failed to inspect installed content for Title ID recovery: {ex.Message}");
+            }
+
+            return string.Empty;
+        }
+
+        private static void ExtractPackageArchive(string packagePath, string titleId, string contentSubdirectory, string installDirectory, IPlatformLogger? logger)
+        {
+            Directory.CreateDirectory(installDirectory);
+            using var archive = ZipFile.OpenRead(packagePath);
+            foreach (var entry in archive.Entries)
+            {
+                if (string.IsNullOrWhiteSpace(entry.FullName) || entry.FullName.EndsWith("/", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                var relativePath = NormalizePackageRelativePath(entry.FullName, titleId, contentSubdirectory);
+                var destinationPath = Path.Combine(installDirectory, relativePath);
+                var destinationDirectory = Path.GetDirectoryName(destinationPath);
+                if (!string.IsNullOrWhiteSpace(destinationDirectory))
+                {
+                    Directory.CreateDirectory(destinationDirectory);
+                }
+
+                logger?.Write(PlatformLogLevel.Info, $"Extracting Xbox 360 package entry '{entry.FullName}' to '{destinationPath}'.");
+                entry.ExtractToFile(destinationPath, overwrite: true);
+            }
+        }
+
+        private static string NormalizePackageRelativePath(string entryName, string titleId, string contentSubdirectory)
+        {
+            var segments = entryName.Replace('\\', '/').Split(new[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+            if (segments.Length == 0)
+            {
+                return string.Empty;
+            }
+
+            if (string.Equals(segments[0], titleId, StringComparison.OrdinalIgnoreCase)
+                && segments.Length >= 3
+                && string.Equals(segments[1], contentSubdirectory, StringComparison.OrdinalIgnoreCase))
+            {
+                return Path.Combine(segments.Skip(2).ToArray());
+            }
+
+            var titleIndex = Array.FindIndex(segments, segment => string.Equals(segment, titleId, StringComparison.OrdinalIgnoreCase));
+            if (titleIndex >= 0)
+            {
+                var contentIndex = Array.FindIndex(segments, titleIndex + 1, segment => string.Equals(segment, contentSubdirectory, StringComparison.OrdinalIgnoreCase));
+                if (contentIndex >= 0 && contentIndex + 1 < segments.Length)
+                {
+                    return Path.Combine(segments.Skip(contentIndex + 1).ToArray());
+                }
+            }
+
+            var directContentIndex = Array.FindIndex(segments, segment => string.Equals(segment, contentSubdirectory, StringComparison.OrdinalIgnoreCase));
+            if (directContentIndex >= 0 && directContentIndex + 1 < segments.Length)
+            {
+                return Path.Combine(segments.Skip(directContentIndex + 1).ToArray());
+            }
+
+            return Path.Combine(segments);
+        }
+
         private static void MoveOrReplace(string sourcePath, string targetPath, IPlatformLogger? logger)
         {
             if (string.IsNullOrWhiteSpace(sourcePath) || string.IsNullOrWhiteSpace(targetPath))
@@ -407,8 +695,9 @@ namespace RomM.Platforms.Xbox360
             }
         }
 
-        private static string ResolveTargetFileName(string sourcePath, string? gameName, string? detectedTitleName)
+        private static string ResolveTargetFileName(Xbox360ContentCandidate candidate, string? gameName, string? detectedTitleName)
         {
+            var sourcePath = candidate?.Path ?? string.Empty;
             var sourceName = Path.GetFileName(sourcePath) ?? string.Empty;
             if (!string.IsNullOrWhiteSpace(sourceName))
             {
@@ -513,6 +802,124 @@ namespace RomM.Platforms.Xbox360
                 .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
                 + Path.DirectorySeparatorChar;
             return candidate.StartsWith(root, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static void TryDeleteXeniaContent(string platformContentId, string? emulatorExecutablePath, IPlatformLogger? logger, List<string> notes, ref int removed)
+        {
+            if (string.IsNullOrWhiteSpace(platformContentId))
+            {
+                logger?.Write(PlatformLogLevel.Info, "Xbox 360 uninstall skipped Xenia content cleanup because no Title ID was recorded.");
+                return;
+            }
+
+            var xeniaRoot = ResolveXeniaRoot(new RomInstallSettings
+            {
+                EmulatorExecutablePath = emulatorExecutablePath
+            });
+            if (string.IsNullOrWhiteSpace(xeniaRoot))
+            {
+                notes.Add("Skipped Xenia content cleanup because emulator root could not be resolved.");
+                logger?.Write(PlatformLogLevel.Warning, "Xbox 360 uninstall skipped Xenia content cleanup because emulator root could not be resolved.");
+                return;
+            }
+
+            logger?.Write(PlatformLogLevel.Info, $"Xbox 360 uninstall resolved Xenia root to '{xeniaRoot}'.");
+
+            var candidateRoots = ResolveXeniaTitleContentRoots(xeniaRoot, platformContentId).ToList();
+            var removedAny = false;
+            foreach (var titleContentRoot in candidateRoots)
+            {
+                var removedRoot = TryDeleteXeniaContentRoot(titleContentRoot, logger, notes, ref removed);
+                removedAny = removedAny || removedRoot;
+            }
+
+            if (!removedAny)
+            {
+                logger?.Write(PlatformLogLevel.Info, $"Xbox 360 uninstall found no Xenia DLC or title update content for Title ID '{platformContentId}'.");
+            }
+        }
+
+        private static IEnumerable<string> ResolveXeniaTitleContentRoots(string xeniaRoot, string platformContentId)
+        {
+            yield return Path.Combine(xeniaRoot, "localstate", "Content", platformContentId);
+            yield return Path.Combine(xeniaRoot, "content", "0000000000000000", platformContentId);
+        }
+
+        private static bool TryDeleteXeniaContentRoot(string titleContentRoot, IPlatformLogger? logger, List<string> notes, ref int removed)
+        {
+            if (!Directory.Exists(titleContentRoot))
+            {
+                logger?.Write(PlatformLogLevel.Info, $"Xbox 360 uninstall found no Xenia title content root at '{titleContentRoot}'.");
+                return false;
+            }
+
+            var removedAny = false;
+            removedAny |= TryDeleteXeniaContentSubdirectory(titleContentRoot, "00000002", "DLC", logger, notes, ref removed);
+            removedAny |= TryDeleteXeniaContentSubdirectory(titleContentRoot, "000B0000", "title update", logger, notes, ref removed);
+
+            TryDeleteEmptyDirectory(titleContentRoot, "title content root", logger, notes, ref removed);
+            return removedAny;
+        }
+
+        private static bool TryDeleteXeniaContentSubdirectory(string titleContentRoot, string subdirectoryName, string contentLabel, IPlatformLogger? logger, List<string> notes, ref int removed)
+        {
+            var subdirectoryPath = Path.Combine(titleContentRoot, subdirectoryName);
+            if (!Directory.Exists(subdirectoryPath))
+            {
+                logger?.Write(PlatformLogLevel.Info, $"Xbox 360 uninstall found no Xenia {contentLabel} directory at '{subdirectoryPath}'.");
+                return false;
+            }
+
+            try
+            {
+                logger?.Write(PlatformLogLevel.Info, $"Deleting Xbox 360 Xenia {contentLabel} directory: {subdirectoryPath}");
+                Directory.Delete(subdirectoryPath, recursive: true);
+                removed++;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                notes.Add($"Failed to delete Xbox 360 Xenia {contentLabel} directory '{subdirectoryPath}': {ex.Message}");
+                logger?.Write(PlatformLogLevel.Warning, $"Failed to delete Xbox 360 Xenia {contentLabel} directory '{subdirectoryPath}': {ex.Message}");
+                return false;
+            }
+        }
+
+        private static void TryDeleteEmptyDirectory(string directoryPath, string label, IPlatformLogger? logger, List<string> notes, ref int removed)
+        {
+            if (!Directory.Exists(directoryPath))
+            {
+                return;
+            }
+
+            try
+            {
+                if (Directory.EnumerateFileSystemEntries(directoryPath).Any())
+                {
+                    logger?.Write(PlatformLogLevel.Info, $"Xbox 360 uninstall left non-empty Xenia {label} '{directoryPath}' in place.");
+                    return;
+                }
+
+                logger?.Write(PlatformLogLevel.Info, $"Deleting empty Xbox 360 Xenia {label}: {directoryPath}");
+                Directory.Delete(directoryPath, recursive: false);
+                removed++;
+            }
+            catch (Exception ex)
+            {
+                notes.Add($"Failed to delete empty Xbox 360 Xenia {label} '{directoryPath}': {ex.Message}");
+                logger?.Write(PlatformLogLevel.Warning, $"Failed to delete empty Xbox 360 Xenia {label} '{directoryPath}': {ex.Message}");
+            }
+        }
+
+        private static string TryExtractTitleId(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return string.Empty;
+            }
+
+            var match = TitleIdRegex.Match(value);
+            return match.Success ? match.Groups[1].Value.ToUpperInvariant() : string.Empty;
         }
     }
 }

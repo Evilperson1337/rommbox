@@ -218,6 +218,7 @@ namespace RomMbox.Services.Install
                         WindowsInstallType = installResult.InstallType?.ToString(),
                         InstalledPath = installResult.ExecutablePath ?? finalPath,
                         RommLaunchPath = installResult.ExecutablePath ?? finalPath,
+                        PlatformContentId = installResult.PlatformContentId,
                         RommLaunchArgs = installResult.Arguments != null && installResult.Arguments.Count > 0
                             ? string.Join(" ", installResult.Arguments)
                             : string.Empty,

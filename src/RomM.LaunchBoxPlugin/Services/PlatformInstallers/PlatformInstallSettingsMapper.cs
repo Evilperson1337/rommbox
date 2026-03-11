@@ -1,7 +1,12 @@
 using System;
+using System.IO;
+using System.Linq;
+using System.Reflection;
 using RomM.Platforms.Abstractions.Models.Install;
 using RomMbox.Models.PlatformMapping;
+using RomMbox.Services.Paths;
 using PlatformOptionalContentLocation = RomM.Platforms.Abstractions.Models.Install.OptionalContentLocation;
+using Unbroken.LaunchBox.Plugins.Data;
 
 namespace RomMbox.Services.PlatformInstallers
 {
@@ -49,7 +54,7 @@ namespace RomMbox.Services.PlatformInstallers
             };
         }
 
-        public static RomM.Platforms.Abstractions.Models.Rom.RomInstallSettings MapRomSettings(PlatformMapping mapping)
+        public static RomM.Platforms.Abstractions.Models.Rom.RomInstallSettings MapRomSettings(PlatformMapping mapping, object dataManager = null, string launchBoxPlatformName = null)
         {
             if (mapping == null)
             {
@@ -68,7 +73,8 @@ namespace RomMbox.Services.PlatformInstallers
                 InstallFromArchiveDirectly = mapping.InstallFromArchiveDirectly,
                 InstallLayoutMode = string.IsNullOrWhiteSpace(mapping.InstallLayoutMode) ? null : mapping.InstallLayoutMode,
                 ArtifactSelectionMode = string.IsNullOrWhiteSpace(mapping.ArtifactSelectionMode) ? null : mapping.ArtifactSelectionMode,
-                EmulatorId = string.IsNullOrWhiteSpace(mapping.AssociatedEmulatorId) ? null : mapping.AssociatedEmulatorId,
+                EmulatorId = ResolveEmulatorId(mapping, dataManager, launchBoxPlatformName),
+                EmulatorExecutablePath = ResolveEmulatorExecutablePath(mapping, dataManager, launchBoxPlatformName),
                 CoreId = string.IsNullOrWhiteSpace(mapping.EmulatorCoreId) ? null : mapping.EmulatorCoreId,
                 CoreName = string.IsNullOrWhiteSpace(mapping.EmulatorCoreName) ? null : mapping.EmulatorCoreName,
                 CorePath = string.IsNullOrWhiteSpace(mapping.EmulatorCorePath) ? null : mapping.EmulatorCorePath,
@@ -140,6 +146,106 @@ namespace RomMbox.Services.PlatformInstallers
             }
 
             return string.Empty;
+        }
+
+        internal static string ResolveEmulatorId(PlatformMapping mapping, object dataManager, string launchBoxPlatformName)
+        {
+            var configuredId = mapping?.AssociatedEmulatorId;
+            if (!string.IsNullOrWhiteSpace(configuredId))
+            {
+                return configuredId;
+            }
+
+            try
+            {
+                var manager = dataManager as IDataManager;
+                if (manager == null || string.IsNullOrWhiteSpace(launchBoxPlatformName))
+                {
+                    return null;
+                }
+
+                var emulators = manager.GetAllEmulators() ?? Array.Empty<IEmulator>();
+                foreach (var emulator in emulators)
+                {
+                    var platforms = emulator?.GetAllEmulatorPlatforms() ?? Array.Empty<IEmulatorPlatform>();
+                    if (platforms.Any(platform => string.Equals(platform?.Platform, launchBoxPlatformName, StringComparison.OrdinalIgnoreCase)
+                        && platform?.IsDefault == true))
+                    {
+                        return emulator?.Id;
+                    }
+                }
+
+                foreach (var emulator in emulators)
+                {
+                    var platforms = emulator?.GetAllEmulatorPlatforms() ?? Array.Empty<IEmulatorPlatform>();
+                    if (platforms.Any(platform => string.Equals(platform?.Platform, launchBoxPlatformName, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        return emulator?.Id;
+                    }
+                }
+            }
+            catch
+            {
+            }
+
+            return null;
+        }
+
+        internal static string ResolveEmulatorExecutablePath(PlatformMapping mapping, object dataManager, string launchBoxPlatformName)
+        {
+            var emulatorId = ResolveEmulatorId(mapping, dataManager, launchBoxPlatformName);
+            if (string.IsNullOrWhiteSpace(emulatorId))
+            {
+                return null;
+            }
+
+            try
+            {
+                if (dataManager is IDataManager manager)
+                {
+                    var emulator = manager.GetEmulatorById(emulatorId);
+                    var applicationPath = NormalizeLaunchBoxPath(emulator?.ApplicationPath);
+                    return string.IsNullOrWhiteSpace(applicationPath) ? null : applicationPath;
+                }
+
+                var method = dataManager?.GetType().GetMethod("GetEmulatorById", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+                var emulatorObject = method?.Invoke(dataManager, new object[] { emulatorId });
+                var rawPath = emulatorObject?.GetType().GetProperty("ApplicationPath", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)?.GetValue(emulatorObject) as string;
+                var normalized = NormalizeLaunchBoxPath(rawPath);
+                return string.IsNullOrWhiteSpace(normalized) ? null : normalized;
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        internal static string NormalizeLaunchBoxPath(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return null;
+            }
+
+            try
+            {
+                if (Path.IsPathRooted(path))
+                {
+                    return Path.GetFullPath(path);
+                }
+
+                var launchBoxRoot = PluginPaths.GetLaunchBoxRootDirectory();
+                if (string.IsNullOrWhiteSpace(launchBoxRoot))
+                {
+                    return path;
+                }
+
+                return Path.GetFullPath(Path.Combine(launchBoxRoot, path));
+            }
+            catch
+            {
+                return path;
+            }
         }
     }
 }

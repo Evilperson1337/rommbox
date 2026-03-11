@@ -9,6 +9,10 @@ namespace RomM.Platforms.Xbox360.Inspection
         public bool IsDirectLaunchArtifact { get; set; }
         public bool IsExtractedLayoutSignal { get; set; }
         public bool IsGodLayoutSignal { get; set; }
+        public bool IsPackageArchive { get; set; }
+        public string PackageType { get; set; } = string.Empty;
+        public int? DiscNumber { get; set; }
+        public string DiscSetName { get; set; } = string.Empty;
         public string TitleId { get; set; } = string.Empty;
         public string TitleName { get; set; } = string.Empty;
         public string Version { get; set; } = string.Empty;

@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using RomM.Platforms.Abstractions.Models.Install;
 using RomMbox.Models.PlatformMapping;
 using RomMbox.Models.Romm;
 using RomMbox.Services.Logging;
@@ -34,6 +36,7 @@ namespace RomMbox.Services.Install.Pipeline
         public string TempRoot { get; set; }
         public string InstalledExecutablePath { get; set; }
         public string[] InstallerArguments { get; set; }
+        public IReadOnlyList<AdditionalApplicationLaunchInfo> AdditionalApplications { get; set; } = Array.Empty<AdditionalApplicationLaunchInfo>();
         public InstallStateSnapshot InstallStateSnapshot { get; set; }
         public string OperationId { get; set; }
         public DateTimeOffset InstallStartedUtc { get; set; }

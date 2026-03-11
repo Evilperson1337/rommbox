@@ -34,6 +34,17 @@ namespace RomMbox.Services.Install.Pipeline.Steps
                     "BaseGameId", context.Game?.Id ?? string.Empty);
             }
 
+            try
+            {
+                var managedAdditionalApplicationService = new ManagedAdditionalApplicationService(context.Logger);
+                await managedAdditionalApplicationService.SyncAsync(context.Game, context.AdditionalApplications, cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                context.Logger?.Warning($"Managed additional application sync failed: {ex.Message}");
+            }
+
             SaveAndReloadDataManager(context.DataManager, context.Logger);
             return InstallResult.Successful();
         }

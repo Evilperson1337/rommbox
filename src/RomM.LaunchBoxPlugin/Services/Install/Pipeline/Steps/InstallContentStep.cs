@@ -274,7 +274,7 @@ namespace RomMbox.Services.Install.Pipeline.Steps
                         ArchivePath = context.ArchivePath,
                         ExtractedPath = context.ExtractedPath,
                         Settings = PlatformInstallSettingsMapper.Map(context.PlatformMapping),
-                        RomSettings = PlatformInstallSettingsMapper.MapRomSettings(context.PlatformMapping),
+                        RomSettings = PlatformInstallSettingsMapper.MapRomSettings(context.PlatformMapping, context.DataManager, context.Game?.Platform),
                         Logger = _platformLogger
                     };
 
@@ -312,7 +312,10 @@ namespace RomMbox.Services.Install.Pipeline.Steps
                             : result.Arguments.ToArray();
                     }
 
+                    context.AdditionalApplications = result.AdditionalApplications ?? Array.Empty<RomM.Platforms.Abstractions.Models.Install.AdditionalApplicationLaunchInfo>();
+
                     context.InstallStateSnapshot.WindowsInstallType = result.InstallType?.ToString();
+                    context.InstallStateSnapshot.PlatformContentId = result.PlatformContentId ?? string.Empty;
                     context.InstallStateSnapshot.InstallRootPath = canonicalInstallRootPath;
                     return InstallResult.Successful();
                 }
