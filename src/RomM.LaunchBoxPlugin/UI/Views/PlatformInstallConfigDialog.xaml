@@ -275,6 +275,56 @@
                             <TextBox Text="{Binding RomArchivePolicy, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                             <TextBlock Text="Set to Preserve to keep archives (e.g. Arcade)." Style="{StaticResource InlineHelper}" Margin="0,6,0,12"/>
 
+                            <TextBlock Text="Supported File Types" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowSupportedFileTypesField, Converter={StaticResource BoolToVisibility}}"/>
+                            <TextBox Text="{Binding SupportedFileTypes, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Visibility="{Binding ShowSupportedFileTypesField, Converter={StaticResource BoolToVisibility}}"/>
+                            <TextBlock Text="Comma-separated extensions used for candidate discovery (example: .cue,.bin,.chd,.iso,.zip)." Style="{StaticResource InlineHelper}" Margin="0,6,0,12" Visibility="{Binding ShowSupportedFileTypesField, Converter={StaticResource BoolToVisibility}}"/>
+
+                            <TextBlock Text="Archive Handling" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowArchiveHandlingModeField, Converter={StaticResource BoolToVisibility}}"/>
+                            <ComboBox Style="{StaticResource DarkComboBox}"
+                                      SelectedValue="{Binding ArchiveHandlingMode, Mode=TwoWay}"
+                                      SelectedValuePath="Content"
+                                      Visibility="{Binding ShowArchiveHandlingModeField, Converter={StaticResource BoolToVisibility}}"
+                                      Margin="0,0,0,6">
+                                <ComboBoxItem Content="NeverExtract" />
+                                <ComboBoxItem Content="ExtractForInspection" />
+                                <ComboBoxItem Content="ExtractAlways" />
+                            </ComboBox>
+                            <TextBlock Text="Controls whether archives are extracted never, for inspection, or always." Style="{StaticResource InlineHelper}" Margin="0,0,0,12" Visibility="{Binding ShowArchiveHandlingModeField, Converter={StaticResource BoolToVisibility}}"/>
+
+                            <TextBlock Text="Preferred Launch Extensions" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowPreferredLaunchExtensionsField, Converter={StaticResource BoolToVisibility}}"/>
+                            <TextBox Text="{Binding PreferredLaunchExtensions, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Visibility="{Binding ShowPreferredLaunchExtensionsField, Converter={StaticResource BoolToVisibility}}"/>
+                            <TextBlock Text="Optional extension priority order for launch artifact resolution." Style="{StaticResource InlineHelper}" Margin="0,6,0,12" Visibility="{Binding ShowPreferredLaunchExtensionsField, Converter={StaticResource BoolToVisibility}}"/>
+
+                            <CheckBox Content="Use Game Subdirectory" IsChecked="{Binding UseGameSubdirectory, Mode=TwoWay}" Margin="0,0,0,6" Visibility="{Binding ShowUseGameSubdirectoryField, Converter={StaticResource BoolToVisibility}}"/>
+                            <CheckBox Content="Install All Matching Files" IsChecked="{Binding InstallAllMatchingFiles, Mode=TwoWay}" Margin="0,0,0,6" Visibility="{Binding ShowInstallAllMatchingFilesField, Converter={StaticResource BoolToVisibility}}"/>
+                            <CheckBox Content="Install From Archive Directly" IsChecked="{Binding InstallFromArchiveDirectly, Mode=TwoWay}" Margin="0,0,0,12" Visibility="{Binding ShowInstallFromArchiveDirectlyField, Converter={StaticResource BoolToVisibility}}"/>
+
+                            <TextBlock Text="Install Layout" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowInstallLayoutModeField, Converter={StaticResource BoolToVisibility}}"/>
+                            <ComboBox Style="{StaticResource DarkComboBox}"
+                                      SelectedValue="{Binding InstallLayoutMode, Mode=TwoWay}"
+                                      SelectedValuePath="Content"
+                                      Visibility="{Binding ShowInstallLayoutModeField, Converter={StaticResource BoolToVisibility}}"
+                                      Margin="0,0,0,6">
+                                <ComboBoxItem Content="UsePlatformRoot" />
+                                <ComboBoxItem Content="CreatePerGameSubfolder" />
+                                <ComboBoxItem Content="PreserveArchiveStructure" />
+                            </ComboBox>
+                            <TextBlock Text="Choose platform root, per-game subfolder, or archive-structure-preserving layout." Style="{StaticResource InlineHelper}" Margin="0,0,0,12" Visibility="{Binding ShowInstallLayoutModeField, Converter={StaticResource BoolToVisibility}}"/>
+
+                            <TextBlock Text="Artifact Selection" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowArtifactSelectionModeField, Converter={StaticResource BoolToVisibility}}"/>
+                            <ComboBox Style="{StaticResource DarkComboBox}"
+                                      SelectedValue="{Binding ArtifactSelectionMode, Mode=TwoWay}"
+                                      SelectedValuePath="Content"
+                                      Visibility="{Binding ShowArtifactSelectionModeField, Converter={StaticResource BoolToVisibility}}"
+                                      Margin="0,0,0,6">
+                                <ComboBoxItem Content="FirstSupportedFile" />
+                                <ComboBoxItem Content="LargestSupportedFile" />
+                                <ComboBoxItem Content="ExtensionPriority" />
+                            </ComboBox>
+                            <TextBlock Text="Selection strategy used when multiple supported artifacts are present." Style="{StaticResource InlineHelper}" Margin="0,0,0,12" Visibility="{Binding ShowArtifactSelectionModeField, Converter={StaticResource BoolToVisibility}}"/>
+
+                            <CheckBox Content="Enable General Fallback Installer" IsChecked="{Binding UseGeneralFallbackInstaller, Mode=TwoWay}" Margin="0,0,0,12" Visibility="{Binding ShowUseGeneralFallbackInstallerField, Converter={StaticResource BoolToVisibility}}"/>
+
                             <TextBlock Text="PS3 Games Directory" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowPs3GameDirectoryField, Converter={StaticResource BoolToVisibility}}"/>
                             <Grid Margin="0,0,0,6" Visibility="{Binding ShowPs3GameDirectoryField, Converter={StaticResource BoolToVisibility}}">
                                 <Grid.ColumnDefinitions>
@@ -313,6 +363,44 @@
                             <CheckBox Content="Skip Region-Mismatched DLC" IsChecked="{Binding SkipRegionMismatchedDlc, Mode=TwoWay}" Margin="0,0,0,6" Visibility="{Binding ShowSkipRegionMismatchedDlcField, Converter={StaticResource BoolToVisibility}}"/>
                             <CheckBox Content="Skip Unmatched RAP Files" IsChecked="{Binding SkipUnmatchedRapFiles, Mode=TwoWay}" Margin="0,0,0,6" Visibility="{Binding ShowSkipUnmatchedRapFilesField, Converter={StaticResource BoolToVisibility}}"/>
                             <CheckBox Content="Prefer Metadata-Based Package Matching" IsChecked="{Binding PreferMetadataBasedPackageMatching, Mode=TwoWay}" Margin="0,0,0,12" Visibility="{Binding ShowPreferMetadataBasedPackageMatchingField, Converter={StaticResource BoolToVisibility}}"/>
+
+                            <TextBlock Text="PS4 Games Directory" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowPs4GamesDirectoryField, Converter={StaticResource BoolToVisibility}}"/>
+                            <Grid Margin="0,0,0,6" Visibility="{Binding ShowPs4GamesDirectoryField, Converter={StaticResource BoolToVisibility}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox Text="{Binding Ps4GamesDirectory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                <Button Grid.Column="1" Content="Browse" Margin="8,0,0,0" Width="90" Click="BrowsePs4Games_Click"/>
+                            </Grid>
+                            <TextBlock Text="Override the PS4 serial-based install root used for ShadPS4." Style="{StaticResource InlineHelper}" Margin="0,0,0,12" Visibility="{Binding ShowPs4GamesDirectoryField, Converter={StaticResource BoolToVisibility}}"/>
+
+                            <TextBlock Text="ShadPS4 Executable" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowShadPs4ExecutablePathField, Converter={StaticResource BoolToVisibility}}"/>
+                            <Grid Margin="0,0,0,6" Visibility="{Binding ShowShadPs4ExecutablePathField, Converter={StaticResource BoolToVisibility}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox Text="{Binding ShadPs4ExecutablePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                <Button Grid.Column="1" Content="Browse" Margin="8,0,0,0" Width="90" Click="BrowseShadPs4Executable_Click"/>
+                            </Grid>
+                            <TextBlock Text="Optional ShadPS4 executable override. LaunchBox emulator mapping is used when empty." Style="{StaticResource InlineHelper}" Margin="0,0,0,12" Visibility="{Binding ShowShadPs4ExecutablePathField, Converter={StaticResource BoolToVisibility}}"/>
+
+                            <TextBlock Text="External PKG Extractor" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowPs4ExternalPkgExtractorPathField, Converter={StaticResource BoolToVisibility}}"/>
+                            <Grid Margin="0,0,0,6" Visibility="{Binding ShowPs4ExternalPkgExtractorPathField, Converter={StaticResource BoolToVisibility}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox Text="{Binding Ps4ExternalPkgExtractorPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                <Button Grid.Column="1" Content="Browse" Margin="8,0,0,0" Width="90" Click="BrowsePs4ExternalExtractor_Click"/>
+                            </Grid>
+                            <TextBlock Text="Required only for direct .pkg download workflow (ShadPS4 0.8+ has no built-in PKG installer)." Style="{StaticResource InlineHelper}" Margin="0,0,0,12" Visibility="{Binding ShowPs4ExternalPkgExtractorPathField, Converter={StaticResource BoolToVisibility}}"/>
+
+                            <CheckBox Content="Fail if direct PKG encountered but extractor missing"
+                                      IsChecked="{Binding Ps4FailIfDirectPkgExtractorMissing, Mode=TwoWay}"
+                                      Margin="0,0,0,12"
+                                      Visibility="{Binding ShowPs4FailIfDirectPkgExtractorMissingField, Converter={StaticResource BoolToVisibility}}"/>
 
                             <StackPanel Margin="0,0,0,0" Visibility="{Binding IsExtractionBehaviorEnabled, Converter={StaticResource BoolToVisibility}}">
                                 <TextBlock Text="Extraction Behavior" Style="{StaticResource FieldLabel}"/>

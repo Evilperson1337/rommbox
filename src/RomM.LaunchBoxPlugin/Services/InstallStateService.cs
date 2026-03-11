@@ -129,7 +129,22 @@ CREATE TABLE IF NOT EXISTS InstallStateMetadata (
      Rpcs3LicenseDirectory TEXT,
      SkipRegionMismatchedDlc INTEGER NOT NULL DEFAULT 0,
      SkipUnmatchedRapFiles INTEGER NOT NULL DEFAULT 0,
-     PreferMetadataBasedPackageMatching INTEGER NOT NULL DEFAULT 0
+     PreferMetadataBasedPackageMatching INTEGER NOT NULL DEFAULT 0,
+     SupportedFileTypes TEXT,
+     PreferredLaunchExtensions TEXT,
+     UseGameSubdirectory INTEGER NOT NULL DEFAULT 0,
+     InstallAllMatchingFiles INTEGER NOT NULL DEFAULT 0,
+     InstallFromArchiveDirectly INTEGER NOT NULL DEFAULT 0,
+     UseGeneralFallbackInstaller INTEGER NOT NULL DEFAULT 0,
+     PluginKey TEXT,
+     PluginSettings TEXT,
+     ArchiveHandlingMode TEXT,
+     InstallLayoutMode TEXT,
+     ArtifactSelectionMode TEXT,
+     Ps4GamesDirectory TEXT,
+     ShadPs4ExecutablePath TEXT,
+     Ps4ExternalPkgExtractorPath TEXT,
+     Ps4FailIfDirectPkgExtractorMissing INTEGER NOT NULL DEFAULT 0
  );
 CREATE TABLE IF NOT EXISTS PlatformMappingAliases (
     AliasId TEXT PRIMARY KEY,
@@ -1611,6 +1626,17 @@ ON CONFLICT(Key) DO UPDATE SET Value = excluded.Value;
             await AddColumnIfMissingAsync(connection, columns, "EmulatorLaunchArgs", "TEXT", cancellationToken).ConfigureAwait(false);
             await AddColumnIfMissingAsync(connection, columns, "RomInstallRoot", "TEXT", cancellationToken).ConfigureAwait(false);
             await AddColumnIfMissingAsync(connection, columns, "RomArchivePolicy", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "SupportedFileTypes", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "PreferredLaunchExtensions", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "UseGameSubdirectory", "INTEGER NOT NULL DEFAULT 0", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "InstallAllMatchingFiles", "INTEGER NOT NULL DEFAULT 0", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "InstallFromArchiveDirectly", "INTEGER NOT NULL DEFAULT 0", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "UseGeneralFallbackInstaller", "INTEGER NOT NULL DEFAULT 0", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "PluginKey", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "PluginSettings", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "ArchiveHandlingMode", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "InstallLayoutMode", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "ArtifactSelectionMode", "TEXT", cancellationToken).ConfigureAwait(false);
             await AddColumnIfMissingAsync(connection, columns, "Ps3GameDirectory", "TEXT", cancellationToken).ConfigureAwait(false);
             await AddColumnIfMissingAsync(connection, columns, "Rpcs3ExecutablePath", "TEXT", cancellationToken).ConfigureAwait(false);
             await AddColumnIfMissingAsync(connection, columns, "InstallDlcAutomatically", "INTEGER NOT NULL DEFAULT 0", cancellationToken).ConfigureAwait(false);
@@ -1619,6 +1645,10 @@ ON CONFLICT(Key) DO UPDATE SET Value = excluded.Value;
             await AddColumnIfMissingAsync(connection, columns, "SkipRegionMismatchedDlc", "INTEGER NOT NULL DEFAULT 0", cancellationToken).ConfigureAwait(false);
             await AddColumnIfMissingAsync(connection, columns, "SkipUnmatchedRapFiles", "INTEGER NOT NULL DEFAULT 0", cancellationToken).ConfigureAwait(false);
             await AddColumnIfMissingAsync(connection, columns, "PreferMetadataBasedPackageMatching", "INTEGER NOT NULL DEFAULT 0", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "Ps4GamesDirectory", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "ShadPs4ExecutablePath", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "Ps4ExternalPkgExtractorPath", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "Ps4FailIfDirectPkgExtractorMissing", "INTEGER NOT NULL DEFAULT 0", cancellationToken).ConfigureAwait(false);
         }
 
         private static async Task AddColumnIfMissingAsync(SqliteConnection connection, HashSet<string> columns, string columnName, string columnDefinition, CancellationToken cancellationToken)

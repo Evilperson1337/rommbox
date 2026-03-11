@@ -119,6 +119,72 @@ namespace RomMbox.Models.PlatformMapping
         public string RomArchivePolicy { get; set; } = string.Empty;
 
         /// <summary>
+        /// Gets or sets the selected plugin key for this platform mapping.
+        /// </summary>
+        [DataMember(Name = "pluginKey", EmitDefaultValue = false)]
+        public string PluginKey { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets serialized plugin settings payload for dynamic plugin configuration.
+        /// </summary>
+        [DataMember(Name = "pluginSettings", EmitDefaultValue = false)]
+        public string PluginSettings { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets archive handling mode for general ROM installs.
+        /// </summary>
+        [DataMember(Name = "archiveHandlingMode", EmitDefaultValue = false)]
+        public string ArchiveHandlingMode { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets supported file extensions for the general fallback installer.
+        /// </summary>
+        [DataMember(Name = "supportedFileTypes", EmitDefaultValue = false)]
+        public string SupportedFileTypes { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets preferred launch-extension ordering for the general fallback installer.
+        /// </summary>
+        [DataMember(Name = "preferredLaunchExtensions", EmitDefaultValue = false)]
+        public string PreferredLaunchExtensions { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets whether installs should be placed in a per-game subdirectory.
+        /// </summary>
+        [DataMember(Name = "useGameSubdirectory", EmitDefaultValue = false)]
+        public bool UseGameSubdirectory { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets whether all discovered matching files should be installed.
+        /// </summary>
+        [DataMember(Name = "installAllMatchingFiles", EmitDefaultValue = false)]
+        public bool InstallAllMatchingFiles { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets whether supported archives can be installed/launched directly.
+        /// </summary>
+        [DataMember(Name = "installFromArchiveDirectly", EmitDefaultValue = false)]
+        public bool InstallFromArchiveDirectly { get; set; }
+
+        /// <summary>
+        /// Gets or sets install layout behavior for general ROM installs.
+        /// </summary>
+        [DataMember(Name = "installLayoutMode", EmitDefaultValue = false)]
+        public string InstallLayoutMode { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets artifact selection strategy when multiple candidates exist.
+        /// </summary>
+        [DataMember(Name = "artifactSelectionMode", EmitDefaultValue = false)]
+        public string ArtifactSelectionMode { get; set; } = string.Empty;
+
+        /// <summary>
+        /// True when this mapping should use the general fallback installer.
+        /// </summary>
+        [DataMember(Name = "useGeneralFallbackInstaller", EmitDefaultValue = false)]
+        public bool UseGeneralFallbackInstaller { get; set; }
+
+        /// <summary>
         /// Determines whether installers run manually or silently.
         /// </summary>
         [DataMember(Name = "installerMode", EmitDefaultValue = false)]
@@ -225,5 +291,29 @@ namespace RomMbox.Models.PlatformMapping
         /// </summary>
         [DataMember(Name = "preferMetadataBasedPackageMatching", EmitDefaultValue = false)]
         public bool PreferMetadataBasedPackageMatching { get; set; }
+
+        /// <summary>
+        /// Gets or sets the PS4 games directory override.
+        /// </summary>
+        [DataMember(Name = "ps4GamesDirectory", EmitDefaultValue = false)]
+        public string Ps4GamesDirectory { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the ShadPS4 executable path.
+        /// </summary>
+        [DataMember(Name = "shadPs4ExecutablePath", EmitDefaultValue = false)]
+        public string ShadPs4ExecutablePath { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets optional external PKG extractor path for PS4 direct PKG workflows.
+        /// </summary>
+        [DataMember(Name = "ps4ExternalPkgExtractorPath", EmitDefaultValue = false)]
+        public string Ps4ExternalPkgExtractorPath { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets whether direct PKG downloads should fail when extractor is missing.
+        /// </summary>
+        [DataMember(Name = "ps4FailIfDirectPkgExtractorMissing", EmitDefaultValue = false)]
+        public bool Ps4FailIfDirectPkgExtractorMissing { get; set; }
     }
 }

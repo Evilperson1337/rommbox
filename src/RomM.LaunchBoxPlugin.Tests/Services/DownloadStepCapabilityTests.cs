@@ -87,6 +87,36 @@ namespace RomMbox.Tests.Services
                 "ROM preserve policy on non-Windows platforms should suppress extraction reporting");
         }
 
+        [Fact]
+        public async Task ExecuteAsync_DisablesExtraction_ForN64Platform_WhenExtractAfterDownloadIsTrue()
+        {
+            using var temp = new TempDirectory();
+            using var settingsScope = new TestEnvironmentScope("ROMMBOX_TEST_SETTINGS", temp.Path);
+
+            var (context, request, logger) = BuildContext(temp.Path, "n64", "Nintendo 64");
+            context.PlatformMapping.ExtractAfterDownload = true;
+            context.PlatformMapping.RomArchivePolicy = string.Empty;
+
+            var platformInstallers = new PlatformInstallerRegistry(new Dictionary<string, IPlatformInstaller>
+            {
+                ["n64"] = new MetadataStubInstaller(
+                    platformKey: "n64",
+                    capabilities: new PlatformInstallerCapabilities { RequiresStagingInspection = false })
+            });
+
+            var archiveService = new ArchiveService(logger, context.SettingsManager);
+            var downloadService = new DownloadService(logger, new DownloadToFileRommClient(), archiveService, context.SettingsManager);
+            var step = new DownloadStep(downloadService, platformInstallers);
+            var events = new List<InstallProgressEvent>();
+            var progress = new Progress<InstallProgressEvent>(evt => events.Add(evt));
+
+            var result = await step.ExecuteAsync(context, progress, CancellationToken.None);
+
+            result.Success.Should().BeTrue();
+            events.Should().NotContain(evt => evt.Phase == InstallPhase.Extracting,
+                "N64 should preserve archives and skip extraction reporting");
+        }
+
         private static (PipelineInstallContext Context, PipelineInstallRequest Request, LoggingService Logger) BuildContext(string tempRoot, string platformId, string launchBoxPlatformName)
         {
             var logger = TestLogger.Create();

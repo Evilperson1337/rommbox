@@ -121,9 +121,9 @@ namespace RomMbox.Services.Install
                     return RomMInstallResult.Failed(installLocation.Message ?? "Install directory unavailable.");
                 }
 
-                var downloadDirectory = InstallDestinationService.IsWindowsPlatform(platform.Name)
-                    ? installLocation.InstallDirectory
-                    : EnsureGameSubfolder(installLocation.InstallDirectory, game.Title);
+                var downloadDirectory = GameInstallPathPolicy.ShouldUseGameSubfolder(platform.Name, rom.PlatformId)
+                    ? EnsureGameSubfolder(installLocation.InstallDirectory, game.Title)
+                    : installLocation.InstallDirectory;
                 _logger?.Info($"Downloading ROM for '{game.Title}' to '{downloadDirectory}'. Scenario={installScenario}, Extract={extractAfterDownload}, Behavior={extractionBehavior}.");
 
                 var serverUrl = _settingsManager.Load().ServerUrl;

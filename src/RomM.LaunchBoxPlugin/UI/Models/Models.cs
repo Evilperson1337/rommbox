@@ -100,6 +100,72 @@ public sealed class PlatformMapping : ObservableObject
     /// </summary>
     public string RomArchivePolicy { get => _romArchivePolicy; set => SetProperty(ref _romArchivePolicy, value); }
 
+    private string _pluginKey = "";
+    /// <summary>
+    /// Gets or sets the resolved plugin key for this platform.
+    /// </summary>
+    public string PluginKey { get => _pluginKey; set => SetProperty(ref _pluginKey, value); }
+
+    private string _pluginSettings = "";
+    /// <summary>
+    /// Gets or sets the serialized plugin settings payload.
+    /// </summary>
+    public string PluginSettings { get => _pluginSettings; set => SetProperty(ref _pluginSettings, value); }
+
+    private string _supportedFileTypes = "";
+    /// <summary>
+    /// Gets or sets supported file types for the general fallback installer.
+    /// </summary>
+    public string SupportedFileTypes { get => _supportedFileTypes; set => SetProperty(ref _supportedFileTypes, value); }
+
+    private string _preferredLaunchExtensions = "";
+    /// <summary>
+    /// Gets or sets preferred launch extension order for fallback installer selection.
+    /// </summary>
+    public string PreferredLaunchExtensions { get => _preferredLaunchExtensions; set => SetProperty(ref _preferredLaunchExtensions, value); }
+
+    private string _archiveHandlingMode = "";
+    /// <summary>
+    /// Gets or sets archive handling mode for general ROM installs.
+    /// </summary>
+    public string ArchiveHandlingMode { get => _archiveHandlingMode; set => SetProperty(ref _archiveHandlingMode, value); }
+
+    private bool _useGameSubdirectory = true;
+    /// <summary>
+    /// Gets or sets whether fallback installs use a per-game subdirectory.
+    /// </summary>
+    public bool UseGameSubdirectory { get => _useGameSubdirectory; set => SetProperty(ref _useGameSubdirectory, value); }
+
+    private bool _installAllMatchingFiles = true;
+    /// <summary>
+    /// Gets or sets whether fallback installs include all discovered matching files.
+    /// </summary>
+    public bool InstallAllMatchingFiles { get => _installAllMatchingFiles; set => SetProperty(ref _installAllMatchingFiles, value); }
+
+    private bool _installFromArchiveDirectly;
+    /// <summary>
+    /// Gets or sets whether fallback installer may launch directly from supported archives.
+    /// </summary>
+    public bool InstallFromArchiveDirectly { get => _installFromArchiveDirectly; set => SetProperty(ref _installFromArchiveDirectly, value); }
+
+    private string _installLayoutMode = "";
+    /// <summary>
+    /// Gets or sets install layout mode for general ROM installs.
+    /// </summary>
+    public string InstallLayoutMode { get => _installLayoutMode; set => SetProperty(ref _installLayoutMode, value); }
+
+    private string _artifactSelectionMode = "";
+    /// <summary>
+    /// Gets or sets artifact selection mode when multiple candidates are available.
+    /// </summary>
+    public string ArtifactSelectionMode { get => _artifactSelectionMode; set => SetProperty(ref _artifactSelectionMode, value); }
+
+    private bool _useGeneralFallbackInstaller;
+    /// <summary>
+    /// Gets or sets whether this mapping should use the general fallback installer.
+    /// </summary>
+    public bool UseGeneralFallbackInstaller { get => _useGeneralFallbackInstaller; set => SetProperty(ref _useGeneralFallbackInstaller, value); }
+
     private string _installerSilentArgs = "";
     /// <summary>
     /// Gets or sets installer silent arguments when using installer-based packages.
@@ -225,6 +291,30 @@ public sealed class PlatformMapping : ObservableObject
     /// Gets or sets whether metadata-based package matching is preferred.
     /// </summary>
     public bool PreferMetadataBasedPackageMatching { get => _preferMetadataBasedPackageMatching; set => SetProperty(ref _preferMetadataBasedPackageMatching, value); }
+
+    private string _ps4GamesDirectory = "";
+    /// <summary>
+    /// Gets or sets the PS4 games directory override.
+    /// </summary>
+    public string Ps4GamesDirectory { get => _ps4GamesDirectory; set => SetProperty(ref _ps4GamesDirectory, value); }
+
+    private string _shadPs4ExecutablePath = "";
+    /// <summary>
+    /// Gets or sets the ShadPS4 executable path.
+    /// </summary>
+    public string ShadPs4ExecutablePath { get => _shadPs4ExecutablePath; set => SetProperty(ref _shadPs4ExecutablePath, value); }
+
+    private string _ps4ExternalPkgExtractorPath = "";
+    /// <summary>
+    /// Gets or sets the optional PS4 external PKG extractor path.
+    /// </summary>
+    public string Ps4ExternalPkgExtractorPath { get => _ps4ExternalPkgExtractorPath; set => SetProperty(ref _ps4ExternalPkgExtractorPath, value); }
+
+    private bool _ps4FailIfDirectPkgExtractorMissing;
+    /// <summary>
+    /// Gets or sets whether direct PKG install should fail if extractor configuration is missing.
+    /// </summary>
+    public bool Ps4FailIfDirectPkgExtractorMissing { get => _ps4FailIfDirectPkgExtractorMissing; set => SetProperty(ref _ps4FailIfDirectPkgExtractorMissing, value); }
 
     private string _readinessStatus = string.Empty;
     /// <summary>

@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using RomM.Platforms.Abstractions.Install;
 using RomM.Platforms.Abstractions.Models.Rom;
 
 namespace RomM.Platforms.RomBase
@@ -37,6 +38,11 @@ namespace RomM.Platforms.RomBase
                 return string.Empty;
             }
 
+            if (!_profile.UsePlatformSubdirectory)
+            {
+                return root;
+            }
+
             var folder = string.IsNullOrWhiteSpace(_profile.PlatformFolderName)
                 ? _profile.DisplayName
                 : _profile.PlatformFolderName;
@@ -61,6 +67,16 @@ namespace RomM.Platforms.RomBase
 
             var safeName = SanitizeFileName(string.IsNullOrWhiteSpace(gameName) ? "Game" : gameName);
             return safeName + ".rom";
+        }
+
+        public string ResolveGameInstallDirectory(string installDirectory, string? gameName)
+        {
+            if (string.IsNullOrWhiteSpace(installDirectory))
+            {
+                return string.Empty;
+            }
+
+            return GameInstallPathHelper.ResolveGameDirectory(installDirectory, gameName, _profile.DisplayName, _profile.PlatformFolderName);
         }
 
         private static string SanitizeFileName(string value)

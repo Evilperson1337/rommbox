@@ -224,6 +224,17 @@ public sealed class PlatformsViewModel : ObservableObject
                         EmulatorLaunchArgs = string.Empty,
                         RomInstallRoot = string.Empty,
                         RomArchivePolicy = string.Empty,
+                        PluginKey = string.Empty,
+                        PluginSettings = string.Empty,
+                        SupportedFileTypes = string.Empty,
+                        PreferredLaunchExtensions = string.Empty,
+                        ArchiveHandlingMode = string.Empty,
+                        UseGameSubdirectory = true,
+                        InstallAllMatchingFiles = true,
+                        InstallFromArchiveDirectly = false,
+                        InstallLayoutMode = string.Empty,
+                        ArtifactSelectionMode = string.Empty,
+                        UseGeneralFallbackInstaller = false,
                         ReadinessStatus = "Needs Connection",
                         ReadinessMessage = "Configure and connect to RomM first."
                     });
@@ -283,6 +294,21 @@ public sealed class PlatformsViewModel : ObservableObject
                         EmulatorLaunchArgs = mapping.EmulatorLaunchArgs,
                         RomInstallRoot = mapping.RomInstallRoot,
                         RomArchivePolicy = mapping.RomArchivePolicy,
+                        PluginKey = mapping.PluginKey,
+                        PluginSettings = mapping.PluginSettings,
+                        SupportedFileTypes = mapping.SupportedFileTypes,
+                        PreferredLaunchExtensions = mapping.PreferredLaunchExtensions,
+                        ArchiveHandlingMode = mapping.ArchiveHandlingMode,
+                        UseGameSubdirectory = mapping.UseGameSubdirectory,
+                        InstallAllMatchingFiles = mapping.InstallAllMatchingFiles,
+                        InstallFromArchiveDirectly = mapping.InstallFromArchiveDirectly,
+                        InstallLayoutMode = mapping.InstallLayoutMode,
+                        ArtifactSelectionMode = mapping.ArtifactSelectionMode,
+                        UseGeneralFallbackInstaller = mapping.UseGeneralFallbackInstaller,
+                        Ps4GamesDirectory = mapping.Ps4GamesDirectory,
+                        ShadPs4ExecutablePath = mapping.ShadPs4ExecutablePath,
+                        Ps4ExternalPkgExtractorPath = mapping.Ps4ExternalPkgExtractorPath,
+                        Ps4FailIfDirectPkgExtractorMissing = mapping.Ps4FailIfDirectPkgExtractorMissing,
                         ReadinessStatus = readiness.Status,
                         ReadinessMessage = readiness.Message
                     });
@@ -341,6 +367,21 @@ public sealed class PlatformsViewModel : ObservableObject
                         EmulatorLaunchArgs = string.Empty,
                         RomInstallRoot = string.Empty,
                         RomArchivePolicy = string.Empty,
+                        PluginKey = string.Empty,
+                        PluginSettings = string.Empty,
+                        SupportedFileTypes = string.Empty,
+                        PreferredLaunchExtensions = string.Empty,
+                        ArchiveHandlingMode = string.Empty,
+                        UseGameSubdirectory = true,
+                        InstallAllMatchingFiles = true,
+                        InstallFromArchiveDirectly = false,
+                        InstallLayoutMode = string.Empty,
+                        ArtifactSelectionMode = string.Empty,
+                        UseGeneralFallbackInstaller = false,
+                        Ps4GamesDirectory = string.Empty,
+                        ShadPs4ExecutablePath = string.Empty,
+                        Ps4ExternalPkgExtractorPath = string.Empty,
+                        Ps4FailIfDirectPkgExtractorMissing = false,
                         ReadinessStatus = "Needs Connection",
                         ReadinessMessage = "Configure and connect to RomM first."
                     });
@@ -474,6 +515,21 @@ public sealed class PlatformsViewModel : ObservableObject
                         EmulatorLaunchArgs = mapping.EmulatorLaunchArgs,
                         RomInstallRoot = mapping.RomInstallRoot,
                         RomArchivePolicy = mapping.RomArchivePolicy,
+                        PluginKey = mapping.PluginKey,
+                        PluginSettings = mapping.PluginSettings,
+                        SupportedFileTypes = mapping.SupportedFileTypes,
+                        PreferredLaunchExtensions = mapping.PreferredLaunchExtensions,
+                        ArchiveHandlingMode = mapping.ArchiveHandlingMode,
+                        UseGameSubdirectory = mapping.UseGameSubdirectory,
+                        InstallAllMatchingFiles = mapping.InstallAllMatchingFiles,
+                        InstallFromArchiveDirectly = mapping.InstallFromArchiveDirectly,
+                        InstallLayoutMode = mapping.InstallLayoutMode,
+                        ArtifactSelectionMode = mapping.ArtifactSelectionMode,
+                        UseGeneralFallbackInstaller = mapping.UseGeneralFallbackInstaller,
+                        Ps4GamesDirectory = mapping.Ps4GamesDirectory,
+                        ShadPs4ExecutablePath = mapping.ShadPs4ExecutablePath,
+                        Ps4ExternalPkgExtractorPath = mapping.Ps4ExternalPkgExtractorPath,
+                        Ps4FailIfDirectPkgExtractorMissing = mapping.Ps4FailIfDirectPkgExtractorMissing,
                         Ps3GameDirectory = mapping.Ps3GameDirectory,
                         Rpcs3ExecutablePath = mapping.Rpcs3ExecutablePath,
                         InstallDlcAutomatically = mapping.InstallDlcAutomatically,
@@ -618,7 +674,13 @@ public sealed class PlatformsViewModel : ObservableObject
         }
 
         var defaultInstallDirectory = ResolveDefaultInstallDirectory(mapping.LaunchBoxPlatform);
-        var configDescriptor = _platformInstallers.GetConfigDescriptor(mapping.RommPlatformId);
+        var pluginPreference = !string.IsNullOrWhiteSpace(mapping.PluginKey)
+            ? mapping.PluginKey
+            : mapping.RommPlatformId;
+        var resolvedPluginKey = _platformInstallers.ResolveConfigPluginKey(pluginPreference);
+        mapping.PluginKey = resolvedPluginKey;
+        var configDescriptor = _platformInstallers.GetConfigDescriptor(resolvedPluginKey);
+        _logger?.Info($"Platform configuration opened for '{mapping.RomMPlatform}'. PluginKey='{resolvedPluginKey}', RomMId='{mapping.RommPlatformId}'.");
         var viewModel = new ViewModels.PlatformInstallConfigViewModel(
             mapping,
             defaultInstallDirectory,

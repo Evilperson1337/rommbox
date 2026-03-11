@@ -27,6 +27,23 @@ namespace RomMbox.Services.PlatformInstallers
             return _installers.TryGetValue(platformKey, out installer);
         }
 
+        public bool TryGetInstallerOrFallback(string platformKey, out IPlatformInstaller? installer, out bool usedFallback)
+        {
+            usedFallback = false;
+            if (TryGetInstaller(platformKey, out installer))
+            {
+                return true;
+            }
+
+            if (TryGetInstaller("general", out installer))
+            {
+                usedFallback = true;
+                return true;
+            }
+
+            return false;
+        }
+
         public IReadOnlyDictionary<string, IPlatformInstaller> GetAll()
         {
             return _installers;
@@ -53,6 +70,21 @@ namespace RomMbox.Services.PlatformInstallers
             }
 
             return null;
+        }
+
+        public string ResolveConfigPluginKey(string preferredKey)
+        {
+            if (TryGetInstaller(preferredKey, out var installer) && installer != null)
+            {
+                return installer.PlatformKey ?? preferredKey ?? string.Empty;
+            }
+
+            if (TryGetInstaller("general", out var fallback) && fallback != null)
+            {
+                return fallback.PlatformKey ?? "general";
+            }
+
+            return preferredKey ?? string.Empty;
         }
     }
 }

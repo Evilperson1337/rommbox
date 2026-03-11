@@ -42,7 +42,10 @@ namespace RomMbox.Services
         CustomInstallDirectory, InstallScenario, TargetImportFile, InstallerSilentArgs, SelfContained, AssociatedEmulatorId,
         OstInstallLocation, BonusInstallLocation, EmulatorCoreId, EmulatorCoreName, EmulatorCorePath, EmulatorLaunchArgs,
         RomInstallRoot, RomArchivePolicy, Ps3GameDirectory, Rpcs3ExecutablePath, InstallDlcAutomatically, InstallUpdatesAutomatically,
-        Rpcs3LicenseDirectory, SkipRegionMismatchedDlc, SkipUnmatchedRapFiles, PreferMetadataBasedPackageMatching
+        Rpcs3LicenseDirectory, SkipRegionMismatchedDlc, SkipUnmatchedRapFiles, PreferMetadataBasedPackageMatching,
+        SupportedFileTypes, PreferredLaunchExtensions, UseGameSubdirectory, InstallAllMatchingFiles, InstallFromArchiveDirectly,
+        UseGeneralFallbackInstaller, PluginKey, PluginSettings, ArchiveHandlingMode, InstallLayoutMode, ArtifactSelectionMode,
+        Ps4GamesDirectory, ShadPs4ExecutablePath, Ps4ExternalPkgExtractorPath, Ps4FailIfDirectPkgExtractorMissing
  FROM PlatformMappings
  WHERE RommPlatformId = $rommPlatformId;
  ";
@@ -80,7 +83,10 @@ namespace RomMbox.Services
         CustomInstallDirectory, InstallScenario, TargetImportFile, InstallerSilentArgs, SelfContained, AssociatedEmulatorId,
         OstInstallLocation, BonusInstallLocation, EmulatorCoreId, EmulatorCoreName, EmulatorCorePath, EmulatorLaunchArgs,
         RomInstallRoot, RomArchivePolicy, Ps3GameDirectory, Rpcs3ExecutablePath, InstallDlcAutomatically, InstallUpdatesAutomatically,
-        Rpcs3LicenseDirectory, SkipRegionMismatchedDlc, SkipUnmatchedRapFiles, PreferMetadataBasedPackageMatching
+        Rpcs3LicenseDirectory, SkipRegionMismatchedDlc, SkipUnmatchedRapFiles, PreferMetadataBasedPackageMatching,
+        SupportedFileTypes, PreferredLaunchExtensions, UseGameSubdirectory, InstallAllMatchingFiles, InstallFromArchiveDirectly,
+        UseGeneralFallbackInstaller, PluginKey, PluginSettings, ArchiveHandlingMode, InstallLayoutMode, ArtifactSelectionMode,
+        Ps4GamesDirectory, ShadPs4ExecutablePath, Ps4ExternalPkgExtractorPath, Ps4FailIfDirectPkgExtractorMissing
  FROM PlatformMappings;
  ";
                 using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
@@ -142,14 +148,20 @@ namespace RomMbox.Services
      CustomInstallDirectory, InstallScenario, TargetImportFile, InstallerSilentArgs, SelfContained, AssociatedEmulatorId,
      OstInstallLocation, BonusInstallLocation, EmulatorCoreId, EmulatorCoreName, EmulatorCorePath, EmulatorLaunchArgs,
      RomInstallRoot, RomArchivePolicy, Ps3GameDirectory, Rpcs3ExecutablePath, InstallDlcAutomatically, InstallUpdatesAutomatically,
-     Rpcs3LicenseDirectory, SkipRegionMismatchedDlc, SkipUnmatchedRapFiles, PreferMetadataBasedPackageMatching
+     Rpcs3LicenseDirectory, SkipRegionMismatchedDlc, SkipUnmatchedRapFiles, PreferMetadataBasedPackageMatching,
+     SupportedFileTypes, PreferredLaunchExtensions, UseGameSubdirectory, InstallAllMatchingFiles, InstallFromArchiveDirectly,
+     UseGeneralFallbackInstaller, PluginKey, PluginSettings, ArchiveHandlingMode, InstallLayoutMode, ArtifactSelectionMode,
+     Ps4GamesDirectory, ShadPs4ExecutablePath, Ps4ExternalPkgExtractorPath, Ps4FailIfDirectPkgExtractorMissing
   ) VALUES (
      $rommPlatformId, $rommPlatformName, $launchBoxPlatformName, $autoMapped, $disableAutoImport, $extractAfterDownload,
      $extractionBehavior, $installerMode, $musicRootPath, $installOst, $bonusRootPath, $installBonus, $preReqsRootPath, $installPreReqs,
      $customInstallDirectory, $installScenario, $targetImportFile, $installerSilentArgs, $selfContained, $associatedEmulatorId,
      $ostInstallLocation, $bonusInstallLocation, $emulatorCoreId, $emulatorCoreName, $emulatorCorePath, $emulatorLaunchArgs,
      $romInstallRoot, $romArchivePolicy, $ps3GameDirectory, $rpcs3ExecutablePath, $installDlcAutomatically, $installUpdatesAutomatically,
-     $rpcs3LicenseDirectory, $skipRegionMismatchedDlc, $skipUnmatchedRapFiles, $preferMetadataBasedPackageMatching
+     $rpcs3LicenseDirectory, $skipRegionMismatchedDlc, $skipUnmatchedRapFiles, $preferMetadataBasedPackageMatching,
+     $supportedFileTypes, $preferredLaunchExtensions, $useGameSubdirectory, $installAllMatchingFiles, $installFromArchiveDirectly,
+     $useGeneralFallbackInstaller, $pluginKey, $pluginSettings, $archiveHandlingMode, $installLayoutMode, $artifactSelectionMode,
+     $ps4GamesDirectory, $shadPs4ExecutablePath, $ps4ExternalPkgExtractorPath, $ps4FailIfDirectPkgExtractorMissing
   )
   ON CONFLICT(RommPlatformId) DO UPDATE SET
      RommPlatformName = excluded.RommPlatformName,
@@ -186,7 +198,22 @@ namespace RomMbox.Services
      Rpcs3LicenseDirectory = excluded.Rpcs3LicenseDirectory,
      SkipRegionMismatchedDlc = excluded.SkipRegionMismatchedDlc,
      SkipUnmatchedRapFiles = excluded.SkipUnmatchedRapFiles,
-     PreferMetadataBasedPackageMatching = excluded.PreferMetadataBasedPackageMatching;
+     PreferMetadataBasedPackageMatching = excluded.PreferMetadataBasedPackageMatching,
+     SupportedFileTypes = excluded.SupportedFileTypes,
+     PreferredLaunchExtensions = excluded.PreferredLaunchExtensions,
+     UseGameSubdirectory = excluded.UseGameSubdirectory,
+     InstallAllMatchingFiles = excluded.InstallAllMatchingFiles,
+     InstallFromArchiveDirectly = excluded.InstallFromArchiveDirectly,
+     UseGeneralFallbackInstaller = excluded.UseGeneralFallbackInstaller,
+     PluginKey = excluded.PluginKey,
+     PluginSettings = excluded.PluginSettings,
+     ArchiveHandlingMode = excluded.ArchiveHandlingMode,
+     InstallLayoutMode = excluded.InstallLayoutMode,
+     ArtifactSelectionMode = excluded.ArtifactSelectionMode,
+     Ps4GamesDirectory = excluded.Ps4GamesDirectory,
+     ShadPs4ExecutablePath = excluded.ShadPs4ExecutablePath,
+     Ps4ExternalPkgExtractorPath = excluded.Ps4ExternalPkgExtractorPath,
+     Ps4FailIfDirectPkgExtractorMissing = excluded.Ps4FailIfDirectPkgExtractorMissing;
   ";
                     command.Parameters.AddWithValue("$rommPlatformId", mapping.RommPlatformId ?? string.Empty);
                     command.Parameters.AddWithValue("$rommPlatformName", mapping.RommPlatformName ?? string.Empty);
@@ -224,6 +251,21 @@ namespace RomMbox.Services
                     command.Parameters.AddWithValue("$skipRegionMismatchedDlc", mapping.SkipRegionMismatchedDlc ? 1 : 0);
                     command.Parameters.AddWithValue("$skipUnmatchedRapFiles", mapping.SkipUnmatchedRapFiles ? 1 : 0);
                     command.Parameters.AddWithValue("$preferMetadataBasedPackageMatching", mapping.PreferMetadataBasedPackageMatching ? 1 : 0);
+                    command.Parameters.AddWithValue("$supportedFileTypes", mapping.SupportedFileTypes ?? string.Empty);
+                    command.Parameters.AddWithValue("$preferredLaunchExtensions", mapping.PreferredLaunchExtensions ?? string.Empty);
+                    command.Parameters.AddWithValue("$useGameSubdirectory", mapping.UseGameSubdirectory ? 1 : 0);
+                    command.Parameters.AddWithValue("$installAllMatchingFiles", mapping.InstallAllMatchingFiles ? 1 : 0);
+                    command.Parameters.AddWithValue("$installFromArchiveDirectly", mapping.InstallFromArchiveDirectly ? 1 : 0);
+                    command.Parameters.AddWithValue("$useGeneralFallbackInstaller", mapping.UseGeneralFallbackInstaller ? 1 : 0);
+                    command.Parameters.AddWithValue("$pluginKey", mapping.PluginKey ?? string.Empty);
+                    command.Parameters.AddWithValue("$pluginSettings", mapping.PluginSettings ?? string.Empty);
+                    command.Parameters.AddWithValue("$archiveHandlingMode", mapping.ArchiveHandlingMode ?? string.Empty);
+                    command.Parameters.AddWithValue("$installLayoutMode", mapping.InstallLayoutMode ?? string.Empty);
+                    command.Parameters.AddWithValue("$artifactSelectionMode", mapping.ArtifactSelectionMode ?? string.Empty);
+                    command.Parameters.AddWithValue("$ps4GamesDirectory", mapping.Ps4GamesDirectory ?? string.Empty);
+                    command.Parameters.AddWithValue("$shadPs4ExecutablePath", mapping.ShadPs4ExecutablePath ?? string.Empty);
+                    command.Parameters.AddWithValue("$ps4ExternalPkgExtractorPath", mapping.Ps4ExternalPkgExtractorPath ?? string.Empty);
+                    command.Parameters.AddWithValue("$ps4FailIfDirectPkgExtractorMissing", mapping.Ps4FailIfDirectPkgExtractorMissing ? 1 : 0);
                     await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
                 }
 
@@ -463,6 +505,37 @@ ON CONFLICT(AliasId) DO UPDATE SET
                 mapping.SkipRegionMismatchedDlc = !reader.IsDBNull(33) && reader.GetInt32(33) == 1;
                 mapping.SkipUnmatchedRapFiles = !reader.IsDBNull(34) && reader.GetInt32(34) == 1;
                 mapping.PreferMetadataBasedPackageMatching = !reader.IsDBNull(35) && reader.GetInt32(35) == 1;
+            }
+
+            if (reader.FieldCount > 40)
+            {
+                mapping.SupportedFileTypes = reader.IsDBNull(36) ? string.Empty : reader.GetString(36);
+                mapping.PreferredLaunchExtensions = reader.IsDBNull(37) ? string.Empty : reader.GetString(37);
+                mapping.UseGameSubdirectory = !reader.IsDBNull(38) && reader.GetInt32(38) == 1;
+                mapping.InstallAllMatchingFiles = !reader.IsDBNull(39) && reader.GetInt32(39) == 1;
+                mapping.InstallFromArchiveDirectly = !reader.IsDBNull(40) && reader.GetInt32(40) == 1;
+            }
+
+            if (reader.FieldCount > 41)
+            {
+                mapping.UseGeneralFallbackInstaller = !reader.IsDBNull(41) && reader.GetInt32(41) == 1;
+            }
+
+            if (reader.FieldCount > 46)
+            {
+                mapping.PluginKey = reader.IsDBNull(42) ? string.Empty : reader.GetString(42);
+                mapping.PluginSettings = reader.IsDBNull(43) ? string.Empty : reader.GetString(43);
+                mapping.ArchiveHandlingMode = reader.IsDBNull(44) ? string.Empty : reader.GetString(44);
+                mapping.InstallLayoutMode = reader.IsDBNull(45) ? string.Empty : reader.GetString(45);
+                mapping.ArtifactSelectionMode = reader.IsDBNull(46) ? string.Empty : reader.GetString(46);
+            }
+
+            if (reader.FieldCount > 50)
+            {
+                mapping.Ps4GamesDirectory = reader.IsDBNull(47) ? string.Empty : reader.GetString(47);
+                mapping.ShadPs4ExecutablePath = reader.IsDBNull(48) ? string.Empty : reader.GetString(48);
+                mapping.Ps4ExternalPkgExtractorPath = reader.IsDBNull(49) ? string.Empty : reader.GetString(49);
+                mapping.Ps4FailIfDirectPkgExtractorMissing = !reader.IsDBNull(50) && reader.GetInt32(50) == 1;
             }
 
             var extractionBehaviorText = reader.IsDBNull(6) ? string.Empty : reader.GetString(6);

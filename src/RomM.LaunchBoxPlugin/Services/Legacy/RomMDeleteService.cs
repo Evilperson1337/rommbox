@@ -194,7 +194,7 @@ namespace RomMbox.Services.Install
 
             var installRoot = ResolveInstallRoot(state, game, messages);
             var platformGamesFolder = ResolvePlatformGamesFolder(dataManager, game);
-            var cleanupBoundary = platformGamesFolder;
+            var cleanupBoundary = ResolveCleanupBoundary(installRoot, platformGamesFolder, state, game);
             var identity = _installStateService.GetIdentity(game);
             var installType = identity.WindowsInstallType;
             _logger?.Info($"Uninstall cleanup using install root '{installRoot ?? "<null>"}'. InstallType='{installType ?? "<none>"}'.");
@@ -240,10 +240,14 @@ namespace RomMbox.Services.Install
                         _logger?.Warning($"Skipping parent deletion because boundary reached: {installRoot}");
                         messages.Add($"Cleanup boundary prevents deleting platform folder: '{installRoot}'.");
                     }
-                    else
+                    else if (ShouldDeleteInstallRootDirectory(installRoot, state, game))
                     {
                         _logger?.Info($"Deleting game directory: {installRoot}");
                         removed += TryDeletePath(installRoot, messages);
+                    }
+                    else
+                    {
+                        _logger?.Info($"Portable uninstall resolved to file-based content under '{installRoot}'. Deferring directory cleanup until after file deletion.");
                     }
                 }
             }
@@ -260,7 +264,11 @@ namespace RomMbox.Services.Install
 
             if (boundaryHit)
             {
-                removed += TryDeleteCompanionGameDirectory(state?.InstalledPath, installRoot, messages);
+                removed += TryDeleteCompanionGameDirectory(state?.InstalledPath, state?.ArchivePath, installRoot, messages);
+            }
+            else
+            {
+                removed += TryDeleteEmptyDirectory(installRoot, messages);
             }
 
             var fullyRemoved = string.IsNullOrWhiteSpace(installRoot) || !Directory.Exists(installRoot);
@@ -268,9 +276,13 @@ namespace RomMbox.Services.Install
             {
                 fullyRemoved = true;
             }
-            if (!fullyRemoved)
+            else if (!fullyRemoved)
             {
-                messages.Add($"Install root still present after uninstall: '{installRoot}'.");
+                fullyRemoved = AreTrackedInstallTargetsRemoved(state, game);
+                if (!fullyRemoved)
+                {
+                    messages.Add($"Install root still present after uninstall: '{installRoot}'.");
+                }
             }
 
             var emptyFolders = messages.Count == 0 ? null : string.Join("; ", messages);
@@ -278,14 +290,13 @@ namespace RomMbox.Services.Install
             return (removed, emptyFolders, fullyRemoved);
         }
 
-        private int TryDeleteCompanionGameDirectory(string installedPath, string installRoot, System.Collections.Generic.List<string> messages)
+        private int TryDeleteCompanionGameDirectory(string installedPath, string archivePath, string installRoot, System.Collections.Generic.List<string> messages)
         {
             if (string.IsNullOrWhiteSpace(installedPath)
                 || string.IsNullOrWhiteSpace(installRoot)
-                || !File.Exists(installedPath)
                 || !IsSamePath(Path.GetDirectoryName(installedPath), installRoot))
             {
-                return 0;
+                return TryDeleteArchiveCompanionDirectory(archivePath, installRoot, messages);
             }
 
             try
@@ -311,6 +322,37 @@ namespace RomMbox.Services.Install
             {
                 _logger?.Warning($"Failed to delete companion game directory under boundary '{installRoot}': {ex.Message}");
                 messages?.Add($"Failed to delete companion game directory under boundary '{installRoot}': {ex.Message}");
+                return 0;
+            }
+        }
+
+        private int TryDeleteArchiveCompanionDirectory(string archivePath, string installRoot, System.Collections.Generic.List<string> messages)
+        {
+            if (string.IsNullOrWhiteSpace(archivePath) || string.IsNullOrWhiteSpace(installRoot))
+            {
+                return 0;
+            }
+
+            try
+            {
+                var archiveDirectory = Path.GetDirectoryName(archivePath);
+                if (string.IsNullOrWhiteSpace(archiveDirectory)
+                    || !Directory.Exists(archiveDirectory)
+                    || IsSamePath(archiveDirectory, installRoot)
+                    || !IsPathUnderRoot(archiveDirectory, installRoot))
+                {
+                    return 0;
+                }
+
+                _logger?.Info($"Deleting archive companion directory: {archiveDirectory}");
+                LogDirectoryDeletePreview(archiveDirectory);
+                Directory.Delete(archiveDirectory, true);
+                return 1;
+            }
+            catch (Exception ex)
+            {
+                _logger?.Warning($"Failed to delete archive companion directory under boundary '{installRoot}': {ex.Message}");
+                messages?.Add($"Failed to delete archive companion directory under boundary '{installRoot}': {ex.Message}");
                 return 0;
             }
         }
@@ -391,6 +433,33 @@ namespace RomMbox.Services.Install
             }
             catch
             {
+            }
+        }
+
+        private int TryDeleteEmptyDirectory(string directory, System.Collections.Generic.List<string> messages)
+        {
+            if (string.IsNullOrWhiteSpace(directory) || !Directory.Exists(directory))
+            {
+                return 0;
+            }
+
+            try
+            {
+                if (Directory.EnumerateFileSystemEntries(directory).Any())
+                {
+                    _logger?.Info($"Skipping empty-directory cleanup because directory is not empty: {directory}");
+                    return 0;
+                }
+
+                _logger?.Info($"Deleting empty game directory: {directory}");
+                Directory.Delete(directory, false);
+                return 1;
+            }
+            catch (Exception ex)
+            {
+                _logger?.Warning($"Failed to delete empty directory '{directory}': {ex.Message}");
+                messages?.Add($"Failed to delete empty directory '{directory}': {ex.Message}");
+                return 0;
             }
         }
 
@@ -516,6 +585,186 @@ namespace RomMbox.Services.Install
                 var normalizedRight = Path.GetFullPath(right)
                     .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                 return string.Equals(normalizedLeft, normalizedRight, StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool IsPathUnderRoot(string candidate, string root)
+        {
+            if (string.IsNullOrWhiteSpace(candidate) || string.IsNullOrWhiteSpace(root))
+            {
+                return false;
+            }
+
+            try
+            {
+                var normalizedCandidate = Path.GetFullPath(candidate)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                var normalizedRoot = Path.GetFullPath(root)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                return normalizedCandidate.StartsWith(normalizedRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private string ResolveCleanupBoundary(string installRoot, string platformGamesFolder, InstallState state, IGame game)
+        {
+            if (!string.IsNullOrWhiteSpace(platformGamesFolder))
+            {
+                return platformGamesFolder;
+            }
+
+            if (string.IsNullOrWhiteSpace(installRoot))
+            {
+                return string.Empty;
+            }
+
+            if ((IsDirectChildFileOfRoot(state?.InstalledPath, installRoot)
+                || IsDirectChildFileOfRoot(game?.ApplicationPath, installRoot))
+                && !IsLikelyPerGameRoot(installRoot, state, game))
+            {
+                _logger?.Info($"Derived cleanup boundary from direct-file install root: {installRoot}");
+                return installRoot;
+            }
+
+            return string.Empty;
+        }
+
+        private static bool IsLikelyPerGameRoot(string installRoot, InstallState state, IGame game)
+        {
+            if (string.IsNullOrWhiteSpace(installRoot))
+            {
+                return false;
+            }
+
+            var rootName = Path.GetFileName(installRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            if (string.IsNullOrWhiteSpace(rootName))
+            {
+                return false;
+            }
+
+            var normalizedRootName = NormalizePathSegmentForComparison(rootName);
+
+            var installedName = Path.GetFileNameWithoutExtension(state?.InstalledPath ?? string.Empty);
+            if (!string.IsNullOrWhiteSpace(installedName)
+                && string.Equals(normalizedRootName, NormalizePathSegmentForComparison(installedName), StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            var archiveName = Path.GetFileNameWithoutExtension(state?.ArchivePath ?? string.Empty);
+            if (!string.IsNullOrWhiteSpace(archiveName)
+                && string.Equals(normalizedRootName, NormalizePathSegmentForComparison(archiveName), StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            return string.Equals(normalizedRootName, NormalizePathSegmentForComparison(game?.Title), StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string NormalizePathSegmentForComparison(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return string.Empty;
+            }
+
+            var invalid = Path.GetInvalidFileNameChars();
+            var normalized = new string(value
+                .Trim()
+                .Select(ch => invalid.Contains(ch) ? '_' : ch)
+                .ToArray());
+
+            return normalized.TrimEnd('.', ' ');
+        }
+
+        private static bool IsDirectChildFileOfRoot(string path, string root)
+        {
+            if (string.IsNullOrWhiteSpace(path) || string.IsNullOrWhiteSpace(root))
+            {
+                return false;
+            }
+
+            try
+            {
+                if (!Path.IsPathRooted(path) || !File.Exists(path))
+                {
+                    return false;
+                }
+
+                var parent = Path.GetDirectoryName(path);
+                return IsSamePath(parent, root);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static bool AreTrackedInstallTargetsRemoved(InstallState state, IGame game)
+        {
+            return !PathExists(state?.InstalledPath)
+                && !PathExists(state?.ArchivePath)
+                && !PathExists(game?.ApplicationPath);
+        }
+
+        private static bool PathExists(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return false;
+            }
+
+            try
+            {
+                return File.Exists(path) || Directory.Exists(path);
+            }
+            catch
+            {
+                return true;
+            }
+        }
+
+        private bool ShouldDeleteInstallRootDirectory(string installRoot, InstallState state, IGame game)
+        {
+            if (string.IsNullOrWhiteSpace(installRoot))
+            {
+                return false;
+            }
+
+            if (IsDirectChildFileOfRoot(state?.InstalledPath, installRoot)
+                || IsDirectChildFileOfRoot(state?.ArchivePath, installRoot)
+                || IsDirectChildFileOfRoot(game?.ApplicationPath, installRoot))
+            {
+                return false;
+            }
+
+            if (IsDirectoryInstallRoot(state?.InstalledPath, installRoot)
+                || IsDirectoryInstallRoot(state?.ArchivePath, installRoot)
+                || IsDirectoryInstallRoot(game?.ApplicationPath, installRoot))
+            {
+                return true;
+            }
+
+            return Directory.Exists(installRoot);
+        }
+
+        private static bool IsDirectoryInstallRoot(string path, string installRoot)
+        {
+            if (string.IsNullOrWhiteSpace(path) || string.IsNullOrWhiteSpace(installRoot))
+            {
+                return false;
+            }
+
+            try
+            {
+                return Directory.Exists(path) && IsSamePath(path, installRoot);
             }
             catch
             {

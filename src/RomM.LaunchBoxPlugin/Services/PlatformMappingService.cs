@@ -52,6 +52,11 @@ namespace RomMbox.Services
             { "nintendo ds", "Nintendo DS" },
             { "3ds", "Nintendo 3DS" },
             { "nintendo 3ds", "Nintendo 3DS" },
+            { "wii", "Nintendo Wii" },
+            { "nintendo wii", "Nintendo Wii" },
+            { "gamecube", "Nintendo GameCube" },
+            { "nintendo gamecube", "Nintendo GameCube" },
+            { "ngc", "Nintendo GameCube" },
             { "genesis", "Sega Genesis" },
             { "mega drive", "Sega Genesis" },
             { "sms", "Sega Master System" },
@@ -132,7 +137,22 @@ namespace RomMbox.Services
                         EmulatorCorePath = saved?.EmulatorCorePath ?? string.Empty,
                         EmulatorLaunchArgs = saved?.EmulatorLaunchArgs ?? string.Empty,
                         RomInstallRoot = saved?.RomInstallRoot ?? string.Empty,
-                        RomArchivePolicy = saved?.RomArchivePolicy ?? string.Empty
+                        RomArchivePolicy = saved?.RomArchivePolicy ?? string.Empty,
+                        SupportedFileTypes = saved?.SupportedFileTypes ?? string.Empty,
+                        PreferredLaunchExtensions = saved?.PreferredLaunchExtensions ?? string.Empty,
+                        UseGameSubdirectory = saved?.UseGameSubdirectory ?? false,
+                        InstallAllMatchingFiles = saved?.InstallAllMatchingFiles ?? false,
+                        InstallFromArchiveDirectly = saved?.InstallFromArchiveDirectly ?? false,
+                        UseGeneralFallbackInstaller = saved?.UseGeneralFallbackInstaller ?? false,
+                        PluginKey = saved?.PluginKey ?? string.Empty,
+                        PluginSettings = saved?.PluginSettings ?? string.Empty,
+                        ArchiveHandlingMode = saved?.ArchiveHandlingMode ?? string.Empty,
+                        InstallLayoutMode = saved?.InstallLayoutMode ?? string.Empty,
+                        ArtifactSelectionMode = saved?.ArtifactSelectionMode ?? string.Empty,
+                        Ps4GamesDirectory = saved?.Ps4GamesDirectory ?? string.Empty,
+                        ShadPs4ExecutablePath = saved?.ShadPs4ExecutablePath ?? string.Empty,
+                        Ps4ExternalPkgExtractorPath = saved?.Ps4ExternalPkgExtractorPath ?? string.Empty,
+                        Ps4FailIfDirectPkgExtractorMissing = saved?.Ps4FailIfDirectPkgExtractorMissing ?? false
                     });
                 }
                 return new PlatformMappingResult { Mappings = mappings };

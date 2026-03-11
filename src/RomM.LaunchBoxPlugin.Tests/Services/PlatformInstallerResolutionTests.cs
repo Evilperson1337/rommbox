@@ -32,6 +32,506 @@ namespace RomMbox.Tests.Services
             resolved.Should().Be("ps3");
         }
 
+        [Fact]
+        public void Resolves_PlayStation_To_Ps1_And_Does_Not_FuzzyMatch_To_Ps3()
+        {
+            var registry = new PlatformInstallerRegistry(new Dictionary<string, IPlatformInstaller>
+            {
+                ["ps1"] = new IdentityStubInstaller(
+                    platformKey: "ps1",
+                    displayName: "PlayStation 1",
+                    supportedIds: new[] { "22" },
+                    supportedAliases: new[] { "PlayStation", "Sony Playstation", "PSX", "PS1" }),
+                ["ps3"] = new StubInstaller("ps3", "PlayStation 3")
+            });
+            var logger = TestLogger.Create();
+
+            var resolved = InstallContentStep.ResolveInstallerKey(
+                platformKey: "22",
+                platformDisplayName: "PlayStation",
+                launchBoxPlatformName: "Sony Playstation",
+                registry: registry,
+                logger: logger);
+
+            resolved.Should().Be("ps1");
+        }
+
+        [Fact]
+        public void Resolves_By_RommPlatformId_Before_NameMatching()
+        {
+            var registry = new PlatformInstallerRegistry(new Dictionary<string, IPlatformInstaller>
+            {
+                ["ps1"] = new IdentityStubInstaller(
+                    platformKey: "ps1",
+                    displayName: "PlayStation",
+                    supportedIds: new[] { "22" },
+                    supportedAliases: Array.Empty<string>()),
+                ["general"] = new StubInstaller("general", "General Platform")
+            });
+            var logger = TestLogger.Create();
+
+            var resolved = InstallContentStep.ResolveInstallerKey(
+                platformKey: "22",
+                platformDisplayName: "Something Else",
+                launchBoxPlatformName: "Another Name",
+                registry: registry,
+                logger: logger);
+
+            resolved.Should().Be("ps1");
+        }
+
+        [Fact]
+        public void Resolves_By_Alias_When_Id_NotProvided()
+        {
+            var registry = new PlatformInstallerRegistry(new Dictionary<string, IPlatformInstaller>
+            {
+                ["ps1"] = new IdentityStubInstaller(
+                    platformKey: "ps1",
+                    displayName: "PlayStation",
+                    supportedIds: Array.Empty<string>(),
+                    supportedAliases: new[] { "PSX", "Sony Playstation" })
+            });
+            var logger = TestLogger.Create();
+
+            var resolved = InstallContentStep.ResolveInstallerKey(
+                platformKey: string.Empty,
+                platformDisplayName: "PSX",
+                launchBoxPlatformName: string.Empty,
+                registry: registry,
+                logger: logger);
+
+            resolved.Should().Be("ps1");
+        }
+
+        [Fact]
+        public void Resolves_Arcade_By_Alias_To_Dedicated_Installer()
+        {
+            var registry = new PlatformInstallerRegistry(new Dictionary<string, IPlatformInstaller>
+            {
+                ["arcade"] = new IdentityStubInstaller(
+                    platformKey: "arcade",
+                    displayName: "Arcade",
+                    supportedIds: Array.Empty<string>(),
+                    supportedAliases: new[] { "arcade", "mame", "fbneo", "final burn neo" }),
+                ["general"] = new StubInstaller("general", "General Platform")
+            });
+            var logger = TestLogger.Create();
+
+            var resolved = InstallContentStep.ResolveInstallerKey(
+                platformKey: string.Empty,
+                platformDisplayName: "MAME",
+                launchBoxPlatformName: "Arcade",
+                registry: registry,
+                logger: logger);
+
+            resolved.Should().Be("arcade");
+        }
+
+        [Fact]
+        public void Resolves_Switch_By_Alias_To_Dedicated_Installer()
+        {
+            var registry = new PlatformInstallerRegistry(new Dictionary<string, IPlatformInstaller>
+            {
+                ["switch"] = new IdentityStubInstaller(
+                    platformKey: "switch",
+                    displayName: "Nintendo Switch",
+                    supportedIds: Array.Empty<string>(),
+                    supportedAliases: new[] { "switch", "nintendo switch", "nintendoswitch" }),
+                ["general"] = new StubInstaller("general", "General Platform")
+            });
+            var logger = TestLogger.Create();
+
+            var resolved = InstallContentStep.ResolveInstallerKey(
+                platformKey: string.Empty,
+                platformDisplayName: "Switch",
+                launchBoxPlatformName: "Nintendo Switch",
+                registry: registry,
+                logger: logger);
+
+            resolved.Should().Be("switch");
+        }
+
+        [Fact]
+        public void Resolves_Nintendo3DS_By_Alias_To_Dedicated_Installer()
+        {
+            var registry = new PlatformInstallerRegistry(new Dictionary<string, IPlatformInstaller>
+            {
+                ["3ds"] = new IdentityStubInstaller(
+                    platformKey: "3ds",
+                    displayName: "Nintendo 3DS",
+                    supportedIds: new[] { "3ds" },
+                    supportedAliases: new[] { "3ds", "nintendo 3ds", "nintendo3ds" }),
+                ["general"] = new StubInstaller("general", "General Platform")
+            });
+            var logger = TestLogger.Create();
+
+            var resolved = InstallContentStep.ResolveInstallerKey(
+                platformKey: string.Empty,
+                platformDisplayName: "3DS",
+                launchBoxPlatformName: "Nintendo 3DS",
+                registry: registry,
+                logger: logger);
+
+            resolved.Should().Be("3ds");
+        }
+
+        [Fact]
+        public void Resolves_Wii_By_Alias_To_Dedicated_Installer()
+        {
+            var registry = new PlatformInstallerRegistry(new Dictionary<string, IPlatformInstaller>
+            {
+                ["wii"] = new IdentityStubInstaller(
+                    platformKey: "wii",
+                    displayName: "Nintendo Wii",
+                    supportedIds: new[] { "wii" },
+                    supportedAliases: new[] { "wii", "nintendo wii", "nintendowii" }),
+                ["general"] = new StubInstaller("general", "General Platform")
+            });
+            var logger = TestLogger.Create();
+
+            var resolved = InstallContentStep.ResolveInstallerKey(
+                platformKey: string.Empty,
+                platformDisplayName: "Wii",
+                launchBoxPlatformName: "Nintendo Wii",
+                registry: registry,
+                logger: logger);
+
+            resolved.Should().Be("wii");
+        }
+
+        [Fact]
+        public void Resolves_WiiU_By_Alias_To_Dedicated_Installer()
+        {
+            var registry = new PlatformInstallerRegistry(new Dictionary<string, IPlatformInstaller>
+            {
+                ["wiiu"] = new IdentityStubInstaller(
+                    platformKey: "wiiu",
+                    displayName: "Nintendo Wii U",
+                    supportedIds: new[] { "wiiu", "wii-u" },
+                    supportedAliases: new[] { "wiiu", "wii u", "nintendo wii u", "nintendowiiu" }),
+                ["general"] = new StubInstaller("general", "General Platform")
+            });
+            var logger = TestLogger.Create();
+
+            var resolved = InstallContentStep.ResolveInstallerKey(
+                platformKey: string.Empty,
+                platformDisplayName: "Wii U",
+                launchBoxPlatformName: "Nintendo Wii U",
+                registry: registry,
+                logger: logger);
+
+            resolved.Should().Be("wiiu");
+        }
+
+        [Fact]
+        public void Resolves_GameCube_By_Alias_To_Dedicated_Installer()
+        {
+            var registry = new PlatformInstallerRegistry(new Dictionary<string, IPlatformInstaller>
+            {
+                ["gamecube"] = new IdentityStubInstaller(
+                    platformKey: "gamecube",
+                    displayName: "Nintendo GameCube",
+                    supportedIds: new[] { "ngc", "gamecube" },
+                    supportedAliases: new[] { "gamecube", "nintendo gamecube", "nintendogamecube" }),
+                ["general"] = new StubInstaller("general", "General Platform")
+            });
+            var logger = TestLogger.Create();
+
+            var resolved = InstallContentStep.ResolveInstallerKey(
+                platformKey: string.Empty,
+                platformDisplayName: "GameCube",
+                launchBoxPlatformName: "Nintendo GameCube",
+                registry: registry,
+                logger: logger);
+
+            resolved.Should().Be("gamecube");
+        }
+
+        [Fact]
+        public void DoesNotResolve_GameCubeIdentifiers_To_WiiInstaller()
+        {
+            var registry = new PlatformInstallerRegistry(new Dictionary<string, IPlatformInstaller>
+            {
+                ["wii"] = new IdentityStubInstaller(
+                    platformKey: "wii",
+                    displayName: "Nintendo Wii",
+                    supportedIds: new[] { "wii" },
+                    supportedAliases: new[] { "wii", "nintendo wii", "nintendowii" }),
+                ["general"] = new StubInstaller("general", "General Platform")
+            });
+            var logger = TestLogger.Create();
+
+            var resolved = InstallContentStep.ResolveInstallerKey(
+                platformKey: string.Empty,
+                platformDisplayName: "Nintendo GameCube",
+                launchBoxPlatformName: "GameCube",
+                registry: registry,
+                logger: logger);
+
+            resolved.Should().NotBe("wii");
+        }
+
+        [Fact]
+        public void DoesNotResolve_WiiIdentifiers_To_GameCubeInstaller()
+        {
+            var registry = new PlatformInstallerRegistry(new Dictionary<string, IPlatformInstaller>
+            {
+                ["gamecube"] = new IdentityStubInstaller(
+                    platformKey: "gamecube",
+                    displayName: "Nintendo GameCube",
+                    supportedIds: new[] { "ngc", "gamecube" },
+                    supportedAliases: new[] { "gamecube", "nintendo gamecube", "nintendogamecube" }),
+                ["general"] = new StubInstaller("general", "General Platform")
+            });
+            var logger = TestLogger.Create();
+
+            var resolved = InstallContentStep.ResolveInstallerKey(
+                platformKey: string.Empty,
+                platformDisplayName: "Nintendo Wii",
+                launchBoxPlatformName: "Wii",
+                registry: registry,
+                logger: logger);
+
+            resolved.Should().NotBe("gamecube");
+        }
+
+        [Fact]
+        public void Resolves_Xbox_By_Alias_To_Dedicated_Installer()
+        {
+            var registry = new PlatformInstallerRegistry(new Dictionary<string, IPlatformInstaller>
+            {
+                ["xbox"] = new IdentityStubInstaller(
+                    platformKey: "xbox",
+                    displayName: "Microsoft Xbox",
+                    supportedIds: new[] { "xbox" },
+                    supportedAliases: new[] { "xbox", "microsoft xbox", "original xbox" }),
+                ["general"] = new StubInstaller("general", "General Platform")
+            });
+            var logger = TestLogger.Create();
+
+            var resolved = InstallContentStep.ResolveInstallerKey(
+                platformKey: string.Empty,
+                platformDisplayName: "Original Xbox",
+                launchBoxPlatformName: "Microsoft Xbox",
+                registry: registry,
+                logger: logger);
+
+            resolved.Should().Be("xbox");
+        }
+
+        [Fact]
+        public void Resolves_Xbox360_By_Alias_To_Dedicated_Installer()
+        {
+            var registry = new PlatformInstallerRegistry(new Dictionary<string, IPlatformInstaller>
+            {
+                ["xbox360"] = new IdentityStubInstaller(
+                    platformKey: "xbox360",
+                    displayName: "Microsoft Xbox 360",
+                    supportedIds: new[] { "xbox360", "x360" },
+                    supportedAliases: new[] { "xbox 360", "xbox360", "microsoft xbox 360", "x360" }),
+                ["general"] = new StubInstaller("general", "General Platform")
+            });
+            var logger = TestLogger.Create();
+
+            var resolved = InstallContentStep.ResolveInstallerKey(
+                platformKey: string.Empty,
+                platformDisplayName: "Xbox 360",
+                launchBoxPlatformName: "Microsoft Xbox 360",
+                registry: registry,
+                logger: logger);
+
+            resolved.Should().Be("xbox360");
+        }
+
+        [Fact]
+        public void Resolves_Ps4_By_Alias_To_Dedicated_Installer()
+        {
+            var registry = new PlatformInstallerRegistry(new Dictionary<string, IPlatformInstaller>
+            {
+                ["ps4"] = new IdentityStubInstaller(
+                    platformKey: "ps4",
+                    displayName: "PlayStation 4",
+                    supportedIds: new[] { "ps4" },
+                    supportedAliases: new[] { "ps4", "playstation 4", "sony playstation 4" }),
+                ["general"] = new StubInstaller("general", "General Platform")
+            });
+            var logger = TestLogger.Create();
+
+            var resolved = InstallContentStep.ResolveInstallerKey(
+                platformKey: string.Empty,
+                platformDisplayName: "PlayStation 4",
+                launchBoxPlatformName: "Sony Playstation 4",
+                registry: registry,
+                logger: logger);
+
+            resolved.Should().Be("ps4");
+        }
+
+        [Fact]
+        public void Resolves_Ps2_By_Alias_To_Dedicated_Installer()
+        {
+            var registry = new PlatformInstallerRegistry(new Dictionary<string, IPlatformInstaller>
+            {
+                ["ps2"] = new IdentityStubInstaller(
+                    platformKey: "ps2",
+                    displayName: "PlayStation 2",
+                    supportedIds: new[] { "ps2" },
+                    supportedAliases: new[] { "ps2", "playstation 2", "sony playstation 2" }),
+                ["general"] = new StubInstaller("general", "General Platform")
+            });
+            var logger = TestLogger.Create();
+
+            var resolved = InstallContentStep.ResolveInstallerKey(
+                platformKey: string.Empty,
+                platformDisplayName: "PlayStation 2",
+                launchBoxPlatformName: "Sony Playstation 2",
+                registry: registry,
+                logger: logger);
+
+            resolved.Should().Be("ps2");
+        }
+
+        [Fact]
+        public void Resolves_Ps2_By_Name_Before_Incorrect_Foreign_RommId_Mapping()
+        {
+            var registry = new PlatformInstallerRegistry(new Dictionary<string, IPlatformInstaller>
+            {
+                ["3ds"] = new IdentityStubInstaller(
+                    platformKey: "3ds",
+                    displayName: "Nintendo 3DS",
+                    supportedIds: new[] { "17" },
+                    supportedAliases: new[] { "3ds", "nintendo 3ds" }),
+                ["ps2"] = new IdentityStubInstaller(
+                    platformKey: "ps2",
+                    displayName: "PlayStation 2",
+                    supportedIds: new[] { "ps2" },
+                    supportedAliases: new[] { "ps2", "playstation 2", "sony playstation 2" })
+            });
+            var logger = TestLogger.Create();
+
+            var resolved = InstallContentStep.ResolveInstallerKey(
+                platformKey: "17",
+                platformDisplayName: "PlayStation 2",
+                launchBoxPlatformName: "Sony Playstation 2",
+                registry: registry,
+                logger: logger);
+
+            resolved.Should().Be("ps2");
+        }
+
+        [Theory]
+        [InlineData("PlayStation 3", "Sony Playstation 3", "ps3")]
+        [InlineData("PlayStation 4", "Sony Playstation 4", "ps4")]
+        [InlineData("PlayStation Vita", "Sony Playstation Vita", "psvita")]
+        [InlineData("PlayStation Portable", "Sony Playstation Portable", "psp")]
+        public void Resolves_Exact_PlayStation_Family_Name_Without_Fuzzy_Matching_To_Ps1(
+            string platformDisplayName,
+            string launchBoxPlatformName,
+            string expectedKey)
+        {
+            var registry = new PlatformInstallerRegistry(new Dictionary<string, IPlatformInstaller>
+            {
+                ["ps1"] = new IdentityStubInstaller(
+                    platformKey: "ps1",
+                    displayName: "PlayStation",
+                    supportedIds: new[] { "22" },
+                    supportedAliases: new[] { "playstation", "sony playstation", "psx", "ps1" }),
+                [expectedKey] = new IdentityStubInstaller(
+                    platformKey: expectedKey,
+                    displayName: platformDisplayName,
+                    supportedIds: Array.Empty<string>(),
+                    supportedAliases: new[] { platformDisplayName, launchBoxPlatformName })
+            });
+            var logger = TestLogger.Create();
+
+            var resolved = InstallContentStep.ResolveInstallerKey(
+                platformKey: string.Empty,
+                platformDisplayName: platformDisplayName,
+                launchBoxPlatformName: launchBoxPlatformName,
+                registry: registry,
+                logger: logger);
+
+            resolved.Should().Be(expectedKey);
+        }
+
+        [Fact]
+        public void Resolves_Psp_By_Alias_To_Dedicated_Installer()
+        {
+            var registry = new PlatformInstallerRegistry(new Dictionary<string, IPlatformInstaller>
+            {
+                ["psp"] = new IdentityStubInstaller(
+                    platformKey: "psp",
+                    displayName: "PlayStation Portable",
+                    supportedIds: new[] { "psp" },
+                    supportedAliases: new[] { "psp", "playstation portable", "sony playstation portable" }),
+                ["general"] = new StubInstaller("general", "General Platform")
+            });
+            var logger = TestLogger.Create();
+
+            var resolved = InstallContentStep.ResolveInstallerKey(
+                platformKey: string.Empty,
+                platformDisplayName: "PSP",
+                launchBoxPlatformName: "Sony Playstation Portable",
+                registry: registry,
+                logger: logger);
+
+            resolved.Should().Be("psp");
+        }
+
+        [Fact]
+        public void Resolves_Vita_By_Alias_To_Dedicated_Installer()
+        {
+            var registry = new PlatformInstallerRegistry(new Dictionary<string, IPlatformInstaller>
+            {
+                ["psvita"] = new IdentityStubInstaller(
+                    platformKey: "psvita",
+                    displayName: "PlayStation Vita",
+                    supportedIds: new[] { "psvita", "vita" },
+                    supportedAliases: new[] { "ps vita", "vita", "playstation vita", "sony playstation vita" }),
+                ["general"] = new StubInstaller("general", "General Platform")
+            });
+            var logger = TestLogger.Create();
+
+            var resolved = InstallContentStep.ResolveInstallerKey(
+                platformKey: string.Empty,
+                platformDisplayName: "PS Vita",
+                launchBoxPlatformName: "Sony Playstation Vita",
+                registry: registry,
+                logger: logger);
+
+            resolved.Should().Be("psvita");
+        }
+
+        [Fact]
+        public void ShouldWarnOnResolvedKeyDifference_ReturnsFalse_For_UnmappedForeignIdentifier()
+        {
+            var registry = BuildRegistry(new StubInstaller("arcade", "Arcade"));
+
+            var shouldWarn = InstallContentStep.ShouldWarnOnResolvedKeyDifference(
+                providedKey: "3",
+                resolvedKey: "arcade",
+                registry: registry);
+
+            shouldWarn.Should().BeFalse();
+        }
+
+        [Fact]
+        public void ShouldWarnOnResolvedKeyDifference_ReturnsTrue_When_ProvidedKey_Is_AlreadyARegisteredInstaller()
+        {
+            var registry = new PlatformInstallerRegistry(new Dictionary<string, IPlatformInstaller>
+            {
+                ["arcade"] = new StubInstaller("arcade", "Arcade"),
+                ["general"] = new StubInstaller("general", "General Platform")
+            });
+
+            var shouldWarn = InstallContentStep.ShouldWarnOnResolvedKeyDifference(
+                providedKey: "general",
+                resolvedKey: "arcade",
+                registry: registry);
+
+            shouldWarn.Should().BeTrue();
+        }
+
         private static PlatformInstallerRegistry BuildRegistry(IPlatformInstaller installer)
         {
             return new PlatformInstallerRegistry(new Dictionary<string, IPlatformInstaller>
@@ -50,6 +550,42 @@ namespace RomMbox.Tests.Services
 
             public string PlatformKey { get; }
             public string DisplayName { get; }
+
+            public Task<DetectionResult> DetectAsync(RomM.Platforms.Abstractions.Models.PlatformContext ctx, CancellationToken ct)
+            {
+                return Task.FromResult(new DetectionResult());
+            }
+
+            public Task<InstallResult> InstallAsync(RomM.Platforms.Abstractions.Models.Install.InstallContext ctx, IProgress<InstallProgress> progress, CancellationToken ct)
+            {
+                return Task.FromResult(new InstallResult { Success = true });
+            }
+
+            public Task<UninstallResult> UninstallAsync(UninstallContext ctx, IProgress<InstallProgress> progress, CancellationToken ct)
+            {
+                return Task.FromResult(new UninstallResult { Success = true });
+            }
+
+            public Task<VerifyResult> VerifyAsync(VerifyContext ctx, CancellationToken ct)
+            {
+                return Task.FromResult(new VerifyResult { IsValid = true });
+            }
+        }
+
+        private sealed class IdentityStubInstaller : IPlatformInstaller, IPlatformInstallerIdentityMetadata
+        {
+            public IdentityStubInstaller(string platformKey, string displayName, IReadOnlyCollection<string> supportedIds, IReadOnlyCollection<string> supportedAliases)
+            {
+                PlatformKey = platformKey;
+                DisplayName = displayName;
+                SupportedPlatformIds = supportedIds;
+                SupportedPlatformAliases = supportedAliases;
+            }
+
+            public string PlatformKey { get; }
+            public string DisplayName { get; }
+            public IReadOnlyCollection<string>? SupportedPlatformIds { get; }
+            public IReadOnlyCollection<string>? SupportedPlatformAliases { get; }
 
             public Task<DetectionResult> DetectAsync(RomM.Platforms.Abstractions.Models.PlatformContext ctx, CancellationToken ct)
             {

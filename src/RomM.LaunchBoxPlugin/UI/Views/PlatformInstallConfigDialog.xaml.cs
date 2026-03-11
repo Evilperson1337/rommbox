@@ -138,6 +138,70 @@ namespace RomMbox.UI.Views;
     }
 
     /// <summary>
+    /// Opens a folder picker for the PS4 games directory.
+    /// </summary>
+    /// <param name="sender">The event sender.</param>
+    /// <param name="e">The routed event arguments.</param>
+    private void BrowsePs4Games_Click(object sender, RoutedEventArgs e)
+    {
+        BrowseForFolder("Select PS4 games directory", selectedPath =>
+        {
+            if (DataContext is ViewModels.PlatformInstallConfigViewModel viewModel)
+            {
+                viewModel.Ps4GamesDirectory = selectedPath;
+            }
+        });
+    }
+
+    /// <summary>
+    /// Opens a file picker for the ShadPS4 executable.
+    /// </summary>
+    /// <param name="sender">The event sender.</param>
+    /// <param name="e">The routed event arguments.</param>
+    private void BrowseShadPs4Executable_Click(object sender, RoutedEventArgs e)
+    {
+        using (var dialog = new OpenFileDialog
+        {
+            Title = "Select ShadPS4 executable",
+            Filter = "Executable (*.exe)|*.exe|All Files (*.*)|*.*",
+            CheckFileExists = true
+        })
+        {
+            if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            {
+                if (DataContext is ViewModels.PlatformInstallConfigViewModel viewModel)
+                {
+                    viewModel.ShadPs4ExecutablePath = dialog.FileName;
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Opens a file picker for the optional PS4 external PKG extractor.
+    /// </summary>
+    /// <param name="sender">The event sender.</param>
+    /// <param name="e">The routed event arguments.</param>
+    private void BrowsePs4ExternalExtractor_Click(object sender, RoutedEventArgs e)
+    {
+        using (var dialog = new OpenFileDialog
+        {
+            Title = "Select PS4 external PKG extractor",
+            Filter = "Executable (*.exe)|*.exe|All Files (*.*)|*.*",
+            CheckFileExists = true
+        })
+        {
+            if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            {
+                if (DataContext is ViewModels.PlatformInstallConfigViewModel viewModel)
+                {
+                    viewModel.Ps4ExternalPkgExtractorPath = dialog.FileName;
+                }
+            }
+        }
+    }
+
+    /// <summary>
     /// Displays a folder browser dialog and invokes the callback when a path is selected.
     /// </summary>
     /// <param name="description">Dialog description shown to the user.</param>

@@ -35,11 +35,8 @@ $files = @(
     "system\assets\upload.png",
     "system\assets\gaming.png",
     "system\assets\romm.png",
-    "system\platforms\RomM.Platforms.Windows.dll",
-    "system\platforms\RomM.Platforms.Snes.dll",
-    "system\platforms\RomM.Platforms.Arcade.dll",
-    "system\platforms\RomM.Platforms.PS3.dll",
     "RomM.Platforms.Abstractions.dll",
+    "RomM.Platforms.DolphinInternal.dll",
     "RomM.Platforms.RomBase.dll",
     "RomMbox.dll"
 )
@@ -47,6 +44,21 @@ $files = @(
 if (-not (Test-Path -LiteralPath $SourceDir)) {
     throw "Source directory does not exist: $SourceDir"
 }
+
+$platformsSourceRoot = Join-Path -Path $SourceDir -ChildPath "system\platforms"
+if (-not (Test-Path -LiteralPath $platformsSourceRoot)) {
+    throw "Platform output directory does not exist: $platformsSourceRoot"
+}
+
+$platformDlls = Get-ChildItem -Path $platformsSourceRoot -Filter "RomM.Platforms.*.dll" -File |
+    Sort-Object -Property Name |
+    ForEach-Object { "system\platforms\$($_.Name)" }
+
+if (-not $platformDlls -or $platformDlls.Count -eq 0) {
+    throw "No platform plugin DLLs found in $platformsSourceRoot"
+}
+
+$files += $platformDlls
 
 if (-not (Test-Path -LiteralPath $pluginRoot)) {
     New-Item -ItemType Directory -Path $pluginRoot | Out-Null

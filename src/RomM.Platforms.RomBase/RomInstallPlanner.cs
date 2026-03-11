@@ -28,6 +28,9 @@ namespace RomM.Platforms.RomBase
             RomInstallSettings? settings,
             IPlatformLogger? logger)
         {
+            logger?.Write(PlatformLogLevel.Info, "Scanning staged content for supported artifacts.");
+            logger?.Write(PlatformLogLevel.Info, $"Supported extensions: {string.Join(",", _profile.RomExtensions)}");
+
             var installRoot = _resolver.ResolveInstallDirectory(installDirectory ?? string.Empty, settings);
             var selection = new RomInstallSelection
             {
@@ -46,7 +49,7 @@ namespace RomM.Platforms.RomBase
 
             if (candidates.Count == 0 && !string.IsNullOrWhiteSpace(archivePath))
             {
-                if (archivePolicy == RomArchivePolicy.Preserve || _finder.IsRomCandidate(archivePath))
+                if (_finder.IsRomCandidate(archivePath))
                 {
                     logger?.Write(PlatformLogLevel.Info, $"ROM install planner falling back to archive '{archivePath}'.");
                     candidates.Add(archivePath);
@@ -55,6 +58,7 @@ namespace RomM.Platforms.RomBase
             }
 
             selection.Candidates = candidates;
+            logger?.Write(PlatformLogLevel.Info, $"Detected candidate artifacts: {candidates.Count}");
 
             if (candidates.Count == 0)
             {
@@ -70,14 +74,19 @@ namespace RomM.Platforms.RomBase
                 return selection;
             }
 
+            logger?.Write(PlatformLogLevel.Info, $"Selected canonical artifact: {chosen}");
+
             if (string.IsNullOrWhiteSpace(installRoot))
             {
                 selection.Message = "Install directory missing.";
                 return selection;
             }
 
+            logger?.Write(PlatformLogLevel.Info, $"Resolved install directory: {installRoot}");
+
+            var targetDirectory = _resolver.ResolveGameInstallDirectory(installRoot, gameName);
             var targetFileName = _resolver.ResolveTargetFileName(gameName, chosen);
-            selection.TargetPath = Path.Combine(installRoot, targetFileName);
+            selection.TargetPath = Path.Combine(targetDirectory, targetFileName);
             return selection;
         }
 

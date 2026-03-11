@@ -296,6 +296,26 @@ namespace RomMbox.Services.Settings
                     mapping.RomArchivePolicy = string.Empty;
                 }
 
+                if (mapping.SupportedFileTypes == null)
+                {
+                    mapping.SupportedFileTypes = string.Empty;
+                }
+
+                if (mapping.PreferredLaunchExtensions == null)
+                {
+                    mapping.PreferredLaunchExtensions = string.Empty;
+                }
+
+                if (!mapping.UseGameSubdirectory)
+                {
+                    mapping.UseGameSubdirectory = true;
+                }
+
+                if (!mapping.InstallAllMatchingFiles)
+                {
+                    mapping.InstallAllMatchingFiles = true;
+                }
+
                 if (mapping.Ps3GameDirectory == null)
                 {
                     mapping.Ps3GameDirectory = string.Empty;
@@ -309,6 +329,21 @@ namespace RomMbox.Services.Settings
                 if (mapping.Rpcs3LicenseDirectory == null)
                 {
                     mapping.Rpcs3LicenseDirectory = string.Empty;
+                }
+
+                if (mapping.Ps4GamesDirectory == null)
+                {
+                    mapping.Ps4GamesDirectory = string.Empty;
+                }
+
+                if (mapping.ShadPs4ExecutablePath == null)
+                {
+                    mapping.ShadPs4ExecutablePath = string.Empty;
+                }
+
+                if (mapping.Ps4ExternalPkgExtractorPath == null)
+                {
+                    mapping.Ps4ExternalPkgExtractorPath = string.Empty;
                 }
             }
         }

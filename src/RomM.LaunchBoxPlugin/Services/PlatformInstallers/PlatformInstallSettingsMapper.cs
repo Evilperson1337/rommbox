@@ -33,7 +33,19 @@ namespace RomMbox.Services.PlatformInstallers
                 Rpcs3LicenseDirectory = string.IsNullOrWhiteSpace(mapping.Rpcs3LicenseDirectory) ? null : mapping.Rpcs3LicenseDirectory,
                 SkipRegionMismatchedDlc = mapping.SkipRegionMismatchedDlc,
                 SkipUnmatchedRapFiles = mapping.SkipUnmatchedRapFiles,
-                PreferMetadataBasedPackageMatching = mapping.PreferMetadataBasedPackageMatching
+                PreferMetadataBasedPackageMatching = mapping.PreferMetadataBasedPackageMatching,
+                Ps4GamesDirectory = string.IsNullOrWhiteSpace(mapping.Ps4GamesDirectory) ? null : mapping.Ps4GamesDirectory,
+                ShadPs4ExecutablePath = string.IsNullOrWhiteSpace(mapping.ShadPs4ExecutablePath) ? null : mapping.ShadPs4ExecutablePath,
+                Ps4ExternalPkgExtractorPath = string.IsNullOrWhiteSpace(mapping.Ps4ExternalPkgExtractorPath) ? null : mapping.Ps4ExternalPkgExtractorPath,
+                Ps4FailIfDirectPkgExtractorMissing = mapping.Ps4FailIfDirectPkgExtractorMissing,
+                PspEmulatorMode = InferPspEmulatorMode(mapping),
+                RetroArchPpssppCorePath = ResolvePspCorePath(mapping),
+                ValidateRetroArchPpssppAssets = true,
+                FailInstallIfEmulatorNotReady = false,
+                Vita3kExecutablePath = string.Empty,
+                VitaFailIfEmulatorNotReady = false,
+                VitaInstallUpdatesAutomatically = mapping.InstallUpdatesAutomatically,
+                VitaInstallDlcAutomatically = mapping.InstallDlcAutomatically
             };
         }
 
@@ -48,6 +60,14 @@ namespace RomMbox.Services.PlatformInstallers
             {
                 RomRootPath = string.IsNullOrWhiteSpace(mapping.RomInstallRoot) ? null : mapping.RomInstallRoot,
                 ExtractArchives = mapping.ExtractAfterDownload,
+                ArchiveHandlingMode = string.IsNullOrWhiteSpace(mapping.ArchiveHandlingMode) ? null : mapping.ArchiveHandlingMode,
+                SupportedFileTypes = string.IsNullOrWhiteSpace(mapping.SupportedFileTypes) ? null : mapping.SupportedFileTypes,
+                PreferredLaunchExtensions = string.IsNullOrWhiteSpace(mapping.PreferredLaunchExtensions) ? null : mapping.PreferredLaunchExtensions,
+                UseGameSubdirectory = mapping.UseGameSubdirectory,
+                InstallAllMatchingFiles = mapping.InstallAllMatchingFiles,
+                InstallFromArchiveDirectly = mapping.InstallFromArchiveDirectly,
+                InstallLayoutMode = string.IsNullOrWhiteSpace(mapping.InstallLayoutMode) ? null : mapping.InstallLayoutMode,
+                ArtifactSelectionMode = string.IsNullOrWhiteSpace(mapping.ArtifactSelectionMode) ? null : mapping.ArtifactSelectionMode,
                 EmulatorId = string.IsNullOrWhiteSpace(mapping.AssociatedEmulatorId) ? null : mapping.AssociatedEmulatorId,
                 CoreId = string.IsNullOrWhiteSpace(mapping.EmulatorCoreId) ? null : mapping.EmulatorCoreId,
                 CoreName = string.IsNullOrWhiteSpace(mapping.EmulatorCoreName) ? null : mapping.EmulatorCoreName,
@@ -85,6 +105,41 @@ namespace RomMbox.Services.PlatformInstallers
             return location == RomMbox.Models.PlatformMapping.OptionalContentLocation.GameFolder
                 ? PlatformOptionalContentLocation.GameFolder
                 : PlatformOptionalContentLocation.Default;
+        }
+
+        private static string InferPspEmulatorMode(PlatformMapping mapping)
+        {
+            var combined = string.Join(" ", new[]
+            {
+                mapping?.AssociatedEmulatorId,
+                mapping?.EmulatorCoreId,
+                mapping?.EmulatorCoreName,
+                mapping?.EmulatorCorePath
+            });
+
+            return combined.IndexOf("retroarch", StringComparison.OrdinalIgnoreCase) >= 0
+                ? "RetroArchPPSSPP"
+                : "StandalonePPSSPP";
+        }
+
+        private static string ResolvePspCorePath(PlatformMapping mapping)
+        {
+            if (!string.IsNullOrWhiteSpace(mapping?.EmulatorCorePath))
+            {
+                return mapping.EmulatorCorePath;
+            }
+
+            if (!string.IsNullOrWhiteSpace(mapping?.EmulatorCoreName))
+            {
+                return mapping.EmulatorCoreName;
+            }
+
+            if (!string.IsNullOrWhiteSpace(mapping?.EmulatorCoreId))
+            {
+                return mapping.EmulatorCoreId;
+            }
+
+            return string.Empty;
         }
     }
 }

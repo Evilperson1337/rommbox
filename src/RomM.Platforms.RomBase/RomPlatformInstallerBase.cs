@@ -69,6 +69,23 @@ namespace RomM.Platforms.RomBase
                 return Task.FromResult(result);
             }
 
+            if (!IsInstalledArtifactSupported(ctx.InstalledPath))
+            {
+                result.IsInstalled = false;
+                result.Warnings = new List<DetectionWarning>
+                {
+                    new()
+                    {
+                        Code = "unsupported_extension",
+                        Message = $"Installed file extension '{Path.GetExtension(ctx.InstalledPath) ?? string.Empty}' is not supported for {DisplayName} detection."
+                    }
+                };
+                return Task.FromResult(result);
+            }
+
+            result.RecommendedExecutablePath = ctx.InstalledPath;
+            result.CandidateExecutablePaths = new List<string> { ctx.InstalledPath };
+
             return Task.FromResult(result);
         }
 
@@ -122,6 +139,7 @@ namespace RomM.Platforms.RomBase
 
             progress?.Report(new InstallProgress("Installing", "ROM install completed.", 100));
             var romLaunchArgs = BuildLaunchArguments(ctx.RomSettings, profile, finalPath);
+            ctx.Logger?.Write(PlatformLogLevel.Info, $"Application path set to: {finalPath}");
             return new InstallResult
             {
                 Success = true,
@@ -172,12 +190,19 @@ namespace RomM.Platforms.RomBase
         public virtual Task<VerifyResult> VerifyAsync(VerifyContext ctx, CancellationToken ct)
         {
             ct.ThrowIfCancellationRequested();
-            var valid = !string.IsNullOrWhiteSpace(ctx?.InstalledPath) && File.Exists(ctx.InstalledPath);
+            var valid = !string.IsNullOrWhiteSpace(ctx?.InstalledPath)
+                && File.Exists(ctx.InstalledPath)
+                && IsInstalledArtifactSupported(ctx.InstalledPath);
             return Task.FromResult(new VerifyResult
             {
                 IsValid = valid,
                 Message = valid ? "ROM install verified." : "ROM install missing on disk."
             });
+        }
+
+        protected virtual bool IsInstalledArtifactSupported(string installedPath)
+        {
+            return true;
         }
 
         protected virtual string BuildLaunchArguments(RomInstallSettings? settings, RomInstallProfile profile, string romPath)

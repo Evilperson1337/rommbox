@@ -1456,9 +1456,9 @@ namespace RomMbox.Services
                     return (false, false, message);
                 }
 
-                var downloadDirectory = InstallDestinationService.IsWindowsPlatform(launchBoxPlatform.Name)
-                    ? installLocation.InstallDirectory
-                    : EnsureGameSubfolder(installLocation.InstallDirectory, game.Title);
+                var downloadDirectory = GameInstallPathPolicy.ShouldUseGameSubfolder(launchBoxPlatform.Name, rom.PlatformId)
+                    ? EnsureGameSubfolder(installLocation.InstallDirectory, game.Title)
+                    : installLocation.InstallDirectory;
                 _logger?.Info($"Downloading ROM for '{game.Title}' to '{downloadDirectory}'. Scenario={installScenario}, Extract={extractAfterDownload}, Behavior={extractionBehavior}.");
                 var serverUrl = _settingsManager.Load().ServerUrl;
                 RomMbox.Models.Download.DownloadResult result = null;

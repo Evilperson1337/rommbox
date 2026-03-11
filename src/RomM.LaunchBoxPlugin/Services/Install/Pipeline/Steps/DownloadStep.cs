@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using RomM.Platforms.Abstractions.Models.Metadata;
@@ -41,6 +42,9 @@ namespace RomMbox.Services.Install.Pipeline.Steps
             var detectInstallType = installScenario != InstallScenario.Basic;
             var serverUrl = context.SettingsManager.Load().ServerUrl;
             var isWindowsPlatform = InstallDestinationService.IsWindowsPlatform(context.Game?.Platform);
+            var platformId = context.RommDetails?.PlatformId ?? string.Empty;
+            var platformDisplayName = context.RommDetails?.PlatformDisplayName ?? string.Empty;
+            var launchBoxPlatformName = context.Game?.Platform ?? string.Empty;
 
             var capabilities = ResolveCapabilities(context);
             if (capabilities.RequiresStagingInspection)
@@ -58,6 +62,13 @@ namespace RomMbox.Services.Install.Pipeline.Steps
                 context.Logger?.Info("Extraction disabled for ROM platform policy (Preserve)." );
                 extractAfterDownload = false;
             }
+
+            if (IsArchivePreservePlatform(platformId, platformDisplayName, launchBoxPlatformName))
+            {
+                context.Logger?.Info("Extraction disabled for ROM platform (archives must be preserved)." );
+                extractAfterDownload = false;
+            }
+
             context.Logger?.Info($"ExtractionDecision | ExtractAfterDownload={extractAfterDownload}, Behavior={extractionBehavior}, IsWindows={isWindowsPlatform}, InstallScenario={installScenario}.");
             context.Logger?.Info($"Archive download requested. RomId={context.RommDetails.Id ?? string.Empty}, PlatformId={context.RommDetails.PlatformId ?? string.Empty}.");
             var shouldReportExtraction = extractAfterDownload;
@@ -190,6 +201,33 @@ namespace RomMbox.Services.Install.Pipeline.Steps
                 return (bytes / scale).ToString("0.0") + " KB";
             }
             return bytes + " B";
+        }
+
+        private static bool IsArchivePreservePlatform(string platformId, string platformDisplayName, string launchBoxPlatformName)
+        {
+            if (string.Equals(platformId, "snes", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(platformId, "n64", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            var normalizedDisplay = NormalizePlatformToken(platformDisplayName);
+            var normalizedLaunchBox = NormalizePlatformToken(launchBoxPlatformName);
+
+            return normalizedDisplay.Contains("supernintendo", StringComparison.OrdinalIgnoreCase)
+                   || normalizedDisplay.Contains("nintendo64", StringComparison.OrdinalIgnoreCase)
+                   || normalizedLaunchBox.Contains("supernintendo", StringComparison.OrdinalIgnoreCase)
+                   || normalizedLaunchBox.Contains("nintendo64", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string NormalizePlatformToken(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return string.Empty;
+            }
+
+            return new string(value.ToLowerInvariant().Where(char.IsLetterOrDigit).ToArray());
         }
     }
 }

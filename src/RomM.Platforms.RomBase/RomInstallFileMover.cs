@@ -25,6 +25,12 @@ namespace RomM.Platforms.RomBase
             }
 
             Directory.CreateDirectory(targetDir);
+            if (string.Equals(Path.GetFullPath(sourcePath), Path.GetFullPath(targetPath), StringComparison.OrdinalIgnoreCase))
+            {
+                logger?.Write(PlatformLogLevel.Info, $"Source and destination are identical; no move needed: '{targetPath}'.");
+                return targetPath;
+            }
+
             if (File.Exists(targetPath))
             {
                 logger?.Write(PlatformLogLevel.Info, $"Removing existing ROM at '{targetPath}'.");

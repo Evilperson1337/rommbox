@@ -229,6 +229,36 @@ namespace RomMbox.Tests.Services
         }
 
         [Fact]
+        public async Task ResolveInstallLocationAsync_UsesPlatformsXmlFolderWhenPerPlatformFileHasNoFolderNode()
+        {
+            using var temp = new TempDirectory();
+            var launchBoxRoot = CreateLaunchBoxRoot(temp);
+
+            var perPlatformPath = Path.Combine(launchBoxRoot, "Data", "Platforms", "Sony Playstation.xml");
+            Directory.CreateDirectory(Path.GetDirectoryName(perPlatformPath) ?? string.Empty);
+            File.WriteAllText(perPlatformPath, "<LaunchBox><Game><Platform>Sony Playstation</Platform></Game></LaunchBox>");
+
+            var platformsIndexPath = Path.Combine(launchBoxRoot, "Data", "Platforms.xml");
+            File.WriteAllText(
+                platformsIndexPath,
+                "<LaunchBox>"
+                + "<Platform><Name>Sony Playstation</Name><Folder>Games\\Sony Playstation</Folder></Platform>"
+                + "</LaunchBox>");
+
+            var platform = BuildPlatform("Sony Playstation", folder: string.Empty);
+            var game = BuildGame("Metal Gear Solid", "Sony Playstation");
+            var dataManager = BuildDataManager(platform);
+            using var dataManagerScope = new PluginDataManagerScope(dataManager);
+            using var launchBoxScope = new LaunchBoxRootScope(launchBoxRoot);
+
+            var result = await BuildService()
+                .ResolveInstallLocationAsync(game, InstallerMode.Manual, CancellationToken.None);
+
+            result.Success.Should().BeTrue();
+            result.InstallDirectory.Should().Be(Path.Combine(launchBoxRoot, "Games", "Sony Playstation"));
+        }
+
+        [Fact]
         public async Task ResolveInstallLocationAsync_SkipsGamesRootWhenUsingExistingGameHints()
         {
             using var temp = new TempDirectory();

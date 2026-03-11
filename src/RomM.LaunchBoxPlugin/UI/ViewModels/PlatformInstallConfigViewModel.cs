@@ -57,6 +57,17 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
         EmulatorLaunchArgs = mapping?.EmulatorLaunchArgs ?? string.Empty;
         RomInstallRoot = mapping?.RomInstallRoot ?? string.Empty;
         RomArchivePolicy = mapping?.RomArchivePolicy ?? string.Empty;
+        PluginKey = mapping?.PluginKey ?? string.Empty;
+        PluginSettings = mapping?.PluginSettings ?? string.Empty;
+        SupportedFileTypes = mapping?.SupportedFileTypes ?? string.Empty;
+        PreferredLaunchExtensions = mapping?.PreferredLaunchExtensions ?? string.Empty;
+        ArchiveHandlingMode = string.IsNullOrWhiteSpace(mapping?.ArchiveHandlingMode) ? "NeverExtract" : mapping.ArchiveHandlingMode;
+        UseGameSubdirectory = mapping?.UseGameSubdirectory ?? true;
+        InstallAllMatchingFiles = mapping?.InstallAllMatchingFiles ?? true;
+        InstallFromArchiveDirectly = mapping?.InstallFromArchiveDirectly ?? false;
+        InstallLayoutMode = string.IsNullOrWhiteSpace(mapping?.InstallLayoutMode) ? "UsePlatformRoot" : mapping.InstallLayoutMode;
+        ArtifactSelectionMode = string.IsNullOrWhiteSpace(mapping?.ArtifactSelectionMode) ? "ExtensionPriority" : mapping.ArtifactSelectionMode;
+        UseGeneralFallbackInstaller = mapping?.UseGeneralFallbackInstaller ?? false;
         Emulators = new ObservableCollection<EmulatorOption>(LoadEmulators());
 
         InstallerMode = mapping?.InstallerMode ?? InstallerMode.Manual;
@@ -77,6 +88,10 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
         SkipRegionMismatchedDlc = mapping?.SkipRegionMismatchedDlc ?? false;
         SkipUnmatchedRapFiles = mapping?.SkipUnmatchedRapFiles ?? false;
         PreferMetadataBasedPackageMatching = mapping?.PreferMetadataBasedPackageMatching ?? false;
+        Ps4GamesDirectory = mapping?.Ps4GamesDirectory ?? string.Empty;
+        ShadPs4ExecutablePath = mapping?.ShadPs4ExecutablePath ?? string.Empty;
+        Ps4ExternalPkgExtractorPath = mapping?.Ps4ExternalPkgExtractorPath ?? string.Empty;
+        Ps4FailIfDirectPkgExtractorMissing = mapping?.Ps4FailIfDirectPkgExtractorMissing ?? false;
 
         InstallScenario = InstallationType == InstallTypeChoice.Enhanced
             ? InstallScenario.Enhanced
@@ -413,6 +428,72 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
     /// </summary>
     public string RomArchivePolicy { get => _romArchivePolicy; set => SetProperty(ref _romArchivePolicy, value); }
 
+    private string _pluginKey = string.Empty;
+    /// <summary>
+    /// Gets or sets the resolved plugin key for this platform.
+    /// </summary>
+    public string PluginKey { get => _pluginKey; set => SetProperty(ref _pluginKey, value); }
+
+    private string _pluginSettings = string.Empty;
+    /// <summary>
+    /// Gets or sets serialized plugin settings payload.
+    /// </summary>
+    public string PluginSettings { get => _pluginSettings; set => SetProperty(ref _pluginSettings, value); }
+
+    private string _supportedFileTypes = string.Empty;
+    /// <summary>
+    /// Gets or sets supported file types for the general fallback installer.
+    /// </summary>
+    public string SupportedFileTypes { get => _supportedFileTypes; set => SetProperty(ref _supportedFileTypes, value); }
+
+    private string _preferredLaunchExtensions = string.Empty;
+    /// <summary>
+    /// Gets or sets preferred launch extension ordering for fallback selection.
+    /// </summary>
+    public string PreferredLaunchExtensions { get => _preferredLaunchExtensions; set => SetProperty(ref _preferredLaunchExtensions, value); }
+
+    private string _archiveHandlingMode = "NeverExtract";
+    /// <summary>
+    /// Gets or sets archive handling mode for general ROM platforms.
+    /// </summary>
+    public string ArchiveHandlingMode { get => _archiveHandlingMode; set => SetProperty(ref _archiveHandlingMode, value); }
+
+    private bool _useGameSubdirectory = true;
+    /// <summary>
+    /// Gets or sets whether fallback installs use a game subdirectory.
+    /// </summary>
+    public bool UseGameSubdirectory { get => _useGameSubdirectory; set => SetProperty(ref _useGameSubdirectory, value); }
+
+    private bool _installAllMatchingFiles = true;
+    /// <summary>
+    /// Gets or sets whether fallback installs include all matching files.
+    /// </summary>
+    public bool InstallAllMatchingFiles { get => _installAllMatchingFiles; set => SetProperty(ref _installAllMatchingFiles, value); }
+
+    private bool _installFromArchiveDirectly;
+    /// <summary>
+    /// Gets or sets whether fallback installs can launch from archives directly.
+    /// </summary>
+    public bool InstallFromArchiveDirectly { get => _installFromArchiveDirectly; set => SetProperty(ref _installFromArchiveDirectly, value); }
+
+    private string _installLayoutMode = "UsePlatformRoot";
+    /// <summary>
+    /// Gets or sets install layout mode for general ROM platforms.
+    /// </summary>
+    public string InstallLayoutMode { get => _installLayoutMode; set => SetProperty(ref _installLayoutMode, value); }
+
+    private string _artifactSelectionMode = "ExtensionPriority";
+    /// <summary>
+    /// Gets or sets artifact selection mode for general ROM platforms.
+    /// </summary>
+    public string ArtifactSelectionMode { get => _artifactSelectionMode; set => SetProperty(ref _artifactSelectionMode, value); }
+
+    private bool _useGeneralFallbackInstaller;
+    /// <summary>
+    /// Gets or sets whether this mapping should allow general fallback installer usage.
+    /// </summary>
+    public bool UseGeneralFallbackInstaller { get => _useGeneralFallbackInstaller; set => SetProperty(ref _useGeneralFallbackInstaller, value); }
+
     public ObservableCollection<EmulatorOption> Emulators { get; }
 
     public EmulatorOption SelectedEmulator
@@ -456,6 +537,19 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
     public bool ShowSkipRegionMismatchedDlcField => HasConfigField("SkipRegionMismatchedDlc");
     public bool ShowSkipUnmatchedRapFilesField => HasConfigField("SkipUnmatchedRapFiles");
     public bool ShowPreferMetadataBasedPackageMatchingField => HasConfigField("PreferMetadataBasedPackageMatching");
+    public bool ShowSupportedFileTypesField => HasConfigField("SupportedFileTypes");
+    public bool ShowPreferredLaunchExtensionsField => HasConfigField("PreferredLaunchExtensions");
+    public bool ShowArchiveHandlingModeField => HasConfigField("ArchiveHandlingMode");
+    public bool ShowUseGameSubdirectoryField => HasConfigField("UseGameSubdirectory");
+    public bool ShowInstallAllMatchingFilesField => HasConfigField("InstallAllMatchingFiles");
+    public bool ShowInstallFromArchiveDirectlyField => HasConfigField("InstallFromArchiveDirectly");
+    public bool ShowInstallLayoutModeField => HasConfigField("InstallLayoutMode");
+    public bool ShowArtifactSelectionModeField => HasConfigField("ArtifactSelectionMode");
+    public bool ShowUseGeneralFallbackInstallerField => HasConfigField("UseGeneralFallbackInstaller");
+    public bool ShowPs4GamesDirectoryField => HasConfigField("Ps4GamesDirectory");
+    public bool ShowShadPs4ExecutablePathField => HasConfigField("ShadPs4ExecutablePath");
+    public bool ShowPs4ExternalPkgExtractorPathField => HasConfigField("Ps4ExternalPkgExtractorPath");
+    public bool ShowPs4FailIfDirectPkgExtractorMissingField => HasConfigField("Ps4FailIfDirectPkgExtractorMissing");
 
     public bool IsGamesDirectoryValid => !string.IsNullOrWhiteSpace(GamesDirectory);
 
@@ -513,6 +607,30 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
     /// </summary>
     public bool PreferMetadataBasedPackageMatching { get => _preferMetadataBasedPackageMatching; set => SetProperty(ref _preferMetadataBasedPackageMatching, value); }
 
+    private string _ps4GamesDirectory = string.Empty;
+    /// <summary>
+    /// Gets or sets the PS4 games directory override.
+    /// </summary>
+    public string Ps4GamesDirectory { get => _ps4GamesDirectory; set => SetProperty(ref _ps4GamesDirectory, value); }
+
+    private string _shadPs4ExecutablePath = string.Empty;
+    /// <summary>
+    /// Gets or sets the ShadPS4 executable path.
+    /// </summary>
+    public string ShadPs4ExecutablePath { get => _shadPs4ExecutablePath; set => SetProperty(ref _shadPs4ExecutablePath, value); }
+
+    private string _ps4ExternalPkgExtractorPath = string.Empty;
+    /// <summary>
+    /// Gets or sets optional PS4 external PKG extractor path.
+    /// </summary>
+    public string Ps4ExternalPkgExtractorPath { get => _ps4ExternalPkgExtractorPath; set => SetProperty(ref _ps4ExternalPkgExtractorPath, value); }
+
+    private bool _ps4FailIfDirectPkgExtractorMissing;
+    /// <summary>
+    /// Gets or sets whether direct PS4 PKG install should fail when extractor path is missing.
+    /// </summary>
+    public bool Ps4FailIfDirectPkgExtractorMissing { get => _ps4FailIfDirectPkgExtractorMissing; set => SetProperty(ref _ps4FailIfDirectPkgExtractorMissing, value); }
+
     public Models.PlatformMapping BuildMappingForSave()
     {
         if (_mapping == null)
@@ -543,6 +661,17 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
         _mapping.CustomInstallDirectory = ResolveGamesDirectoryForSave(GamesDirectory);
         _mapping.RomInstallRoot = RomInstallRoot;
         _mapping.RomArchivePolicy = RomArchivePolicy;
+        _mapping.PluginKey = PluginKey;
+        _mapping.PluginSettings = PluginSettings;
+        _mapping.SupportedFileTypes = SupportedFileTypes;
+        _mapping.PreferredLaunchExtensions = PreferredLaunchExtensions;
+        _mapping.ArchiveHandlingMode = ArchiveHandlingMode;
+        _mapping.UseGameSubdirectory = UseGameSubdirectory;
+        _mapping.InstallAllMatchingFiles = InstallAllMatchingFiles;
+        _mapping.InstallFromArchiveDirectly = InstallFromArchiveDirectly;
+        _mapping.InstallLayoutMode = InstallLayoutMode;
+        _mapping.ArtifactSelectionMode = ArtifactSelectionMode;
+        _mapping.UseGeneralFallbackInstaller = UseGeneralFallbackInstaller;
         _mapping.Ps3GameDirectory = Ps3GameDirectory;
         _mapping.Rpcs3ExecutablePath = Rpcs3ExecutablePath;
         _mapping.InstallDlcAutomatically = InstallDlcAutomatically;
@@ -551,6 +680,10 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
         _mapping.SkipRegionMismatchedDlc = SkipRegionMismatchedDlc;
         _mapping.SkipUnmatchedRapFiles = SkipUnmatchedRapFiles;
         _mapping.PreferMetadataBasedPackageMatching = PreferMetadataBasedPackageMatching;
+        _mapping.Ps4GamesDirectory = Ps4GamesDirectory;
+        _mapping.ShadPs4ExecutablePath = ShadPs4ExecutablePath;
+        _mapping.Ps4ExternalPkgExtractorPath = Ps4ExternalPkgExtractorPath;
+        _mapping.Ps4FailIfDirectPkgExtractorMissing = Ps4FailIfDirectPkgExtractorMissing;
         return _mapping;
     }
 

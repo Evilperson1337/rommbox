@@ -20,6 +20,20 @@ namespace RomM.Platforms.Abstractions.Models.Install
         public bool SkipRegionMismatchedDlc { get; set; }
         public bool SkipUnmatchedRapFiles { get; set; }
         public bool PreferMetadataBasedPackageMatching { get; set; }
+        public string? Ps4GamesDirectory { get; set; }
+        public string? ShadPs4ExecutablePath { get; set; }
+        public string? Ps4ExternalPkgExtractorPath { get; set; }
+        public bool Ps4FailIfDirectPkgExtractorMissing { get; set; }
+        public string? PspEmulatorMode { get; set; }
+        public string? PpssppExecutablePath { get; set; }
+        public string? RetroArchExecutablePath { get; set; }
+        public string? RetroArchPpssppCorePath { get; set; }
+        public bool ValidateRetroArchPpssppAssets { get; set; } = true;
+        public bool FailInstallIfEmulatorNotReady { get; set; }
+        public string? Vita3kExecutablePath { get; set; }
+        public bool VitaFailIfEmulatorNotReady { get; set; }
+        public bool VitaInstallUpdatesAutomatically { get; set; }
+        public bool VitaInstallDlcAutomatically { get; set; }
     }
 }
 

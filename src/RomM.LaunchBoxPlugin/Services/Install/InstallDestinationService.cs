@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.IO;
 using System.Xml.Linq;
@@ -384,6 +385,7 @@ namespace RomMbox.Services.Install
                 && platform.GetAllGames(includeHidden: true, includeBroken: true) is { Length: > 0 } games)
             {
                 _logger?.Info($"Searching {games.Length} existing games for a ROM folder hint.");
+                var loggedSharedRootSkips = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                 foreach (var game in games)
                 {
                     var path = game?.ApplicationPath;
@@ -428,7 +430,10 @@ namespace RomMbox.Services.Install
                                 .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
                             if (string.Equals(normalizedGamesRoot, normalizedCandidate, StringComparison.OrdinalIgnoreCase))
                             {
-                                _logger?.Info($"Existing game path resolved to shared Games root '{normalizedCandidate}'. Skipping.");
+                                if (loggedSharedRootSkips.Add(normalizedCandidate))
+                                {
+                                    _logger?.Info($"Existing game path resolved to shared Games root '{normalizedCandidate}'. Skipping.");
+                                }
                                 continue;
                             }
                         }
@@ -478,32 +483,103 @@ namespace RomMbox.Services.Install
                 }
 
                 var platformPath = ResolvePlatformXmlPath(platformName, launchBoxRoot);
-                if (string.IsNullOrWhiteSpace(platformPath) || !File.Exists(platformPath))
+                if (!string.IsNullOrWhiteSpace(platformPath) && File.Exists(platformPath))
                 {
-                    _logger?.Info($"Platform XML not found for '{platformName}'. Path='{platformPath ?? string.Empty}'.");
+                    // Legacy/custom format support: top-level <Folder> in per-platform XML.
+                    // Standard LaunchBox per-platform files are game lists (<LaunchBox><Game>...),
+                    // so they typically do not carry a top-level folder value.
+                    var doc = XDocument.Load(platformPath);
+                    var folderValue = doc.Root?.Element("Folder")?.Value?.Trim();
+                    if (!string.IsNullOrWhiteSpace(folderValue))
+                    {
+                        return Path.IsPathRooted(folderValue)
+                            ? folderValue
+                            : Path.Combine(launchBoxRoot, folderValue);
+                    }
+                }
+
+                var platformsIndexPath = Path.Combine(launchBoxRoot, "Data", "Platforms.xml");
+                if (!File.Exists(platformsIndexPath))
+                {
+                    _logger?.Info($"Platforms.xml not found while resolving folder for '{platformName}'. Path='{platformsIndexPath}'.");
                     return string.Empty;
                 }
 
-                var doc = XDocument.Load(platformPath);
-                var folderValue = doc.Root?.Element("Folder")?.Value?.Trim();
-                if (string.IsNullOrWhiteSpace(folderValue))
+                var platformsDoc = XDocument.Load(platformsIndexPath);
+                var platformElement = FindPlatformElement(platformsDoc, platformName);
+                if (platformElement == null)
+                {
+                    _logger?.Info($"Platform entry not found in Platforms.xml for '{platformName}'.");
+                    return string.Empty;
+                }
+
+                var indexedFolderValue = platformElement.Element("Folder")?.Value?.Trim();
+                if (string.IsNullOrWhiteSpace(indexedFolderValue))
                 {
                     _logger?.Info($"Platform XML folder value missing for '{platformName}'.");
                     return string.Empty;
                 }
 
-                if (Path.IsPathRooted(folderValue))
-                {
-                    return folderValue;
-                }
-
-                return Path.Combine(launchBoxRoot, folderValue);
+                return Path.IsPathRooted(indexedFolderValue)
+                    ? indexedFolderValue
+                    : Path.Combine(launchBoxRoot, indexedFolderValue);
             }
             catch (Exception ex)
             {
                 _logger?.Warning($"Failed to resolve platform folder from XML for '{platformName}': {ex.Message}");
                 return string.Empty;
             }
+        }
+
+        private XElement FindPlatformElement(XDocument platformsDoc, string platformName)
+        {
+            var root = platformsDoc?.Root;
+            if (root == null || string.IsNullOrWhiteSpace(platformName))
+            {
+                return null;
+            }
+
+            var exact = root.Elements("Platform")
+                .FirstOrDefault(platform => string.Equals(
+                    platform.Element("Name")?.Value?.Trim(),
+                    platformName.Trim(),
+                    StringComparison.OrdinalIgnoreCase));
+            if (exact != null)
+            {
+                return exact;
+            }
+
+            var normalizedInput = NormalizePlatformName(platformName);
+            if (string.IsNullOrWhiteSpace(normalizedInput))
+            {
+                return null;
+            }
+
+            var normalized = root.Elements("Platform")
+                .FirstOrDefault(platform => string.Equals(
+                    NormalizePlatformName(platform.Element("Name")?.Value),
+                    normalizedInput,
+                    StringComparison.OrdinalIgnoreCase));
+            if (normalized != null)
+            {
+                _logger?.Info($"Resolved platform entry in Platforms.xml by normalized name match. Requested='{platformName}', Matched='{normalized.Element("Name")?.Value ?? string.Empty}'.");
+            }
+
+            return normalized;
+        }
+
+        private static string NormalizePlatformName(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return string.Empty;
+            }
+
+            return new string(value
+                .Trim()
+                .ToLowerInvariant()
+                .Where(char.IsLetterOrDigit)
+                .ToArray());
         }
 
         private string ResolveConfiguredFolder(string folderValue, string source, string configuredValue)
