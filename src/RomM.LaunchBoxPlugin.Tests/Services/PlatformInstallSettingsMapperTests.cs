@@ -78,6 +78,7 @@ namespace RomMbox.Tests.Services
                 VitaFailIfEmulatorNotReady = true,
                 VitaInstallUpdatesAutomatically = true,
                 VitaInstallDlcAutomatically = true,
+                VitaConsolidateGameInstalls = true,
                 SwitchEdenExecutablePath = @"D:\Emulators\Eden\eden.exe",
                 AzaharExecutablePath = @"D:\Emulators\Azahar\azahar.exe",
                 AzaharPlusExecutablePath = @"D:\Emulators\AzaharPlus\azaharplus.exe",
@@ -98,6 +99,7 @@ namespace RomMbox.Tests.Services
             settings.VitaFailIfEmulatorNotReady.Should().BeTrue();
             settings.VitaInstallUpdatesAutomatically.Should().BeTrue();
             settings.VitaInstallDlcAutomatically.Should().BeTrue();
+            settings.VitaConsolidateGameInstalls.Should().BeTrue();
             settings.SwitchEdenExecutablePath.Should().Be(mapping.SwitchEdenExecutablePath);
             settings.AzaharExecutablePath.Should().Be(mapping.AzaharExecutablePath);
             settings.AzaharPlusExecutablePath.Should().Be(mapping.AzaharPlusExecutablePath);

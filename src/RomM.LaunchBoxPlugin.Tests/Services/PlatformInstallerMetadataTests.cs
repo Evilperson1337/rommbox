@@ -226,7 +226,8 @@ namespace RomMbox.Tests.Services
                 "Vita3kExecutablePath",
                 "VitaInstallUpdatesAutomatically",
                 "VitaInstallDlcAutomatically",
-                "VitaFailIfEmulatorNotReady"
+                "VitaFailIfEmulatorNotReady",
+                "VitaConsolidateGameInstalls"
             });
         }
 

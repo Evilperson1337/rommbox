@@ -26,7 +26,7 @@ namespace RomM.Platforms.Vita.Inspection
         private static readonly Regex TitleIdRegex = new(@"\b([A-Za-z]{4}\d{5})\b", RegexOptions.Compiled);
         private static readonly Regex VersionRegex = new(@"\b(?:v|ver(?:sion)?|patch|update)\s*([0-9]+(?:\.[0-9]+)*)\b", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private static readonly Regex ParamTitleIdRegex = new(@"TITLE_ID[\x00-\x20:=]+([A-Za-z]{4}\d{5})", RegexOptions.Compiled | RegexOptions.IgnoreCase);
-        private static readonly Regex ParamTitleRegex = new(@"TITLE[\x00-\x20:=]+([^\x00\r\n]{2,120})", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex ParamTitleRegex = new(@"(?:^|[\x00-\x20])TITLE(?!_ID)[\x00-\x20:=]+([^\x00\r\n]{2,120})", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private static readonly Regex ParamVersionRegex = new(@"APP_VER[\x00-\x20:=]+([0-9]+(?:\.[0-9]+)*)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         public VitaGameInspectionResult Inspect(string? archivePath, string? extractedPath, string? gameName, IPlatformLogger? logger)

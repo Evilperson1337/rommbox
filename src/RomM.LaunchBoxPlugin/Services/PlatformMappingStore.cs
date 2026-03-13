@@ -48,7 +48,7 @@ namespace RomMbox.Services
         Ps4GamesDirectory, ShadPs4ExecutablePath, Ps4ExternalPkgExtractorPath, Ps4FailIfDirectPkgExtractorMissing,
         Pcsx2ExecutablePath, PspEmulatorMode, PpssppExecutablePath, RetroArchExecutablePath, RetroArchPpssppCorePath,
         ValidateRetroArchPpssppAssets, FailInstallIfEmulatorNotReady, Vita3kExecutablePath, VitaFailIfEmulatorNotReady,
-        VitaInstallUpdatesAutomatically, VitaInstallDlcAutomatically, SwitchEdenExecutablePath, AzaharExecutablePath,
+        VitaInstallUpdatesAutomatically, VitaInstallDlcAutomatically, VitaConsolidateGameInstalls, SwitchEdenExecutablePath, AzaharExecutablePath,
         AzaharPlusExecutablePath, DolphinExecutablePath, CemuExecutablePath
  FROM PlatformMappings
  WHERE RommPlatformId = $rommPlatformId;
@@ -93,7 +93,7 @@ namespace RomMbox.Services
         Ps4GamesDirectory, ShadPs4ExecutablePath, Ps4ExternalPkgExtractorPath, Ps4FailIfDirectPkgExtractorMissing,
         Pcsx2ExecutablePath, PspEmulatorMode, PpssppExecutablePath, RetroArchExecutablePath, RetroArchPpssppCorePath,
         ValidateRetroArchPpssppAssets, FailInstallIfEmulatorNotReady, Vita3kExecutablePath, VitaFailIfEmulatorNotReady,
-        VitaInstallUpdatesAutomatically, VitaInstallDlcAutomatically, SwitchEdenExecutablePath, AzaharExecutablePath,
+        VitaInstallUpdatesAutomatically, VitaInstallDlcAutomatically, VitaConsolidateGameInstalls, SwitchEdenExecutablePath, AzaharExecutablePath,
         AzaharPlusExecutablePath, DolphinExecutablePath, CemuExecutablePath
  FROM PlatformMappings;
  ";
@@ -162,7 +162,7 @@ namespace RomMbox.Services
      Ps4GamesDirectory, ShadPs4ExecutablePath, Ps4ExternalPkgExtractorPath, Ps4FailIfDirectPkgExtractorMissing,
      Pcsx2ExecutablePath, PspEmulatorMode, PpssppExecutablePath, RetroArchExecutablePath, RetroArchPpssppCorePath,
      ValidateRetroArchPpssppAssets, FailInstallIfEmulatorNotReady, Vita3kExecutablePath, VitaFailIfEmulatorNotReady,
-     VitaInstallUpdatesAutomatically, VitaInstallDlcAutomatically, SwitchEdenExecutablePath, AzaharExecutablePath,
+     VitaInstallUpdatesAutomatically, VitaInstallDlcAutomatically, VitaConsolidateGameInstalls, SwitchEdenExecutablePath, AzaharExecutablePath,
      AzaharPlusExecutablePath, DolphinExecutablePath, CemuExecutablePath
   ) VALUES (
      $rommPlatformId, $rommPlatformName, $launchBoxPlatformName, $autoMapped, $disableAutoImport, $extractAfterDownload,
@@ -176,7 +176,7 @@ namespace RomMbox.Services
      $ps4GamesDirectory, $shadPs4ExecutablePath, $ps4ExternalPkgExtractorPath, $ps4FailIfDirectPkgExtractorMissing,
      $pcsx2ExecutablePath, $pspEmulatorMode, $ppssppExecutablePath, $retroArchExecutablePath, $retroArchPpssppCorePath,
      $validateRetroArchPpssppAssets, $failInstallIfEmulatorNotReady, $vita3kExecutablePath, $vitaFailIfEmulatorNotReady,
-     $vitaInstallUpdatesAutomatically, $vitaInstallDlcAutomatically, $switchEdenExecutablePath, $azaharExecutablePath,
+     $vitaInstallUpdatesAutomatically, $vitaInstallDlcAutomatically, $vitaConsolidateGameInstalls, $switchEdenExecutablePath, $azaharExecutablePath,
      $azaharPlusExecutablePath, $dolphinExecutablePath, $cemuExecutablePath
   )
   ON CONFLICT(RommPlatformId) DO UPDATE SET
@@ -241,6 +241,7 @@ namespace RomMbox.Services
      VitaFailIfEmulatorNotReady = excluded.VitaFailIfEmulatorNotReady,
      VitaInstallUpdatesAutomatically = excluded.VitaInstallUpdatesAutomatically,
      VitaInstallDlcAutomatically = excluded.VitaInstallDlcAutomatically,
+     VitaConsolidateGameInstalls = excluded.VitaConsolidateGameInstalls,
      SwitchEdenExecutablePath = excluded.SwitchEdenExecutablePath,
      AzaharExecutablePath = excluded.AzaharExecutablePath,
      AzaharPlusExecutablePath = excluded.AzaharPlusExecutablePath,
@@ -309,6 +310,7 @@ namespace RomMbox.Services
                     command.Parameters.AddWithValue("$vitaFailIfEmulatorNotReady", mapping.VitaFailIfEmulatorNotReady ? 1 : 0);
                     command.Parameters.AddWithValue("$vitaInstallUpdatesAutomatically", mapping.VitaInstallUpdatesAutomatically ? 1 : 0);
                     command.Parameters.AddWithValue("$vitaInstallDlcAutomatically", mapping.VitaInstallDlcAutomatically ? 1 : 0);
+                    command.Parameters.AddWithValue("$vitaConsolidateGameInstalls", mapping.VitaConsolidateGameInstalls ? 1 : 0);
                     command.Parameters.AddWithValue("$switchEdenExecutablePath", mapping.SwitchEdenExecutablePath ?? string.Empty);
                     command.Parameters.AddWithValue("$azaharExecutablePath", mapping.AzaharExecutablePath ?? string.Empty);
                     command.Parameters.AddWithValue("$azaharPlusExecutablePath", mapping.AzaharPlusExecutablePath ?? string.Empty);
@@ -586,7 +588,7 @@ ON CONFLICT(AliasId) DO UPDATE SET
                 mapping.Ps4FailIfDirectPkgExtractorMissing = !reader.IsDBNull(50) && reader.GetInt32(50) == 1;
             }
 
-            if (reader.FieldCount > 66)
+            if (reader.FieldCount > 67)
             {
                 mapping.Pcsx2ExecutablePath = reader.IsDBNull(51) ? string.Empty : reader.GetString(51);
                 mapping.PspEmulatorMode = reader.IsDBNull(52) ? string.Empty : reader.GetString(52);
@@ -599,11 +601,12 @@ ON CONFLICT(AliasId) DO UPDATE SET
                 mapping.VitaFailIfEmulatorNotReady = !reader.IsDBNull(59) && reader.GetInt32(59) == 1;
                 mapping.VitaInstallUpdatesAutomatically = !reader.IsDBNull(60) && reader.GetInt32(60) == 1;
                 mapping.VitaInstallDlcAutomatically = !reader.IsDBNull(61) && reader.GetInt32(61) == 1;
-                mapping.SwitchEdenExecutablePath = reader.IsDBNull(62) ? string.Empty : reader.GetString(62);
-                mapping.AzaharExecutablePath = reader.IsDBNull(63) ? string.Empty : reader.GetString(63);
-                mapping.AzaharPlusExecutablePath = reader.IsDBNull(64) ? string.Empty : reader.GetString(64);
-                mapping.DolphinExecutablePath = reader.IsDBNull(65) ? string.Empty : reader.GetString(65);
-                mapping.CemuExecutablePath = reader.IsDBNull(66) ? string.Empty : reader.GetString(66);
+                mapping.VitaConsolidateGameInstalls = !reader.IsDBNull(62) && reader.GetInt32(62) == 1;
+                mapping.SwitchEdenExecutablePath = reader.IsDBNull(63) ? string.Empty : reader.GetString(63);
+                mapping.AzaharExecutablePath = reader.IsDBNull(64) ? string.Empty : reader.GetString(64);
+                mapping.AzaharPlusExecutablePath = reader.IsDBNull(65) ? string.Empty : reader.GetString(65);
+                mapping.DolphinExecutablePath = reader.IsDBNull(66) ? string.Empty : reader.GetString(66);
+                mapping.CemuExecutablePath = reader.IsDBNull(67) ? string.Empty : reader.GetString(67);
             }
 
             var extractionBehaviorText = reader.IsDBNull(6) ? string.Empty : reader.GetString(6);

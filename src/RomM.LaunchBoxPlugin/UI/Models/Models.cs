@@ -349,6 +349,9 @@ public sealed class PlatformMapping : ObservableObject
     private bool _vitaInstallDlcAutomatically;
     public bool VitaInstallDlcAutomatically { get => _vitaInstallDlcAutomatically; set => SetProperty(ref _vitaInstallDlcAutomatically, value); }
 
+    private bool _vitaConsolidateGameInstalls;
+    public bool VitaConsolidateGameInstalls { get => _vitaConsolidateGameInstalls; set => SetProperty(ref _vitaConsolidateGameInstalls, value); }
+
     private string _switchEdenExecutablePath = "";
     public string SwitchEdenExecutablePath { get => _switchEdenExecutablePath; set => SetProperty(ref _switchEdenExecutablePath, value); }
 

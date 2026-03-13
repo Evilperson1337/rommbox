@@ -157,6 +157,7 @@ CREATE TABLE IF NOT EXISTS InstallStateMetadata (
      VitaFailIfEmulatorNotReady INTEGER NOT NULL DEFAULT 0,
      VitaInstallUpdatesAutomatically INTEGER NOT NULL DEFAULT 0,
      VitaInstallDlcAutomatically INTEGER NOT NULL DEFAULT 0,
+     VitaConsolidateGameInstalls INTEGER NOT NULL DEFAULT 0,
      SwitchEdenExecutablePath TEXT,
      AzaharExecutablePath TEXT,
      AzaharPlusExecutablePath TEXT,
@@ -1693,6 +1694,7 @@ ON CONFLICT(Key) DO UPDATE SET Value = excluded.Value;
             await AddColumnIfMissingAsync(connection, columns, "VitaFailIfEmulatorNotReady", "INTEGER NOT NULL DEFAULT 0", cancellationToken).ConfigureAwait(false);
             await AddColumnIfMissingAsync(connection, columns, "VitaInstallUpdatesAutomatically", "INTEGER NOT NULL DEFAULT 0", cancellationToken).ConfigureAwait(false);
             await AddColumnIfMissingAsync(connection, columns, "VitaInstallDlcAutomatically", "INTEGER NOT NULL DEFAULT 0", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "VitaConsolidateGameInstalls", "INTEGER NOT NULL DEFAULT 0", cancellationToken).ConfigureAwait(false);
             await AddColumnIfMissingAsync(connection, columns, "SwitchEdenExecutablePath", "TEXT", cancellationToken).ConfigureAwait(false);
             await AddColumnIfMissingAsync(connection, columns, "AzaharExecutablePath", "TEXT", cancellationToken).ConfigureAwait(false);
             await AddColumnIfMissingAsync(connection, columns, "AzaharPlusExecutablePath", "TEXT", cancellationToken).ConfigureAwait(false);

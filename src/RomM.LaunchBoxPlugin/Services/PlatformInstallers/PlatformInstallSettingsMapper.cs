@@ -58,7 +58,8 @@ namespace RomMbox.Services.PlatformInstallers
                 Vita3kExecutablePath = string.IsNullOrWhiteSpace(mapping.Vita3kExecutablePath) ? null : mapping.Vita3kExecutablePath,
                 VitaFailIfEmulatorNotReady = mapping.VitaFailIfEmulatorNotReady,
                 VitaInstallUpdatesAutomatically = mapping.VitaInstallUpdatesAutomatically,
-                VitaInstallDlcAutomatically = mapping.VitaInstallDlcAutomatically
+                VitaInstallDlcAutomatically = mapping.VitaInstallDlcAutomatically,
+                VitaConsolidateGameInstalls = mapping.VitaConsolidateGameInstalls
             };
         }
 

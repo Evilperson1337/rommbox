@@ -383,6 +383,12 @@ namespace RomMbox.Models.PlatformMapping
         public bool VitaInstallDlcAutomatically { get; set; }
 
         /// <summary>
+        /// Gets or sets whether Vita installs should be consolidated into the configured game storage location and exposed to Vita3K via a title-scoped link.
+        /// </summary>
+        [DataMember(Name = "vitaConsolidateGameInstalls", EmitDefaultValue = false)]
+        public bool VitaConsolidateGameInstalls { get; set; }
+
+        /// <summary>
         /// Gets or sets the Eden executable path override for Switch.
         /// </summary>
         [DataMember(Name = "switchEdenExecutablePath", EmitDefaultValue = false)]

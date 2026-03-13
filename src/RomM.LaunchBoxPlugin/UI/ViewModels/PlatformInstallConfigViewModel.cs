@@ -103,6 +103,7 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
         VitaFailIfEmulatorNotReady = mapping?.VitaFailIfEmulatorNotReady ?? false;
         VitaInstallUpdatesAutomatically = mapping?.VitaInstallUpdatesAutomatically ?? false;
         VitaInstallDlcAutomatically = mapping?.VitaInstallDlcAutomatically ?? false;
+        VitaConsolidateGameInstalls = mapping?.VitaConsolidateGameInstalls ?? false;
         SwitchEdenExecutablePath = mapping?.SwitchEdenExecutablePath ?? string.Empty;
         AzaharExecutablePath = mapping?.AzaharExecutablePath ?? string.Empty;
         AzaharPlusExecutablePath = mapping?.AzaharPlusExecutablePath ?? string.Empty;
@@ -698,6 +699,7 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
     public bool ShowVitaFailIfEmulatorNotReadyField => HasConfigField("VitaFailIfEmulatorNotReady");
     public bool ShowVitaInstallUpdatesAutomaticallyField => HasConfigField("VitaInstallUpdatesAutomatically");
     public bool ShowVitaInstallDlcAutomaticallyField => HasConfigField("VitaInstallDlcAutomatically");
+    public bool ShowVitaConsolidateGameInstallsField => HasConfigField("VitaConsolidateGameInstalls");
     public bool ShowSwitchEdenExecutablePathField => HasConfigField("SwitchEdenExecutablePath");
     public bool ShowAzaharExecutablePathField => HasConfigField("AzaharExecutablePath");
     public bool ShowAzaharPlusExecutablePathField => HasConfigField("AzaharPlusExecutablePath");
@@ -909,6 +911,9 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
     private bool _vitaInstallDlcAutomatically;
     public bool VitaInstallDlcAutomatically { get => _vitaInstallDlcAutomatically; set => SetProperty(ref _vitaInstallDlcAutomatically, value); }
 
+    private bool _vitaConsolidateGameInstalls;
+    public bool VitaConsolidateGameInstalls { get => _vitaConsolidateGameInstalls; set => SetProperty(ref _vitaConsolidateGameInstalls, value); }
+
     private string _switchEdenExecutablePath = string.Empty;
     public string SwitchEdenExecutablePath
     {
@@ -1038,6 +1043,7 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
         _mapping.VitaFailIfEmulatorNotReady = VitaFailIfEmulatorNotReady;
         _mapping.VitaInstallUpdatesAutomatically = VitaInstallUpdatesAutomatically;
         _mapping.VitaInstallDlcAutomatically = VitaInstallDlcAutomatically;
+        _mapping.VitaConsolidateGameInstalls = VitaConsolidateGameInstalls;
         _mapping.SwitchEdenExecutablePath = SwitchEdenExecutablePath;
         _mapping.AzaharExecutablePath = AzaharExecutablePath;
         _mapping.AzaharPlusExecutablePath = AzaharPlusExecutablePath;

@@ -734,6 +734,7 @@
 
                             <CheckBox Content="Install Vita Updates Automatically" IsChecked="{Binding VitaInstallUpdatesAutomatically, Mode=TwoWay}" Margin="0,0,0,8" Visibility="{Binding ShowVitaInstallUpdatesAutomaticallyField, Converter={StaticResource BoolToVisibility}}"/>
                             <CheckBox Content="Install Vita DLC Automatically" IsChecked="{Binding VitaInstallDlcAutomatically, Mode=TwoWay}" Margin="0,0,0,8" Visibility="{Binding ShowVitaInstallDlcAutomaticallyField, Converter={StaticResource BoolToVisibility}}"/>
+                            <CheckBox Content="Consolidate Game Installs" IsChecked="{Binding VitaConsolidateGameInstalls, Mode=TwoWay}" Margin="0,0,0,8" Visibility="{Binding ShowVitaConsolidateGameInstallsField, Converter={StaticResource BoolToVisibility}}"/>
                             <CheckBox Content="Fail If Vita Emulator Not Ready" IsChecked="{Binding VitaFailIfEmulatorNotReady, Mode=TwoWay}" Margin="0,0,0,0" Visibility="{Binding ShowVitaFailIfEmulatorNotReadyField, Converter={StaticResource BoolToVisibility}}"/>
                         </StackPanel>
                     </Border>

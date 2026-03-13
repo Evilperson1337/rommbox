@@ -164,6 +164,7 @@ namespace RomMbox.Services
                         VitaFailIfEmulatorNotReady = saved?.VitaFailIfEmulatorNotReady ?? false,
                         VitaInstallUpdatesAutomatically = saved?.VitaInstallUpdatesAutomatically ?? false,
                         VitaInstallDlcAutomatically = saved?.VitaInstallDlcAutomatically ?? false,
+                        VitaConsolidateGameInstalls = saved?.VitaConsolidateGameInstalls ?? false,
                         SwitchEdenExecutablePath = saved?.SwitchEdenExecutablePath ?? string.Empty,
                         AzaharExecutablePath = saved?.AzaharExecutablePath ?? string.Empty,
                         AzaharPlusExecutablePath = saved?.AzaharPlusExecutablePath ?? string.Empty,

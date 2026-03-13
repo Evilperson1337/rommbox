@@ -40,6 +40,7 @@ namespace RomM.Platforms.Abstractions.Models.Install
         public bool VitaFailIfEmulatorNotReady { get; set; }
         public bool VitaInstallUpdatesAutomatically { get; set; }
         public bool VitaInstallDlcAutomatically { get; set; }
+        public bool VitaConsolidateGameInstalls { get; set; }
     }
 }
 

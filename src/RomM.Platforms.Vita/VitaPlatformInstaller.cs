@@ -4,8 +4,10 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using RomM.Platforms.Abstractions.Install;
 using RomM.Platforms.Abstractions;
 using RomM.Platforms.Abstractions.Logging;
 using RomM.Platforms.Abstractions.Models;
@@ -21,6 +23,13 @@ namespace RomM.Platforms.Vita
 {
     public sealed class VitaPlatformInstaller : IPlatformInstaller, IPlatformInstallerMetadata, IPlatformInstallerIdentityMetadata
     {
+        private static readonly JsonSerializerOptions TokenJsonOptions = new()
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            WriteIndented = true,
+            PropertyNameCaseInsensitive = true
+        };
+
         public string PlatformKey => "psvita";
         public string DisplayName => "PlayStation Vita";
         public IReadOnlyCollection<string>? SupportedPlatformIds => new[] { "psvita", "vita", "sony-playstation-vita" };
@@ -91,6 +100,16 @@ namespace RomM.Platforms.Vita
                         Required = false,
                         Advanced = true,
                         DefaultValue = "false"
+                    },
+                    new()
+                    {
+                        Key = "VitaConsolidateGameInstalls",
+                        Label = "Consolidate Game Installs",
+                        Description = "Install Vita content into the configured game storage location and expose it to Vita3K via a title-scoped link under pref_path/ux0/app.",
+                        Type = PlatformConfigFieldType.Boolean,
+                        Required = false,
+                        Advanced = true,
+                        DefaultValue = "false"
                     }
                 }
             };
@@ -151,6 +170,19 @@ namespace RomM.Platforms.Vita
                 return Task.FromResult(result);
             }
 
+            if (metadata.IsConsolidatedInstall)
+            {
+                if (string.IsNullOrWhiteSpace(metadata.PhysicalInstallPath) || !Directory.Exists(metadata.PhysicalInstallPath))
+                {
+                    result.IsInstalled = false;
+                    result.Warnings = new List<DetectionWarning>
+                    {
+                        new() { Code = "missing_physical_install", Message = "Installed Vita consolidated content path is missing on disk." }
+                    };
+                    return Task.FromResult(result);
+                }
+            }
+
             result.RecommendedExecutablePath = installedPath;
             result.CandidateExecutablePaths = new List<string> { installedPath };
             return Task.FromResult(result);
@@ -160,10 +192,12 @@ namespace RomM.Platforms.Vita
         {
             ct.ThrowIfCancellationRequested();
             var installedPath = ctx?.InstalledPath ?? string.Empty;
+            var token = ReadToken(installedPath);
             var valid = !string.IsNullOrWhiteSpace(installedPath)
                 && File.Exists(installedPath)
                 && IsTokenPath(installedPath)
-                && !string.IsNullOrWhiteSpace(ReadToken(installedPath).TitleId);
+                && !string.IsNullOrWhiteSpace(token.TitleId)
+                && ValidateResolvedInstall(token);
 
             return Task.FromResult(new VerifyResult
             {
@@ -181,6 +215,7 @@ namespace RomM.Platforms.Vita
 
             ct.ThrowIfCancellationRequested();
             progress?.Report(new InstallProgress("Installing", "Preparing PlayStation Vita install...", 0));
+            ctx.Logger?.Write(PlatformLogLevel.Info, $"Vita install pipeline started. InstallDir='{ctx.InstallDirectory ?? string.Empty}', ArchivePath='{ctx.ArchivePath ?? string.Empty}', ExtractedPath='{ctx.ExtractedPath ?? string.Empty}'.");
 
             var installRoot = ResolveInstallRoot(ctx.InstallDirectory, ctx.RomSettings?.RomRootPath);
             if (string.IsNullOrWhiteSpace(installRoot))
@@ -211,23 +246,48 @@ namespace RomM.Platforms.Vita
                 return Task.FromResult(new InstallResult { Success = false, Message = "Unable to determine PlayStation Vita title id safely." });
             }
 
-            var readiness = ValidateVita3kReadiness(ctx.Settings, ctx.Logger);
+            var titleResolution = VitaTitleResolver.ResolveForInstall(inspection, installRoot, ctx.GameName, ctx.Logger);
+            if (!titleResolution.IsValid)
+            {
+                var message = string.IsNullOrWhiteSpace(titleResolution.ValidationError)
+                    ? "Unable to resolve PlayStation Vita launch identity safely."
+                    : titleResolution.ValidationError;
+                ctx.Logger?.Write(PlatformLogLevel.Warning, $"Rejected Vita title resolution: {message}");
+                return Task.FromResult(new InstallResult { Success = false, Message = message });
+            }
+
+            var environment = Vita3kEnvironmentResolver.Resolve(ctx.Settings, ctx.RomSettings, ctx.Logger);
+            if (!environment.IsValid)
+            {
+                ctx.Logger?.Write(PlatformLogLevel.Warning, $"Rejected Vita environment resolution: {environment.ValidationError}");
+                return Task.FromResult(new InstallResult { Success = false, Message = environment.ValidationError });
+            }
+
+            var readiness = ValidateVita3kReadiness(ctx.Settings, ctx.RomSettings, ctx.Logger);
             if (!readiness.IsReady && readiness.FailInstall)
             {
                 return Task.FromResult(new InstallResult { Success = false, Message = readiness.Message });
             }
 
-            var gameRoot = Path.Combine(installRoot, NormalizePathSegment(inspection.TitleName, inspection.TitleId));
+            var gameRoot = titleResolution.CanonicalGameDirectory;
             Directory.CreateDirectory(gameRoot);
             var cacheRoot = Path.Combine(gameRoot, "cache");
             Directory.CreateDirectory(cacheRoot);
 
             ctx.Logger?.Write(PlatformLogLevel.Info, "Resolved Vita install strategy: EmulatorManagedImport");
             ctx.Logger?.Write(PlatformLogLevel.Info, $"Resolved Vita install directory: {gameRoot}");
+            ctx.Logger?.Write(PlatformLogLevel.Info, $"Resolved Vita install mode: {(ctx.Settings?.VitaConsolidateGameInstalls == true ? "Consolidated" : "Standard")}");
 
             var importedPackages = new List<string>();
             var importedUpdates = 0;
             var importedDlc = 0;
+
+            var vitaAppPath = Path.Combine(environment.Ux0AppRoot, titleResolution.TitleId);
+            var physicalInstallPath = ctx.Settings?.VitaConsolidateGameInstalls == true
+                ? Path.Combine(gameRoot, titleResolution.TitleId)
+                : vitaAppPath;
+
+            PrepareInstallStateForResolvedMode(ctx.Settings?.VitaConsolidateGameInstalls == true, vitaAppPath, physicalInstallPath, ctx.Logger);
 
             foreach (var candidate in inspection.OrderedInstallCandidates)
             {
@@ -262,13 +322,15 @@ namespace RomM.Platforms.Vita
                 }
 
                 progress?.Report(new InstallProgress("Installing", $"Importing Vita content ({candidate.Role})...", 50));
-                ImportIntoVita3k(stagedArtifact, ctx.Settings, ctx.Logger);
+                ImportIntoVita3k(stagedArtifact, environment.ExecutablePath, ctx.Logger);
             }
 
-            var tokenPath = Path.Combine(gameRoot, $"{inspection.TitleId}.vita3k.json");
-            WriteToken(tokenPath, inspection.TitleId, inspection.TitleName, inspection.Version, importedPackages, importedUpdates, importedDlc, ctx.Logger);
+            FinalizeInstalledContent(environment, titleResolution, ctx.Settings?.VitaConsolidateGameInstalls == true, physicalInstallPath, ctx.Logger);
 
-            var launchArgs = BuildLaunchArguments(ctx.RomSettings, inspection.TitleId);
+            var tokenPath = Path.Combine(gameRoot, $"{inspection.TitleId}.vita3k.json");
+            WriteToken(tokenPath, titleResolution, environment, physicalInstallPath, importedPackages, importedUpdates, importedDlc, ctx.Settings?.VitaConsolidateGameInstalls == true, ctx.Logger);
+
+            var launchCommand = VitaLaunchCommandBuilder.Build(titleResolution, ctx.Settings, ctx.RomSettings, ctx.Logger);
             ctx.Logger?.Write(PlatformLogLevel.Info, "PlayStation Vita install completed.");
             ctx.Logger?.Write(PlatformLogLevel.Info, $"Application path set to: {tokenPath}");
 
@@ -277,7 +339,8 @@ namespace RomM.Platforms.Vita
                 Success = true,
                 Message = "PlayStation Vita install completed.",
                 ExecutablePath = tokenPath,
-                Arguments = string.IsNullOrWhiteSpace(launchArgs) ? Array.Empty<string>() : new[] { launchArgs },
+                Arguments = launchCommand.ToInstallArguments(),
+                PlatformContentId = titleResolution.TitleId,
                 InstallType = InstallType.Portable,
                 InstallRootPath = gameRoot
             });
@@ -298,6 +361,17 @@ namespace RomM.Platforms.Vita
             var notes = new List<string>();
             var installedPath = ctx.InstalledPath ?? string.Empty;
             var token = ReadToken(installedPath);
+
+            if (!string.IsNullOrWhiteSpace(token.VitaAppPath))
+            {
+                TryDeleteVitaTitlePath(token.VitaAppPath, token.TitleId, ctx.Logger, notes, ref removed);
+            }
+
+            if (!string.IsNullOrWhiteSpace(token.PhysicalInstallPath)
+                && !string.Equals(token.PhysicalInstallPath, token.VitaAppPath, StringComparison.OrdinalIgnoreCase))
+            {
+                TryDeleteVitaTitlePath(token.PhysicalInstallPath, token.TitleId, ctx.Logger, notes, ref removed);
+            }
 
             foreach (var ownedPath in token.CachedArtifacts)
             {
@@ -417,9 +491,8 @@ namespace RomM.Platforms.Vita
             return string.Empty;
         }
 
-        private static void ImportIntoVita3k(string stagedPath, PlatformInstallSettings? settings, IPlatformLogger? logger)
+        private static void ImportIntoVita3k(string stagedPath, string executable, IPlatformLogger? logger)
         {
-            var executable = settings?.Vita3kExecutablePath ?? string.Empty;
             if (string.IsNullOrWhiteSpace(executable) || !File.Exists(executable))
             {
                 logger?.Write(PlatformLogLevel.Warning, "Vita3K executable not configured or not found; skipping automated import command. Content staged for manual Vita3K import.");
@@ -467,51 +540,40 @@ namespace RomM.Platforms.Vita
             }
         }
 
-        private static string BuildLaunchArguments(RomInstallSettings? settings, string titleId)
-        {
-            var template = settings?.LaunchArguments;
-            if (string.IsNullOrWhiteSpace(template))
-            {
-                template = "--title-id {titleId}";
-            }
-
-            return template
-                .Replace("{titleId}", titleId)
-                .Replace("{rom}", QuoteArgument(titleId));
-        }
-
         private static void WriteToken(
             string tokenPath,
-            string titleId,
-            string titleName,
-            string version,
+            VitaTitleResolution resolution,
+            Vita3kEnvironmentResolution environment,
+            string physicalInstallPath,
             IReadOnlyCollection<string> cachedArtifacts,
             int updates,
             int dlc,
-            IPlatformLogger logger)
+            bool isConsolidatedInstall,
+            IPlatformLogger? logger)
         {
-            var lines = new List<string>
+            Directory.CreateDirectory(Path.GetDirectoryName(tokenPath) ?? string.Empty);
+            var vitaAppPath = Path.Combine(environment.Ux0AppRoot, resolution?.TitleId ?? string.Empty);
+            var token = new VitaInstallToken
             {
-                "{",
-                $"  \"titleId\": \"{EscapeJson(titleId)}\",",
-                $"  \"titleName\": \"{EscapeJson(titleName)}\",",
-                $"  \"version\": \"{EscapeJson(version)}\",",
-                $"  \"updatesImported\": {updates},",
-                $"  \"dlcImported\": {dlc},",
-                "  \"cachedArtifacts\": ["
+                TitleId = resolution?.TitleId ?? string.Empty,
+                TitleName = resolution?.TitleName ?? string.Empty,
+                Version = resolution?.Version ?? string.Empty,
+                LaunchMode = resolution?.LaunchMode ?? string.Empty,
+                LaunchTarget = resolution?.LaunchTarget ?? string.Empty,
+                SelectedBaseArtifactPath = resolution?.SelectedBaseArtifactPath ?? string.Empty,
+                LayoutDescription = resolution?.LayoutDescription ?? string.Empty,
+                UpdatesImported = updates,
+                DlcImported = dlc,
+                ConfigPath = environment?.ConfigPath ?? string.Empty,
+                PrefPath = environment?.PrefPath ?? string.Empty,
+                VitaAppPath = vitaAppPath,
+                PhysicalInstallPath = physicalInstallPath ?? string.Empty,
+                IsConsolidatedInstall = isConsolidatedInstall,
+                CachedArtifacts = cachedArtifacts?.ToList() ?? new List<string>()
             };
 
-            var indexed = cachedArtifacts.ToList();
-            for (var i = 0; i < indexed.Count; i++)
-            {
-                var suffix = i == indexed.Count - 1 ? string.Empty : ",";
-                lines.Add($"    \"{EscapeJson(indexed[i])}\"{suffix}");
-            }
-
-            lines.Add("  ]");
-            lines.Add("}");
-
-            File.WriteAllLines(tokenPath, lines, Encoding.UTF8);
+            var json = JsonSerializer.Serialize(token, TokenJsonOptions);
+            File.WriteAllText(tokenPath, json, Encoding.UTF8);
             logger?.Write(PlatformLogLevel.Info, $"Vita launch token created: {tokenPath}");
         }
 
@@ -525,9 +587,20 @@ namespace RomM.Platforms.Vita
             try
             {
                 var text = File.ReadAllText(path);
+                var token = JsonSerializer.Deserialize<VitaInstallToken>(text, TokenJsonOptions);
+                if (token != null)
+                {
+                    token.CachedArtifacts ??= new List<string>();
+                    return token;
+                }
+
                 var titleId = ExtractJsonString(text, "titleId");
                 var artifacts = ExtractJsonArray(text, "cachedArtifacts");
-                return new VitaInstallToken(titleId, artifacts);
+                return new VitaInstallToken
+                {
+                    TitleId = titleId,
+                    CachedArtifacts = artifacts
+                };
             }
             catch
             {
@@ -535,10 +608,12 @@ namespace RomM.Platforms.Vita
             }
         }
 
-        private static EmulatorReadinessResult ValidateVita3kReadiness(PlatformInstallSettings settings, IPlatformLogger logger)
+        private static EmulatorReadinessResult ValidateVita3kReadiness(PlatformInstallSettings? settings, RomInstallSettings? romSettings, IPlatformLogger? logger)
         {
             var failInstall = settings?.VitaFailIfEmulatorNotReady ?? false;
-            var exePath = settings?.Vita3kExecutablePath ?? string.Empty;
+            var exePath = !string.IsNullOrWhiteSpace(settings?.Vita3kExecutablePath)
+                ? settings!.Vita3kExecutablePath!
+                : (romSettings?.EmulatorExecutablePath ?? string.Empty);
             if (string.IsNullOrWhiteSpace(exePath))
             {
                 logger?.Write(PlatformLogLevel.Info, "Vita3K executable override not set; LaunchBox emulator mapping will be used.");
@@ -556,14 +631,129 @@ namespace RomM.Platforms.Vita
             return EmulatorReadinessResult.Ready(failInstall, string.Empty);
         }
 
-        private static string EscapeJson(string text)
+        private static void PrepareInstallStateForResolvedMode(bool consolidateInstalls, string vitaAppPath, string physicalInstallPath, IPlatformLogger? logger)
         {
-            if (string.IsNullOrWhiteSpace(text))
+            if (!consolidateInstalls)
             {
-                return string.Empty;
+                return;
             }
 
-            return text.Replace("\\", "\\\\").Replace("\"", "\\\"");
+            logger?.Write(PlatformLogLevel.Info, $"Preparing Vita consolidated install state. VitaAppPath='{vitaAppPath}', PhysicalInstallPath='{physicalInstallPath}'.");
+            if (!string.IsNullOrWhiteSpace(physicalInstallPath) && Directory.Exists(physicalInstallPath) && !Directory.Exists(vitaAppPath))
+            {
+                logger?.Write(PlatformLogLevel.Info, "Repairing missing Vita link before install because physical content already exists.");
+                VitaLinkManager.EnsureDirectoryLink(vitaAppPath, physicalInstallPath, logger);
+            }
+        }
+
+        private static void FinalizeInstalledContent(Vita3kEnvironmentResolution environment, VitaTitleResolution titleResolution, bool consolidateInstalls, string physicalInstallPath, IPlatformLogger? logger)
+        {
+            var vitaAppPath = Path.Combine(environment.Ux0AppRoot, titleResolution.TitleId);
+            logger?.Write(PlatformLogLevel.Info, $"Validating Vita installed content at '{vitaAppPath}'.");
+
+            if (consolidateInstalls)
+            {
+                FinalizeConsolidatedInstall(vitaAppPath, physicalInstallPath, titleResolution.TitleId, logger);
+                return;
+            }
+
+            if (!Directory.Exists(vitaAppPath))
+            {
+                throw new InvalidOperationException($"Vita3K install validation failed because the installed title directory was not found at '{vitaAppPath}'.");
+            }
+
+            logger?.Write(PlatformLogLevel.Info, $"Validated Vita standard install directory: {vitaAppPath}");
+        }
+
+        private static void FinalizeConsolidatedInstall(string vitaAppPath, string physicalInstallPath, string titleId, IPlatformLogger? logger)
+        {
+            logger?.Write(PlatformLogLevel.Info, $"Finalizing Vita consolidated install. VisiblePath='{vitaAppPath}', PhysicalPath='{physicalInstallPath}'.");
+            Directory.CreateDirectory(Path.GetDirectoryName(vitaAppPath) ?? string.Empty);
+            Directory.CreateDirectory(Path.GetDirectoryName(physicalInstallPath) ?? string.Empty);
+
+            if (VitaLinkManager.TryGetLinkTarget(vitaAppPath, out var currentLinkTarget)
+                && string.Equals(currentLinkTarget, physicalInstallPath, StringComparison.OrdinalIgnoreCase)
+                && Directory.Exists(physicalInstallPath))
+            {
+                logger?.Write(PlatformLogLevel.Info, $"Validated existing Vita consolidated link: '{vitaAppPath}' -> '{physicalInstallPath}'.");
+                return;
+            }
+
+            if (Directory.Exists(vitaAppPath) && !string.Equals(Path.GetFullPath(vitaAppPath), Path.GetFullPath(physicalInstallPath), StringComparison.OrdinalIgnoreCase))
+            {
+                if (Directory.Exists(physicalInstallPath))
+                {
+                    logger?.Write(PlatformLogLevel.Warning, $"Replacing existing consolidated Vita physical path before moving newly installed content: {physicalInstallPath}");
+                    Directory.Delete(physicalInstallPath, recursive: true);
+                }
+
+                logger?.Write(PlatformLogLevel.Info, $"Moving Vita installed content into consolidated storage: '{vitaAppPath}' -> '{physicalInstallPath}'.");
+                Directory.Move(vitaAppPath, physicalInstallPath);
+            }
+
+            if (!Directory.Exists(physicalInstallPath))
+            {
+                throw new InvalidOperationException($"Vita consolidated install validation failed because the physical title directory was not found at '{physicalInstallPath}'.");
+            }
+
+            VitaLinkManager.EnsureDirectoryLink(vitaAppPath, physicalInstallPath, logger);
+            if (!VitaLinkManager.TryGetLinkTarget(vitaAppPath, out var repairedTarget)
+                || !string.Equals(repairedTarget, physicalInstallPath, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException($"Vita consolidated install validation failed because link '{vitaAppPath}' does not point to '{physicalInstallPath}'.");
+            }
+
+            logger?.Write(PlatformLogLevel.Info, $"Validated Vita consolidated install link: '{vitaAppPath}' -> '{physicalInstallPath}'.");
+            logger?.Write(PlatformLogLevel.Info, $"Validated Vita consolidated install for TitleId '{titleId}'.");
+        }
+
+        private static bool ValidateResolvedInstall(VitaInstallToken token)
+        {
+            if (token == null || string.IsNullOrWhiteSpace(token.TitleId))
+            {
+                return false;
+            }
+
+            if (token.IsConsolidatedInstall)
+            {
+                return !string.IsNullOrWhiteSpace(token.VitaAppPath)
+                    && !string.IsNullOrWhiteSpace(token.PhysicalInstallPath)
+                    && Directory.Exists(token.PhysicalInstallPath);
+            }
+
+            return string.IsNullOrWhiteSpace(token.VitaAppPath) || Directory.Exists(token.VitaAppPath);
+        }
+
+        private static void TryDeleteVitaTitlePath(string path, string titleId, IPlatformLogger? logger, List<string> notes, ref int removed)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return;
+            }
+
+            try
+            {
+                var normalizedPath = Path.GetFullPath(path);
+                var leaf = Path.GetFileName(normalizedPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+                if (!string.Equals(leaf, titleId, StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(leaf, titleId + "-patch", StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(leaf, titleId + "-dlc", StringComparison.OrdinalIgnoreCase))
+                {
+                    logger?.Write(PlatformLogLevel.Warning, $"Skipping Vita deletion because path is not title-scoped: {normalizedPath}");
+                    return;
+                }
+
+                if (Directory.Exists(normalizedPath) || File.Exists(normalizedPath))
+                {
+                    VitaLinkManager.DeletePath(normalizedPath, logger);
+                    removed++;
+                }
+            }
+            catch (Exception ex)
+            {
+                notes.Add($"Failed to remove Vita title path '{path}': {ex.Message}");
+                logger?.Write(PlatformLogLevel.Warning, $"Failed to remove Vita title path '{path}': {ex.Message}");
+            }
         }
 
         private static string ExtractJsonString(string json, string key)
@@ -741,18 +931,29 @@ namespace RomM.Platforms.Vita
             public static EmulatorReadinessResult NotReady(bool failInstall, string message) => new(false, failInstall, message);
         }
 
-        private readonly struct VitaInstallToken
+        private sealed class VitaInstallToken
         {
-            public static VitaInstallToken Empty => new(string.Empty, new List<string>());
-
-            public VitaInstallToken(string titleId, List<string> cachedArtifacts)
+            public static VitaInstallToken Empty => new()
             {
-                TitleId = titleId;
-                CachedArtifacts = cachedArtifacts ?? new List<string>();
-            }
+                TitleId = string.Empty,
+                CachedArtifacts = new List<string>()
+            };
 
-            public string TitleId { get; }
-            public List<string> CachedArtifacts { get; }
+            public string TitleId { get; set; } = string.Empty;
+            public string TitleName { get; set; } = string.Empty;
+            public string Version { get; set; } = string.Empty;
+            public string LaunchMode { get; set; } = string.Empty;
+            public string LaunchTarget { get; set; } = string.Empty;
+            public string SelectedBaseArtifactPath { get; set; } = string.Empty;
+            public string LayoutDescription { get; set; } = string.Empty;
+            public string ConfigPath { get; set; } = string.Empty;
+            public string PrefPath { get; set; } = string.Empty;
+            public string VitaAppPath { get; set; } = string.Empty;
+            public string PhysicalInstallPath { get; set; } = string.Empty;
+            public bool IsConsolidatedInstall { get; set; }
+            public int UpdatesImported { get; set; }
+            public int DlcImported { get; set; }
+            public List<string> CachedArtifacts { get; set; } = new();
         }
     }
 }
