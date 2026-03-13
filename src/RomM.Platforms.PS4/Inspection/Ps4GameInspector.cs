@@ -41,7 +41,9 @@ namespace RomM.Platforms.PS4.Inspection
             result.SourcePath = sourcePath;
             result.StagedContentRoot = Directory.Exists(sourcePath)
                 ? sourcePath
-                : Path.GetDirectoryName(sourcePath) ?? string.Empty;
+                : (!string.IsNullOrWhiteSpace(extractedPath) && Directory.Exists(extractedPath)
+                    ? extractedPath
+                    : Path.GetDirectoryName(sourcePath) ?? string.Empty);
 
             logger?.Write(PlatformLogLevel.Info, $"Detected PS4 input layout. Archive extraction enabled: {result.ArchiveExtractionEnabled}.");
 
@@ -88,7 +90,7 @@ namespace RomM.Platforms.PS4.Inspection
 
         private static void AnalyzeFile(
             string filePath,
-            string? archivePath,
+            string? extractedPath,
             Ps4InspectorOptions? options,
             Ps4GameInspectionResult result,
             IPlatformLogger? logger)
@@ -96,7 +98,17 @@ namespace RomM.Platforms.PS4.Inspection
             var extension = NormalizeExtension(Path.GetExtension(filePath));
             if (ArchiveExtensions.Contains(extension))
             {
-                var warning = "Archive provided without extracted content; extracted-folder inspection is required for PS4 archive installs.";
+                result.SourceContentFormat = Ps4ContentFormat.Archive;
+                logger?.Write(PlatformLogLevel.Info, $"Detected PS4 archive source: {filePath}");
+
+                if (!string.IsNullOrWhiteSpace(extractedPath) && Directory.Exists(extractedPath))
+                {
+                    logger?.Write(PlatformLogLevel.Info, $"Inspecting extracted PS4 archive staging at: {extractedPath}");
+                    AnalyzeDirectory(extractedPath, options, result, logger);
+                    return;
+                }
+
+                var warning = "Archive provided without extracted content; extracted staging is required for PS4 archive installs.";
                 result.Warnings.Add(warning);
                 result.ErrorMessage = warning;
                 logger?.Write(PlatformLogLevel.Warning, warning);
@@ -105,21 +117,15 @@ namespace RomM.Platforms.PS4.Inspection
 
             if (string.Equals(extension, ".pkg", StringComparison.OrdinalIgnoreCase))
             {
-                var isDirectPkg = !string.IsNullOrWhiteSpace(archivePath)
-                    && string.Equals(Path.GetFullPath(archivePath), Path.GetFullPath(filePath), StringComparison.OrdinalIgnoreCase)
-                    && string.Equals(NormalizeExtension(Path.GetExtension(archivePath)), ".pkg", StringComparison.OrdinalIgnoreCase);
+                result.SourceContentFormat = Ps4ContentFormat.Pkg;
+                result.IsDirectPkgDownload = true;
+                logger?.Write(PlatformLogLevel.Info, $"Detected direct PKG download: {filePath}");
 
-                result.IsDirectPkgDownload = isDirectPkg;
-                if (isDirectPkg)
-                {
-                    logger?.Write(PlatformLogLevel.Info, $"Detected direct PKG download: {filePath}");
-                }
-
-                var candidate = BuildPkgCandidate(filePath, Ps4ContentRole.BaseGame, result.DirectPkgSupportEnabled && isDirectPkg);
+                var candidate = BuildPkgCandidate(filePath, Ps4ContentRole.BaseGame, result.DirectPkgSupportEnabled);
                 AddCandidate(result, candidate, logger);
                 if (!candidate.IsSupportedForInstall)
                 {
-                    var message = "Detected PKG content but PKG support is disabled because downloaded file is not a direct .pkg or extractor path is not configured.";
+                    var message = "Detected PKG content but PKG support is disabled because extractor support is not configured.";
                     result.Warnings.Add(message);
                     logger?.Write(PlatformLogLevel.Warning, message);
                 }
@@ -134,36 +140,18 @@ namespace RomM.Platforms.PS4.Inspection
 
         private static void AnalyzeDirectory(string rootPath, Ps4InspectorOptions? options, Ps4GameInspectionResult result, IPlatformLogger? logger)
         {
+            result.SourceContentFormat = Ps4ContentFormat.Folder;
+
             var files = Directory.EnumerateFiles(rootPath, "*", SearchOption.AllDirectories)
                 .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
                 .ToArray();
-
             var directories = Directory.EnumerateDirectories(rootPath, "*", SearchOption.AllDirectories)
                 .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
                 .ToArray();
 
-            foreach (var directory in directories)
+            foreach (var folderCandidate in DiscoverFolderCandidates(rootPath, files, directories))
             {
-                var name = Path.GetFileName(directory) ?? string.Empty;
-                var titleId = ExtractTitleId(name);
-                if (string.IsNullOrWhiteSpace(titleId))
-                {
-                    continue;
-                }
-
-                var role = InferRoleFromPath(directory);
-                var candidate = new Ps4ContentCandidate
-                {
-                    Path = directory,
-                    ContentRole = role,
-                    ContentFormat = Ps4ContentFormat.ExtractedFolder,
-                    TitleId = titleId,
-                    TitleName = InferTitleName(name),
-                    Version = ExtractVersion(name),
-                    IsSupportedForInstall = true
-                };
-
-                AddCandidate(result, candidate, logger);
+                AddCandidate(result, folderCandidate, logger);
             }
 
             var pkgFiles = files.Where(path => string.Equals(NormalizeExtension(Path.GetExtension(path)), ".pkg", StringComparison.OrdinalIgnoreCase)).ToArray();
@@ -173,15 +161,9 @@ namespace RomM.Platforms.PS4.Inspection
                 {
                     var role = InferRoleFromPath(pkgPath);
                     var candidate = BuildPkgCandidate(pkgPath, role, options?.AllowExtractedPkgInstall == true && result.DirectPkgSupportEnabled);
-                    if (!candidate.IsSupportedForInstall)
-                    {
-                        candidate.Warnings.Add("Nested/extracted PKG detected. Direct PKG rule does not allow automatic support in archive workflow.");
-                    }
 
                     AddCandidate(result, candidate, logger);
                 }
-
-                result.Warnings.Add("Detected PKG content inside extracted archive. PKG support for extracted PKG is disabled by default.");
             }
 
             if (result.DetectedItems.Count == 0)
@@ -197,8 +179,9 @@ namespace RomM.Platforms.PS4.Inspection
             return new Ps4ContentCandidate
             {
                 Path = path,
+                RelativePath = Path.GetFileName(path) ?? string.Empty,
                 ContentRole = role,
-                ContentFormat = isSupported ? Ps4ContentFormat.Pkg : Ps4ContentFormat.Unsupported,
+                ContentFormat = Ps4ContentFormat.Pkg,
                 TitleId = ExtractTitleId(fileName),
                 TitleName = InferTitleName(fileName),
                 Version = ExtractVersion(fileName),
@@ -219,6 +202,14 @@ namespace RomM.Platforms.PS4.Inspection
                 case Ps4ContentRole.Dlc:
                     result.DlcItems.Add(candidate);
                     logger?.Write(PlatformLogLevel.Info, $"Detected DLC item: {candidate.ContentFormat} path={candidate.Path}");
+                    break;
+                case Ps4ContentRole.Bonus:
+                    result.BonusItems.Add(candidate);
+                    logger?.Write(PlatformLogLevel.Info, $"Detected bonus item: {candidate.ContentFormat} path={candidate.Path}");
+                    break;
+                case Ps4ContentRole.Unknown:
+                    result.UnknownItems.Add(candidate);
+                    logger?.Write(PlatformLogLevel.Warning, $"Detected unknown PS4 item: {candidate.ContentFormat} path={candidate.Path}");
                     break;
                 default:
                     result.BaseGameItems.Add(candidate);
@@ -245,7 +236,16 @@ namespace RomM.Platforms.PS4.Inspection
                 return;
             }
 
-            result.IsAmbiguous = supportedBase.Count > 1;
+            if (supportedBase.Count > 1)
+            {
+                supportedBase = supportedBase
+                    .OrderByDescending(item => item.HasPlayableBinary)
+                    .ThenBy(item => item.Path.Count(ch => ch == Path.DirectorySeparatorChar || ch == Path.AltDirectorySeparatorChar))
+                    .ThenBy(item => item.Path, StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }
+
+            result.IsAmbiguous = supportedBase.Skip(1).Any(item => item.HasPlayableBinary == supportedBase[0].HasPlayableBinary);
             if (result.IsAmbiguous)
             {
                 var warning = $"Multiple base game candidates detected ({supportedBase.Count}). Unable to determine canonical install target safely.";
@@ -273,6 +273,11 @@ namespace RomM.Platforms.PS4.Inspection
         private static Ps4ContentRole InferRoleFromPath(string path)
         {
             var normalized = path.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar).ToLowerInvariant();
+            if (normalized.Contains("\\bonus\\") || normalized.EndsWith("\\bonus", StringComparison.Ordinal))
+            {
+                return Ps4ContentRole.Bonus;
+            }
+
             if (normalized.Contains("\\update\\") || normalized.EndsWith("\\update", StringComparison.Ordinal))
             {
                 return Ps4ContentRole.Update;
@@ -289,6 +294,198 @@ namespace RomM.Platforms.PS4.Inspection
             }
 
             return Ps4ContentRole.BaseGame;
+        }
+
+        private static IEnumerable<Ps4ContentCandidate> DiscoverFolderCandidates(
+            string rootPath,
+            IReadOnlyCollection<string> files,
+            IReadOnlyCollection<string> directories)
+        {
+            var map = new Dictionary<string, Ps4ContentCandidate>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var directory in directories)
+            {
+                if (!TryResolveDirectoryCandidateRoot(rootPath, directory, out var candidateRoot, out var role))
+                {
+                    continue;
+                }
+
+                EnsureFolderCandidate(map, rootPath, candidateRoot, role);
+            }
+
+            foreach (var file in files)
+            {
+                if (string.Equals(NormalizeExtension(Path.GetExtension(file)), ".pkg", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                if (!TryResolveFolderCandidateRoot(rootPath, file, out var candidateRoot, out var role))
+                {
+                    continue;
+                }
+
+                var candidate = EnsureFolderCandidate(map, rootPath, candidateRoot, role);
+
+                if (string.Equals(Path.GetFileName(file), "eboot.bin", StringComparison.OrdinalIgnoreCase))
+                {
+                    candidate.HasPlayableBinary = true;
+                }
+            }
+
+            return map.Values
+                .OrderBy(candidate => candidate.Path, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+        }
+
+        private static Ps4ContentCandidate EnsureFolderCandidate(
+            IDictionary<string, Ps4ContentCandidate> map,
+            string rootPath,
+            string candidateRoot,
+            Ps4ContentRole role)
+        {
+            if (!map.TryGetValue(candidateRoot, out var candidate))
+            {
+                var name = Path.GetFileName(candidateRoot) ?? string.Empty;
+                candidate = new Ps4ContentCandidate
+                {
+                    Path = candidateRoot,
+                    RelativePath = Path.GetRelativePath(rootPath, candidateRoot),
+                    ContentRole = role,
+                    ContentFormat = Ps4ContentFormat.Folder,
+                    TitleId = ExtractTitleId(name),
+                    TitleName = InferTitleName(name),
+                    Version = ExtractVersion(name),
+                    IsSupportedForInstall = true
+                };
+                map[candidateRoot] = candidate;
+            }
+
+            return candidate;
+        }
+
+        private static bool TryResolveDirectoryCandidateRoot(string rootPath, string directoryPath, out string candidateRoot, out Ps4ContentRole role)
+        {
+            candidateRoot = string.Empty;
+            role = Ps4ContentRole.Unknown;
+
+            var relative = Path.GetRelativePath(rootPath, directoryPath);
+            var segments = relative
+                .Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries)
+                .ToArray();
+
+            if (segments.Length == 0)
+            {
+                return false;
+            }
+
+            var normalizedSegments = segments.Select(segment => segment.ToLowerInvariant()).ToArray();
+
+            var bonusIndex = Array.FindIndex(normalizedSegments, segment => segment == "bonus");
+            if (bonusIndex >= 0 && bonusIndex + 1 < segments.Length)
+            {
+                role = Ps4ContentRole.Bonus;
+                candidateRoot = Path.Combine(rootPath, Path.Combine(segments.Take(bonusIndex + 2).ToArray()));
+                return true;
+            }
+
+            var dlcIndex = Array.FindIndex(normalizedSegments, segment => segment == "dlc");
+            if (dlcIndex >= 0 && dlcIndex + 1 < segments.Length)
+            {
+                role = Ps4ContentRole.Dlc;
+                candidateRoot = Path.Combine(rootPath, Path.Combine(segments.Take(dlcIndex + 2).ToArray()));
+                return true;
+            }
+
+            var updateIndex = Array.FindIndex(normalizedSegments, segment => segment == "update");
+            if (updateIndex >= 0 && updateIndex + 1 < segments.Length)
+            {
+                role = Ps4ContentRole.Update;
+                candidateRoot = Path.Combine(rootPath, Path.Combine(segments.Take(updateIndex + 2).ToArray()));
+                return true;
+            }
+
+            var patchIndex = Array.FindIndex(segments, segment => segment.EndsWith("-patch", StringComparison.OrdinalIgnoreCase));
+            if (patchIndex >= 0)
+            {
+                role = Ps4ContentRole.Update;
+                candidateRoot = Path.Combine(rootPath, Path.Combine(segments.Take(patchIndex + 1).ToArray()));
+                return true;
+            }
+
+            var titleIndex = Array.FindIndex(segments, segment => !string.IsNullOrWhiteSpace(ExtractTitleId(segment)));
+            if (titleIndex >= 0)
+            {
+                role = InferRoleFromPath(directoryPath);
+                candidateRoot = Path.Combine(rootPath, Path.Combine(segments.Take(titleIndex + 1).ToArray()));
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool TryResolveFolderCandidateRoot(string rootPath, string filePath, out string candidateRoot, out Ps4ContentRole role)
+        {
+            candidateRoot = string.Empty;
+            role = Ps4ContentRole.Unknown;
+
+            var relative = Path.GetRelativePath(rootPath, filePath);
+            var segments = relative
+                .Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries)
+                .ToArray();
+
+            if (segments.Length < 2)
+            {
+                return false;
+            }
+
+            var directorySegments = segments.Take(segments.Length - 1).ToArray();
+            var normalizedSegments = directorySegments.Select(segment => segment.ToLowerInvariant()).ToArray();
+
+            var bonusIndex = Array.FindIndex(normalizedSegments, segment => segment == "bonus");
+            if (bonusIndex >= 0)
+            {
+                role = Ps4ContentRole.Bonus;
+                var rootIndex = Math.Min(bonusIndex + 1, directorySegments.Length - 1);
+                candidateRoot = Path.Combine(rootPath, Path.Combine(directorySegments.Take(rootIndex + 1).ToArray()));
+                return true;
+            }
+
+            var dlcIndex = Array.FindIndex(normalizedSegments, segment => segment == "dlc");
+            if (dlcIndex >= 0)
+            {
+                role = Ps4ContentRole.Dlc;
+                var rootIndex = Math.Min(dlcIndex + 1, directorySegments.Length - 1);
+                candidateRoot = Path.Combine(rootPath, Path.Combine(directorySegments.Take(rootIndex + 1).ToArray()));
+                return true;
+            }
+
+            var updateIndex = Array.FindIndex(normalizedSegments, segment => segment == "update");
+            if (updateIndex >= 0)
+            {
+                role = Ps4ContentRole.Update;
+                var rootIndex = Math.Min(updateIndex + 1, directorySegments.Length - 1);
+                candidateRoot = Path.Combine(rootPath, Path.Combine(directorySegments.Take(rootIndex + 1).ToArray()));
+                return true;
+            }
+
+            var patchIndex = Array.FindIndex(directorySegments, segment => segment.EndsWith("-patch", StringComparison.OrdinalIgnoreCase));
+            if (patchIndex >= 0)
+            {
+                role = Ps4ContentRole.Update;
+                candidateRoot = Path.Combine(rootPath, Path.Combine(directorySegments.Take(patchIndex + 1).ToArray()));
+                return true;
+            }
+
+            var titleIndex = Array.FindIndex(directorySegments, segment => !string.IsNullOrWhiteSpace(ExtractTitleId(segment)));
+            if (titleIndex >= 0)
+            {
+                role = Ps4ContentRole.BaseGame;
+                candidateRoot = Path.Combine(rootPath, Path.Combine(directorySegments.Take(titleIndex + 1).ToArray()));
+                return true;
+            }
+
+            return false;
         }
 
         private static string ExtractTitleId(string text)

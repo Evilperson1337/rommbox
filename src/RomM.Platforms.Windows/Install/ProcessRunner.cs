@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using RomM.Platforms.Abstractions.Install;
 using RomM.Platforms.Abstractions.Logging;
 
 namespace RomM.Platforms.Windows.Install
@@ -45,7 +46,8 @@ namespace RomM.Platforms.Windows.Install
             IReadOnlyList<string> arguments,
             CancellationToken cancellationToken,
             IPlatformLogger? logger = null,
-            string? installerLogPath = null)
+            string? installerLogPath = null,
+            string? platformInstallRoot = null)
         {
             if (installers == null)
             {
@@ -61,7 +63,9 @@ namespace RomM.Platforms.Windows.Install
             }
 
             cancellationToken.ThrowIfCancellationRequested();
-            var batchRoot = Path.Combine(Path.GetTempPath(), "RomM", "install");
+            var batchRoot = !string.IsNullOrWhiteSpace(platformInstallRoot)
+                ? Path.Combine(InstallStagingPathHelper.ResolvePlatformStagingRoot(platformInstallRoot), "installer-batch")
+                : Path.Combine(InstallStagingPathHelper.ResolvePlatformStagingRoot(Environment.CurrentDirectory), "installer-batch");
             Directory.CreateDirectory(batchRoot);
             var batchId = Guid.NewGuid().ToString("N");
             var batchLogPath = Path.Combine(batchRoot, $"installer-batch-{batchId}.log");

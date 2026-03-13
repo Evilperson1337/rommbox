@@ -5,7 +5,8 @@ namespace RomM.Platforms.PS4.Inspection
         Unknown = 0,
         BaseGame,
         Update,
-        Dlc
+        Dlc,
+        Bonus
     }
 }
 

@@ -674,10 +674,25 @@ public sealed class PlatformsViewModel : ObservableObject
         }
 
         var defaultInstallDirectory = ResolveDefaultInstallDirectory(mapping.LaunchBoxPlatform);
-        var pluginPreference = !string.IsNullOrWhiteSpace(mapping.PluginKey)
-            ? mapping.PluginKey
-            : mapping.RommPlatformId;
-        var resolvedPluginKey = _platformInstallers.ResolveConfigPluginKey(pluginPreference);
+        var resolutionCandidates = new[]
+        {
+            mapping.RommPlatformId,
+            mapping.RomMPlatform,
+            mapping.LaunchBoxPlatform,
+            mapping.PluginKey
+        };
+
+        var resolvedPluginKey = resolutionCandidates
+            .Where(candidate => !string.IsNullOrWhiteSpace(candidate))
+            .Select(candidate => _platformInstallers.ResolveConfigPluginKey(candidate))
+            .FirstOrDefault(candidate => !string.IsNullOrWhiteSpace(candidate) && !string.Equals(candidate, "general", StringComparison.OrdinalIgnoreCase))
+            ?? _platformInstallers.ResolveConfigPluginKey(mapping.PluginKey);
+
+        if (string.IsNullOrWhiteSpace(resolvedPluginKey))
+        {
+            resolvedPluginKey = _platformInstallers.ResolveConfigPluginKey(mapping.RommPlatformId);
+        }
+
         mapping.PluginKey = resolvedPluginKey;
         var configDescriptor = _platformInstallers.GetConfigDescriptor(resolvedPluginKey);
         _logger?.Info($"Platform configuration opened for '{mapping.RomMPlatform}'. PluginKey='{resolvedPluginKey}', RomMId='{mapping.RommPlatformId}'.");

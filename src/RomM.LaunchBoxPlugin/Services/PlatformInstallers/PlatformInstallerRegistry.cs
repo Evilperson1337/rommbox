@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using RomM.Platforms.Abstractions;
 using RomM.Platforms.Abstractions.Models.Metadata;
 
@@ -77,6 +78,19 @@ namespace RomMbox.Services.PlatformInstallers
             if (TryGetInstaller(preferredKey, out var installer) && installer != null)
             {
                 return installer.PlatformKey ?? preferredKey ?? string.Empty;
+            }
+
+            var resolvedByIdentity = PlatformIdentityResolver.Resolve(
+                this,
+                new PlatformResolutionEvidence
+                {
+                    PlatformKey = preferredKey ?? string.Empty,
+                    PlatformDisplayName = preferredKey ?? string.Empty,
+                    LaunchBoxPlatformName = preferredKey ?? string.Empty
+                }).ResolvedPlatformKey;
+            if (!string.IsNullOrWhiteSpace(resolvedByIdentity))
+            {
+                return resolvedByIdentity;
             }
 
             if (TryGetInstaller("general", out var fallback) && fallback != null)

@@ -59,7 +59,7 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
         RomArchivePolicy = mapping?.RomArchivePolicy ?? string.Empty;
         PluginKey = mapping?.PluginKey ?? string.Empty;
         PluginSettings = mapping?.PluginSettings ?? string.Empty;
-        SupportedFileTypes = mapping?.SupportedFileTypes ?? string.Empty;
+        SupportedFileTypes = ResolveConfiguredValue(mapping?.SupportedFileTypes, "SupportedFileTypes");
         PreferredLaunchExtensions = mapping?.PreferredLaunchExtensions ?? string.Empty;
         ArchiveHandlingMode = string.IsNullOrWhiteSpace(mapping?.ArchiveHandlingMode) ? "NeverExtract" : mapping.ArchiveHandlingMode;
         UseGameSubdirectory = mapping?.UseGameSubdirectory ?? true;
@@ -406,7 +406,17 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
     /// <summary>
     /// Gets or sets the associated emulator id for this platform.
     /// </summary>
-    public string AssociatedEmulatorId { get => _associatedEmulatorId; set => SetProperty(ref _associatedEmulatorId, value); }
+    public string AssociatedEmulatorId
+    {
+        get => _associatedEmulatorId;
+        set
+        {
+            if (SetProperty(ref _associatedEmulatorId, value))
+            {
+                NotifyBannerStateChanged();
+            }
+        }
+    }
 
     private string _emulatorCoreId = string.Empty;
     /// <summary>
@@ -478,7 +488,18 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
     /// <summary>
     /// Gets or sets whether fallback installs use a game subdirectory.
     /// </summary>
-    public bool UseGameSubdirectory { get => _useGameSubdirectory; set => SetProperty(ref _useGameSubdirectory, value); }
+    public bool UseGameSubdirectory
+    {
+        get => _useGameSubdirectory;
+        set
+        {
+            if (SetProperty(ref _useGameSubdirectory, value))
+            {
+                RaisePropertyChanged(nameof(IsInstallInRootLayout));
+                RaisePropertyChanged(nameof(IsInstallInSubdirectoryLayout));
+            }
+        }
+    }
 
     private bool _installAllMatchingFiles = true;
     /// <summary>
@@ -496,7 +517,18 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
     /// <summary>
     /// Gets or sets install layout mode for general ROM platforms.
     /// </summary>
-    public string InstallLayoutMode { get => _installLayoutMode; set => SetProperty(ref _installLayoutMode, value); }
+    public string InstallLayoutMode
+    {
+        get => _installLayoutMode;
+        set
+        {
+            if (SetProperty(ref _installLayoutMode, value))
+            {
+                RaisePropertyChanged(nameof(IsInstallInRootLayout));
+                RaisePropertyChanged(nameof(IsInstallInSubdirectoryLayout));
+            }
+        }
+    }
 
     private string _artifactSelectionMode = "ExtensionPriority";
     /// <summary>
@@ -511,6 +543,54 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
     public bool UseGeneralFallbackInstaller { get => _useGeneralFallbackInstaller; set => SetProperty(ref _useGeneralFallbackInstaller, value); }
 
     public ObservableCollection<EmulatorOption> Emulators { get; }
+
+    public string PageTitle => string.IsNullOrWhiteSpace(LaunchBoxPlatformName)
+        ? "Platform Configuration"
+        : $"{LaunchBoxPlatformName} Configuration";
+
+    public string PageSubtitle => ResolvePageSubtitle();
+
+    public string BannerPlatformLabel => string.IsNullOrWhiteSpace(LaunchBoxPlatformName)
+        ? "Platform"
+        : $"Platform: {LaunchBoxPlatformName}";
+
+    public string SelectedEmulatorName => SelectedEmulator?.Name ?? "Not configured";
+
+    public bool ShowBannerEmulatorSelector => Emulators.Count > 0 && !IsWindowsPlatform;
+
+    public string BannerStatusText => ResolveBannerStatusText();
+
+    public bool ShowBannerStatusBadge => !string.IsNullOrWhiteSpace(BannerStatusText);
+
+    public string PlatformOptionsDescription => "Set default paths and content-handling behavior for this platform.";
+
+    public string EmulatorOptionsDescription => "Configure emulator-specific paths, supported content formats, and launch behavior.";
+
+    public string ExtraConfigurationDescription => "Optional plugin-specific settings and workflow controls for this platform.";
+
+    public bool IsInstallInRootLayout
+    {
+        get => string.Equals(GetNormalizedInstallLayoutMode(), "UsePlatformRoot", StringComparison.OrdinalIgnoreCase);
+        set
+        {
+            if (value)
+            {
+                SetInstallLayoutMode("UsePlatformRoot");
+            }
+        }
+    }
+
+    public bool IsInstallInSubdirectoryLayout
+    {
+        get => !IsInstallInRootLayout;
+        set
+        {
+            if (value)
+            {
+                SetInstallLayoutMode("CreatePerGameSubfolder");
+            }
+        }
+    }
 
     public EmulatorOption SelectedEmulator
     {
@@ -529,7 +609,7 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
             if (!string.Equals(AssociatedEmulatorId, nextId, StringComparison.OrdinalIgnoreCase))
             {
                 AssociatedEmulatorId = nextId;
-                RaisePropertyChanged(nameof(SelectedEmulator));
+                NotifyBannerStateChanged();
             }
         }
     }
@@ -549,41 +629,71 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
     public bool IsGeneralPlugin => string.Equals(PluginKey, "general", StringComparison.OrdinalIgnoreCase);
     public bool HasPluginDescriptorFields => _configDescriptor?.Fields != null && _configDescriptor.Fields.Count > 0;
     public bool HasPluginSpecificTooling => HasPluginDescriptorFields && !IsGeneralPlugin;
-    public bool ShowInstallationTypeSection => IsWindowsPlatform || IsGeneralPlugin;
+    public bool ShowPlatformOptionsSection => true;
+    public bool ShowEmulatorOptionsSection =>
+        ShowRetroArchCoreSelectionField
+        || ShowSupportedFileTypesField
+        || ShowRpcs3ExecutablePathField
+        || ShowRpcs3LicenseDirectoryField
+        || ShowShadPs4ExecutablePathField
+        || ShowPs4ExternalPkgExtractorPathField
+        || ShowPs4FailIfDirectPkgExtractorMissingField
+        || ShowPcsx2ExecutablePathField
+        || ShowPspEmulatorModeField
+        || ShowPpssppExecutablePathField
+        || ShowRetroArchExecutablePathField
+        || ShowRetroArchPpssppCorePathField
+        || ShowValidateRetroArchPpssppAssetsField
+        || ShowFailInstallIfEmulatorNotReadyField
+        || ShowVita3kExecutablePathField
+        || ShowVitaFailIfEmulatorNotReadyField
+        || ShowSwitchEdenExecutablePathField
+        || ShowAzaharExecutablePathField
+        || ShowAzaharPlusExecutablePathField
+        || ShowDolphinExecutablePathField
+        || ShowCemuExecutablePathField;
+    public bool ShowExtraConfigurationSection =>
+        ShowSkipRegionMismatchedDlcField
+        || ShowSkipUnmatchedRapFilesField
+        || ShowPreferMetadataBasedPackageMatchingField
+        || ShowVitaInstallUpdatesAutomaticallyField
+        || ShowVitaInstallDlcAutomaticallyField
+        || ShowVitaFailIfEmulatorNotReadyField;
+    public bool ShowInstallationTypeSection => IsWindowsPlatform;
     public bool ShowAssociatedEmulatorField => IsGeneralPlugin;
-    public bool ShowGenericEmulatorCoreFields => IsGeneralPlugin;
-    public bool ShowExtractAfterDownloadField => IsGeneralPlugin;
-    public bool ShowRomInstallRootField => IsGeneralPlugin;
-    public bool ShowRomArchivePolicyField => IsGeneralPlugin;
-    public bool ShowBasicOptionsSection => IsBasicSelected && IsGeneralPlugin;
+    public bool ShowRetroArchCoreSelectionField => IsRetroArchSelected && !ShowPspEmulatorModeField;
+    public bool ShowExtractAfterDownloadField => false;
+    public bool ShowRomInstallRootField => false;
+    public bool ShowRomArchivePolicyField => false;
+    public bool ShowBasicOptionsSection => IsBasicSelected && IsWindowsPlatform;
     public bool ShowEnhancedOptionsSection => IsEnhancedSelected && IsWindowsPlatform;
 
-    public bool ShowPs3GameDirectoryField => HasConfigField("Ps3GameDirectory");
+    public bool ShowPs3GameDirectoryField => false;
     public bool ShowRpcs3ExecutablePathField => HasConfigField("Rpcs3ExecutablePath");
     public bool ShowRpcs3LicenseDirectoryField => HasConfigField("Rpcs3LicenseDirectory");
     public bool ShowSkipRegionMismatchedDlcField => HasConfigField("SkipRegionMismatchedDlc");
     public bool ShowSkipUnmatchedRapFilesField => HasConfigField("SkipUnmatchedRapFiles");
     public bool ShowPreferMetadataBasedPackageMatchingField => HasConfigField("PreferMetadataBasedPackageMatching");
-    public bool ShowSupportedFileTypesField => HasConfigField("SupportedFileTypes");
-    public bool ShowPreferredLaunchExtensionsField => HasConfigField("PreferredLaunchExtensions");
-    public bool ShowArchiveHandlingModeField => HasConfigField("ArchiveHandlingMode");
-    public bool ShowUseGameSubdirectoryField => HasConfigField("UseGameSubdirectory");
-    public bool ShowInstallAllMatchingFilesField => HasConfigField("InstallAllMatchingFiles");
-    public bool ShowInstallFromArchiveDirectlyField => HasConfigField("InstallFromArchiveDirectly");
-    public bool ShowInstallLayoutModeField => HasConfigField("InstallLayoutMode");
-    public bool ShowArtifactSelectionModeField => HasConfigField("ArtifactSelectionMode");
-    public bool ShowUseGeneralFallbackInstallerField => HasConfigField("UseGeneralFallbackInstaller");
-    public bool ShowPs4GamesDirectoryField => HasConfigField("Ps4GamesDirectory");
+    public bool ShowSupportedFileTypesField => HasConfigField("SupportedFileTypes") && HasSelectedEmulatorSpecificConfiguration;
+    public bool ShowPreferredLaunchExtensionsField => false;
+    public bool ShowArchiveHandlingModeField => false;
+    public bool ShowUseGameSubdirectoryField => false;
+    public bool ShowInstallAllMatchingFilesField => false;
+    public bool ShowInstallFromArchiveDirectlyField => false;
+    public bool ShowInstallLayoutModeField => false;
+    public bool ShowArtifactSelectionModeField => false;
+    public bool ShowUseGeneralFallbackInstallerField => HasConfigField("UseGeneralFallbackInstaller") && IsWindowsPlatform;
+    public bool ShowPs4GamesDirectoryField => false;
     public bool ShowShadPs4ExecutablePathField => HasConfigField("ShadPs4ExecutablePath");
     public bool ShowPs4ExternalPkgExtractorPathField => HasConfigField("Ps4ExternalPkgExtractorPath");
-    public bool ShowPs4FailIfDirectPkgExtractorMissingField => HasConfigField("Ps4FailIfDirectPkgExtractorMissing");
+    public bool ShowPs4FailIfDirectPkgExtractorMissingField => HasConfigField("Ps4FailIfDirectPkgExtractorMissing") && ShowPs4ExternalPkgExtractorPathField;
     public bool ShowPcsx2ExecutablePathField => HasConfigField("Pcsx2ExecutablePath");
     public bool ShowPspEmulatorModeField => HasConfigField("PspEmulatorMode");
-    public bool ShowPpssppExecutablePathField => HasConfigField("PpssppExecutablePath");
-    public bool ShowRetroArchExecutablePathField => HasConfigField("RetroArchExecutablePath");
-    public bool ShowRetroArchPpssppCorePathField => HasConfigField("RetroArchPpssppCorePath");
-    public bool ShowValidateRetroArchPpssppAssetsField => HasConfigField("ValidateRetroArchPpssppAssets");
-    public bool ShowFailInstallIfEmulatorNotReadyField => HasConfigField("FailInstallIfEmulatorNotReady");
+    public bool ShowPpssppExecutablePathField => HasConfigField("PpssppExecutablePath") && (ShowPspEmulatorModeField ? IsPspStandaloneMode : IsEmulatorFamilySelectedOrUnspecified("ppsspp"));
+    public bool ShowRetroArchExecutablePathField => HasConfigField("RetroArchExecutablePath") && (ShowPspEmulatorModeField ? IsPspRetroArchMode : IsRetroArchSelected);
+    public bool ShowRetroArchPpssppCorePathField => HasConfigField("RetroArchPpssppCorePath") && IsPspRetroArchMode;
+    public bool ShowValidateRetroArchPpssppAssetsField => HasConfigField("ValidateRetroArchPpssppAssets") && IsPspRetroArchMode;
+    public bool ShowFailInstallIfEmulatorNotReadyField => HasConfigField("FailInstallIfEmulatorNotReady") && (ShowPpssppExecutablePathField || ShowRetroArchExecutablePathField || ShowRetroArchCoreSelectionField);
     public bool ShowVita3kExecutablePathField => HasConfigField("Vita3kExecutablePath");
     public bool ShowVitaFailIfEmulatorNotReadyField => HasConfigField("VitaFailIfEmulatorNotReady");
     public bool ShowVitaInstallUpdatesAutomaticallyField => HasConfigField("VitaInstallUpdatesAutomatically");
@@ -593,6 +703,24 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
     public bool ShowAzaharPlusExecutablePathField => HasConfigField("AzaharPlusExecutablePath");
     public bool ShowDolphinExecutablePathField => HasConfigField("DolphinExecutablePath");
     public bool ShowCemuExecutablePathField => HasConfigField("CemuExecutablePath");
+    public bool IsRetroArchSelected => IsEmulatorFamilySelected("retroarch");
+    public bool HasSelectedEmulatorSpecificConfiguration =>
+        ShowShadPs4ExecutablePathField
+        || ShowPs4ExternalPkgExtractorPathField
+        || ShowRpcs3ExecutablePathField
+        || ShowRpcs3LicenseDirectoryField
+        || ShowPcsx2ExecutablePathField
+        || ShowPpssppExecutablePathField
+        || ShowRetroArchExecutablePathField
+        || ShowRetroArchPpssppCorePathField
+        || ShowVita3kExecutablePathField
+        || ShowSwitchEdenExecutablePathField
+        || ShowAzaharExecutablePathField
+        || ShowAzaharPlusExecutablePathField
+        || ShowDolphinExecutablePathField
+        || ShowCemuExecutablePathField
+        || ShowRetroArchCoreSelectionField
+        || ShowPspEmulatorModeField;
     public bool IsPspRetroArchMode => string.Equals(PspEmulatorMode, "RetroArchPPSSPP", StringComparison.OrdinalIgnoreCase);
     public bool IsPspStandaloneMode => !IsPspRetroArchMode;
 
@@ -614,7 +742,17 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
     /// <summary>
     /// Gets or sets the RPCS3 executable path.
     /// </summary>
-    public string Rpcs3ExecutablePath { get => _rpcs3ExecutablePath; set => SetProperty(ref _rpcs3ExecutablePath, value); }
+    public string Rpcs3ExecutablePath
+    {
+        get => _rpcs3ExecutablePath;
+        set
+        {
+            if (SetProperty(ref _rpcs3ExecutablePath, value))
+            {
+                NotifyBannerStateChanged();
+            }
+        }
+    }
 
     private bool _installDlcAutomatically;
     /// <summary>
@@ -662,7 +800,17 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
     /// <summary>
     /// Gets or sets the ShadPS4 executable path.
     /// </summary>
-    public string ShadPs4ExecutablePath { get => _shadPs4ExecutablePath; set => SetProperty(ref _shadPs4ExecutablePath, value); }
+    public string ShadPs4ExecutablePath
+    {
+        get => _shadPs4ExecutablePath;
+        set
+        {
+            if (SetProperty(ref _shadPs4ExecutablePath, value))
+            {
+                NotifyBannerStateChanged();
+            }
+        }
+    }
 
     private string _ps4ExternalPkgExtractorPath = string.Empty;
     /// <summary>
@@ -677,7 +825,17 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
     public bool Ps4FailIfDirectPkgExtractorMissing { get => _ps4FailIfDirectPkgExtractorMissing; set => SetProperty(ref _ps4FailIfDirectPkgExtractorMissing, value); }
 
     private string _pcsx2ExecutablePath = string.Empty;
-    public string Pcsx2ExecutablePath { get => _pcsx2ExecutablePath; set => SetProperty(ref _pcsx2ExecutablePath, value); }
+    public string Pcsx2ExecutablePath
+    {
+        get => _pcsx2ExecutablePath;
+        set
+        {
+            if (SetProperty(ref _pcsx2ExecutablePath, value))
+            {
+                NotifyBannerStateChanged();
+            }
+        }
+    }
 
     private string _pspEmulatorMode = string.Empty;
     public string PspEmulatorMode
@@ -689,15 +847,36 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
             {
                 RaisePropertyChanged(nameof(IsPspRetroArchMode));
                 RaisePropertyChanged(nameof(IsPspStandaloneMode));
+                NotifyBannerStateChanged();
             }
         }
     }
 
     private string _ppssppExecutablePath = string.Empty;
-    public string PpssppExecutablePath { get => _ppssppExecutablePath; set => SetProperty(ref _ppssppExecutablePath, value); }
+    public string PpssppExecutablePath
+    {
+        get => _ppssppExecutablePath;
+        set
+        {
+            if (SetProperty(ref _ppssppExecutablePath, value))
+            {
+                NotifyBannerStateChanged();
+            }
+        }
+    }
 
     private string _retroArchExecutablePath = string.Empty;
-    public string RetroArchExecutablePath { get => _retroArchExecutablePath; set => SetProperty(ref _retroArchExecutablePath, value); }
+    public string RetroArchExecutablePath
+    {
+        get => _retroArchExecutablePath;
+        set
+        {
+            if (SetProperty(ref _retroArchExecutablePath, value))
+            {
+                NotifyBannerStateChanged();
+            }
+        }
+    }
 
     private string _retroArchPpssppCorePath = string.Empty;
     public string RetroArchPpssppCorePath { get => _retroArchPpssppCorePath; set => SetProperty(ref _retroArchPpssppCorePath, value); }
@@ -709,7 +888,17 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
     public bool FailInstallIfEmulatorNotReady { get => _failInstallIfEmulatorNotReady; set => SetProperty(ref _failInstallIfEmulatorNotReady, value); }
 
     private string _vita3kExecutablePath = string.Empty;
-    public string Vita3kExecutablePath { get => _vita3kExecutablePath; set => SetProperty(ref _vita3kExecutablePath, value); }
+    public string Vita3kExecutablePath
+    {
+        get => _vita3kExecutablePath;
+        set
+        {
+            if (SetProperty(ref _vita3kExecutablePath, value))
+            {
+                NotifyBannerStateChanged();
+            }
+        }
+    }
 
     private bool _vitaFailIfEmulatorNotReady;
     public bool VitaFailIfEmulatorNotReady { get => _vitaFailIfEmulatorNotReady; set => SetProperty(ref _vitaFailIfEmulatorNotReady, value); }
@@ -721,19 +910,69 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
     public bool VitaInstallDlcAutomatically { get => _vitaInstallDlcAutomatically; set => SetProperty(ref _vitaInstallDlcAutomatically, value); }
 
     private string _switchEdenExecutablePath = string.Empty;
-    public string SwitchEdenExecutablePath { get => _switchEdenExecutablePath; set => SetProperty(ref _switchEdenExecutablePath, value); }
+    public string SwitchEdenExecutablePath
+    {
+        get => _switchEdenExecutablePath;
+        set
+        {
+            if (SetProperty(ref _switchEdenExecutablePath, value))
+            {
+                NotifyBannerStateChanged();
+            }
+        }
+    }
 
     private string _azaharExecutablePath = string.Empty;
-    public string AzaharExecutablePath { get => _azaharExecutablePath; set => SetProperty(ref _azaharExecutablePath, value); }
+    public string AzaharExecutablePath
+    {
+        get => _azaharExecutablePath;
+        set
+        {
+            if (SetProperty(ref _azaharExecutablePath, value))
+            {
+                NotifyBannerStateChanged();
+            }
+        }
+    }
 
     private string _azaharPlusExecutablePath = string.Empty;
-    public string AzaharPlusExecutablePath { get => _azaharPlusExecutablePath; set => SetProperty(ref _azaharPlusExecutablePath, value); }
+    public string AzaharPlusExecutablePath
+    {
+        get => _azaharPlusExecutablePath;
+        set
+        {
+            if (SetProperty(ref _azaharPlusExecutablePath, value))
+            {
+                NotifyBannerStateChanged();
+            }
+        }
+    }
 
     private string _dolphinExecutablePath = string.Empty;
-    public string DolphinExecutablePath { get => _dolphinExecutablePath; set => SetProperty(ref _dolphinExecutablePath, value); }
+    public string DolphinExecutablePath
+    {
+        get => _dolphinExecutablePath;
+        set
+        {
+            if (SetProperty(ref _dolphinExecutablePath, value))
+            {
+                NotifyBannerStateChanged();
+            }
+        }
+    }
 
     private string _cemuExecutablePath = string.Empty;
-    public string CemuExecutablePath { get => _cemuExecutablePath; set => SetProperty(ref _cemuExecutablePath, value); }
+    public string CemuExecutablePath
+    {
+        get => _cemuExecutablePath;
+        set
+        {
+            if (SetProperty(ref _cemuExecutablePath, value))
+            {
+                NotifyBannerStateChanged();
+            }
+        }
+    }
 
     public Models.PlatformMapping BuildMappingForSave()
     {
@@ -1008,6 +1247,151 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
             || combined.IndexOf("ppsspp", StringComparison.OrdinalIgnoreCase) >= 0 && !string.IsNullOrWhiteSpace(mapping?.RetroArchPpssppCorePath)
             ? "RetroArchPPSSPP"
             : "StandalonePPSSPP";
+    }
+
+    private string ResolveConfiguredValue(string configuredValue, string fieldKey)
+    {
+        if (!string.IsNullOrWhiteSpace(configuredValue))
+        {
+            return configuredValue;
+        }
+
+        return _configDescriptor?.Fields?
+            .FirstOrDefault(field => field != null && string.Equals(field.Key, fieldKey, StringComparison.OrdinalIgnoreCase))?
+            .DefaultValue ?? string.Empty;
+    }
+
+    private string GetNormalizedInstallLayoutMode()
+    {
+        if (!string.IsNullOrWhiteSpace(InstallLayoutMode))
+        {
+            return InstallLayoutMode;
+        }
+
+        return UseGameSubdirectory ? "CreatePerGameSubfolder" : "UsePlatformRoot";
+    }
+
+    private void SetInstallLayoutMode(string mode)
+    {
+        if (string.IsNullOrWhiteSpace(mode))
+        {
+            return;
+        }
+
+        InstallLayoutMode = mode;
+        UseGameSubdirectory = !string.Equals(mode, "UsePlatformRoot", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool IsEmulatorFamilySelected(params string[] terms)
+    {
+        var name = SelectedEmulator?.Name ?? string.Empty;
+        if (string.IsNullOrWhiteSpace(name) || terms == null || terms.Length == 0)
+        {
+            return false;
+        }
+
+        return terms.Any(term =>
+            !string.IsNullOrWhiteSpace(term)
+            && name.IndexOf(term, StringComparison.OrdinalIgnoreCase) >= 0);
+    }
+
+    private bool IsEmulatorFamilySelectedOrUnspecified(params string[] terms)
+    {
+        if (SelectedEmulator == null)
+        {
+            return true;
+        }
+
+        return IsEmulatorFamilySelected(terms);
+    }
+
+    private string ResolvePageSubtitle()
+    {
+        if (ShowShadPs4ExecutablePathField)
+        {
+            return "Configure ShadPS4 launch settings and direct PKG install tooling.";
+        }
+
+        if (ShowRpcs3ExecutablePathField)
+        {
+            return "Configure RPCS3 launch, install, and package handling settings.";
+        }
+
+        if (ShowRetroArchExecutablePathField || IsPspRetroArchMode)
+        {
+            return "Configure RetroArch integration, content handling, and emulator-specific options.";
+        }
+
+        return "Configure installation, emulator, and plugin behavior for this platform.";
+    }
+
+    private string ResolveBannerStatusText()
+    {
+        if (ShowShadPs4ExecutablePathField && !string.IsNullOrWhiteSpace(ShadPs4ExecutablePath))
+        {
+            return "ShadPS4 Path Configured";
+        }
+
+        if (ShowRpcs3ExecutablePathField && !string.IsNullOrWhiteSpace(Rpcs3ExecutablePath))
+        {
+            return "RPCS3 Path Configured";
+        }
+
+        if (ShowRetroArchExecutablePathField && !string.IsNullOrWhiteSpace(RetroArchExecutablePath))
+        {
+            return "RetroArch Path Configured";
+        }
+
+        if (ShowPpssppExecutablePathField && IsPspStandaloneMode && !string.IsNullOrWhiteSpace(PpssppExecutablePath))
+        {
+            return "PPSSPP Path Configured";
+        }
+
+        if (ShowPcsx2ExecutablePathField && !string.IsNullOrWhiteSpace(Pcsx2ExecutablePath))
+        {
+            return "PCSX2 Path Configured";
+        }
+
+        if (ShowVita3kExecutablePathField && !string.IsNullOrWhiteSpace(Vita3kExecutablePath))
+        {
+            return "Vita3K Path Configured";
+        }
+
+        if (ShowSwitchEdenExecutablePathField && !string.IsNullOrWhiteSpace(SwitchEdenExecutablePath))
+        {
+            return "Eden Path Configured";
+        }
+
+        if (ShowAzaharExecutablePathField && !string.IsNullOrWhiteSpace(AzaharExecutablePath))
+        {
+            return "Azahar Path Configured";
+        }
+
+        if (ShowAzaharPlusExecutablePathField && !string.IsNullOrWhiteSpace(AzaharPlusExecutablePath))
+        {
+            return "AzaharPlus Path Configured";
+        }
+
+        if (ShowDolphinExecutablePathField && !string.IsNullOrWhiteSpace(DolphinExecutablePath))
+        {
+            return "Dolphin Path Configured";
+        }
+
+        if (ShowCemuExecutablePathField && !string.IsNullOrWhiteSpace(CemuExecutablePath))
+        {
+            return "Cemu Path Configured";
+        }
+
+        return string.Empty;
+    }
+
+    private void NotifyBannerStateChanged()
+    {
+        RaisePropertyChanged(nameof(SelectedEmulator));
+        RaisePropertyChanged(nameof(SelectedEmulatorName));
+        RaisePropertyChanged(nameof(PageSubtitle));
+        RaisePropertyChanged(nameof(BannerStatusText));
+        RaisePropertyChanged(nameof(ShowBannerStatusBadge));
     }
 
     private bool HasConfigField(string key)

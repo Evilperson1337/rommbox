@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using RomM.Platforms.Abstractions.Install;
 using RomM.Platforms.Abstractions.Logging;
 using RomM.Platforms.Abstractions.Models.Install;
 
@@ -56,7 +57,7 @@ namespace RomM.Platforms.Windows.Install
             Directory.CreateDirectory(installDir);
 
             var tempRoot = ResolveTempRoot(archivePath, extractedPath)
-                ?? Path.Combine(Path.GetTempPath(), "RomM", "install", Guid.NewGuid().ToString("N"));
+                ?? InstallStagingPathHelper.ResolveOperationPath(installDir, Guid.NewGuid().ToString("N"), "windows-install");
             var tempExtractDir = Path.Combine(tempRoot, "extracted");
             Directory.CreateDirectory(tempRoot);
             Directory.CreateDirectory(tempExtractDir);
@@ -1052,25 +1053,7 @@ namespace RomM.Platforms.Windows.Install
                     return null;
                 }
 
-                var fullPath = Path.GetFullPath(nameSource.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-                var tempRoot = Path.GetTempPath();
-                if (!fullPath.StartsWith(Path.GetFullPath(tempRoot), StringComparison.OrdinalIgnoreCase))
-                {
-                    return null;
-                }
-
-                var current = Directory.Exists(fullPath) ? fullPath : Path.GetDirectoryName(fullPath);
-                while (!string.IsNullOrWhiteSpace(current))
-                {
-                    var folderName = Path.GetFileName(current.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-                    if (string.Equals(folderName, "downloads", StringComparison.OrdinalIgnoreCase)
-                        || string.Equals(folderName, "extracted", StringComparison.OrdinalIgnoreCase))
-                    {
-                        return Path.GetDirectoryName(current);
-                    }
-
-                    current = Path.GetDirectoryName(current);
-                }
+                return InstallStagingPathHelper.TryResolveOperationRootFromPath(nameSource);
             }
             catch
             {

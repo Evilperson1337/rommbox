@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using RomMbox.Models.Install;
@@ -124,7 +125,8 @@ namespace RomMbox.Services.Install
                 state.RommPlatformId,
                 game.Platform,
                 _platformInstallers,
-                _logger);
+                _logger,
+                Path.GetExtension(state.InstalledPath ?? string.Empty));
 
             if (!string.IsNullOrWhiteSpace(resolvedPlatformKey)
                 && !string.Equals(resolvedPlatformKey, platformKey, StringComparison.OrdinalIgnoreCase))

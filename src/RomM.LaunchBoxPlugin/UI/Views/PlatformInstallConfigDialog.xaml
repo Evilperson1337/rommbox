@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:converters="clr-namespace:RomMbox.UI.Converters"
         Background="#141822"
-        MinWidth="640"
+        MinWidth="760"
         MinHeight="720">
     <UserControl.Resources>
         <converters:BoolToVisibilityConverter x:Key="BoolToVisibility" />
@@ -15,7 +15,7 @@
             <Setter Property="Foreground" Value="#E6EBF5"/>
             <Setter Property="BorderBrush" Value="#2D374B"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="Padding" Value="10,5"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Template">
                 <Setter.Value>
@@ -24,7 +24,7 @@
                                 Background="{TemplateBinding Background}"
                                 BorderBrush="{TemplateBinding BorderBrush}"
                                 BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="4">
+                                CornerRadius="6">
                             <ContentPresenter HorizontalAlignment="Center"
                                               VerticalAlignment="Center"/>
                         </Border>
@@ -44,22 +44,75 @@
             </Setter>
         </Style>
 
-        <Style x:Key="SectionHeader" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="#E6EBF5"/>
-            <Setter Property="FontSize" Value="14"/>
+        <Style x:Key="SectionCard" TargetType="Border">
+            <Setter Property="Background" Value="#181E2B"/>
+            <Setter Property="BorderBrush" Value="#2B3345"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="10"/>
+            <Setter Property="Padding" Value="20,18"/>
+            <Setter Property="Margin" Value="0,0,0,16"/>
+        </Style>
+
+        <Style x:Key="BannerCard" TargetType="Border" BasedOn="{StaticResource SectionCard}">
+            <Setter Property="Padding" Value="18,14"/>
+        </Style>
+
+        <Style x:Key="SectionTitle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#EEF2FF"/>
+            <Setter Property="FontSize" Value="16"/>
             <Setter Property="FontWeight" Value="SemiBold"/>
-            <Setter Property="Margin" Value="0,0,0,8"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
+        </Style>
+
+        <Style x:Key="SectionDescription" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="#95A0B8"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="Margin" Value="0,0,0,16"/>
         </Style>
 
         <Style x:Key="FieldLabel" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="#AAB4C8"/>
+            <Setter Property="Foreground" Value="#DCE4F7"/>
+            <Setter Property="FontSize" Value="13"/>
             <Setter Property="Margin" Value="0,0,0,6"/>
         </Style>
 
         <Style x:Key="InlineHelper" TargetType="TextBlock">
-            <Setter Property="Foreground" Value="#6B748A"/>
+            <Setter Property="Foreground" Value="#8E99B1"/>
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+
+        <Style x:Key="DarkTextBox" TargetType="TextBox">
+            <Setter Property="Foreground" Value="#EEF2FF"/>
+            <Setter Property="Background" Value="#111726"/>
+            <Setter Property="BorderBrush" Value="#313A4F"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="10,7"/>
+            <Setter Property="MinHeight" Value="34"/>
+        </Style>
+
+        <Style x:Key="BrowseButton" TargetType="Button" BasedOn="{StaticResource SecondaryButton}">
+            <Setter Property="Width" Value="104"/>
+            <Setter Property="Height" Value="34"/>
+            <Setter Property="Margin" Value="10,0,0,0"/>
+        </Style>
+
+        <Style x:Key="StatusBadgeBorder" TargetType="Border">
+            <Setter Property="Background" Value="#143B30"/>
+            <Setter Property="BorderBrush" Value="#1F6651"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Padding" Value="12,6"/>
+        </Style>
+
+        <Style x:Key="CalloutBorder" TargetType="Border">
+            <Setter Property="Background" Value="#161C2A"/>
+            <Setter Property="BorderBrush" Value="#313A4F"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="12,10"/>
+            <Setter Property="Margin" Value="0,8,0,0"/>
         </Style>
 
         <Style x:Key="DarkComboBoxItem" TargetType="ComboBoxItem">
@@ -93,11 +146,11 @@
 
         <Style x:Key="DarkComboBox" TargetType="ComboBox">
             <Setter Property="Foreground" Value="#E6EBF5"/>
-            <Setter Property="Background" Value="#1C2230"/>
-            <Setter Property="BorderBrush" Value="#2D374B"/>
+            <Setter Property="Background" Value="#111726"/>
+            <Setter Property="BorderBrush" Value="#313A4F"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="Padding" Value="8,4"/>
-            <Setter Property="MinHeight" Value="30"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="MinHeight" Value="34"/>
             <Setter Property="ItemContainerStyle" Value="{StaticResource DarkComboBoxItem}"/>
             <Setter Property="Template">
                 <Setter.Value>
@@ -105,7 +158,7 @@
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition/>
-                                <ColumnDefinition Width="32"/>
+                                <ColumnDefinition Width="34"/>
                             </Grid.ColumnDefinitions>
 
                             <Border x:Name="Bd"
@@ -113,7 +166,7 @@
                                     Background="{TemplateBinding Background}"
                                     BorderBrush="{TemplateBinding BorderBrush}"
                                     BorderThickness="{TemplateBinding BorderThickness}"
-                                    CornerRadius="4"/>
+                                    CornerRadius="6"/>
 
                             <ContentPresenter Margin="{TemplateBinding Padding}"
                                               VerticalAlignment="Center"
@@ -123,16 +176,16 @@
                                               ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"/>
 
                             <ToggleButton Grid.Column="1"
-                                          Background="#1C2230"
+                                          Background="#111726"
                                           BorderBrush="{TemplateBinding BorderBrush}"
                                           BorderThickness="1,0,0,0"
                                           IsChecked="{Binding IsDropDownOpen, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
                                           Focusable="False"
                                           ClickMode="Press">
-                                <Border Background="#1C2230"
+                                <Border Background="#111726"
                                         BorderBrush="{TemplateBinding BorderBrush}"
                                         BorderThickness="1,0,0,0"
-                                        CornerRadius="0,4,4,0">
+                                        CornerRadius="0,6,6,0">
                                     <TextBlock Text="▾"
                                                Foreground="#AAB4C8"
                                                HorizontalAlignment="Center"
@@ -146,9 +199,9 @@
                                    IsOpen="{TemplateBinding IsDropDownOpen}">
                                 <Border Background="#141822"
                                         Width="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}"
-                                        BorderBrush="#2D374B"
+                                        BorderBrush="#313A4F"
                                         BorderThickness="1"
-                                        CornerRadius="6"
+                                        CornerRadius="8"
                                         Margin="0,6,0,0"
                                         Padding="6">
                                     <ScrollViewer MaxHeight="300">
@@ -185,47 +238,63 @@
                 Background="#141822"
                 BorderBrush="#2D374B"
                 BorderThickness="0,0,0,1"
-                Padding="20,16">
+                Padding="24,18">
             <DockPanel LastChildFill="True">
                 <StackPanel DockPanel.Dock="Left">
-                    <TextBlock Text="Platform Configuration" FontSize="18" FontWeight="Bold" Margin="0,0,0,4"/>
-                    <TextBlock Text="Configure installation and content handling for this platform." Style="{StaticResource InlineHelper}" Margin="0,0,0,0"/>
+                    <TextBlock Text="{Binding PageTitle}" FontSize="18" FontWeight="Bold" Foreground="#EEF2FF" Margin="0,0,0,4"/>
+                    <TextBlock Text="{Binding PageSubtitle}" Style="{StaticResource InlineHelper}"/>
                 </StackPanel>
                 <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" HorizontalAlignment="Right">
-                    <Button Content="Back" Width="96" Height="36" Margin="0,0,10,0" Command="{Binding BackCommand}" Style="{StaticResource SecondaryButton}"/>
-                    <Button Content="Save" Width="96" Height="36" Command="{Binding SaveCommand}" Style="{StaticResource PrimaryButton}"
-                            IsEnabled="{Binding CanSave}"/>
+                    <Button Content="Back" Width="108" Height="40" Margin="0,0,12,0" Command="{Binding BackCommand}" Style="{StaticResource SecondaryButton}"/>
+                    <Button Content="Save" Width="108" Height="40" Command="{Binding SaveCommand}" Style="{StaticResource PrimaryButton}" IsEnabled="{Binding CanSave}"/>
                 </StackPanel>
             </DockPanel>
         </Border>
 
         <Grid Grid.Row="1" Background="#181D28">
-            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Margin="20,16,20,20">
-                <StackPanel Margin="0,0,0,32">
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled"
+                          CanContentScroll="False"
+                          Margin="0,0,0,92"
+                          Padding="24,18,24,24">
+                <StackPanel>
+                    <Border Style="{StaticResource BannerCard}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="28"/>
+                                <ColumnDefinition Width="300"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
 
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="24"/>
-                        <ColumnDefinition Width="*"/>
-                    </Grid.ColumnDefinitions>
-
-                    <StackPanel Grid.Column="0">
-                            <StackPanel Visibility="{Binding ShowInstallationTypeSection, Converter={StaticResource BoolToVisibility}}">
-                                <TextBlock Text="Installation Type" Style="{StaticResource SectionHeader}"/>
-                                <TextBlock Text="Select the workflow for installs on this platform." Style="{StaticResource InlineHelper}" Margin="0,0,0,10"/>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
-                                    <RadioButton Content="Basic"
-                                                 Margin="0,0,18,0"
-                                                 IsChecked="{Binding InstallationType, Converter={StaticResource EnumEqualsToBool}, ConverterParameter=Basic}"/>
-                                    <RadioButton Content="Enhanced"
-                                                 IsChecked="{Binding InstallationType, Converter={StaticResource EnumEqualsToBool}, ConverterParameter=Enhanced}"/>
-                                </StackPanel>
-
-                                <Border Height="1" Background="#2D374B" Margin="0,0,0,16"/>
+                            <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                                <TextBlock Text="Selected Platform" Foreground="#7F8AA6" FontSize="11" Margin="0,0,0,3"/>
+                                <TextBlock Text="{Binding BannerPlatformLabel}" Foreground="#EEF2FF" FontSize="15" FontWeight="SemiBold"/>
                             </StackPanel>
 
-                            <TextBlock Text="Global Options" Style="{StaticResource SectionHeader}"/>
+                            <StackPanel Grid.Column="2" VerticalAlignment="Center" Visibility="{Binding ShowBannerEmulatorSelector, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock Text="Emulator" Style="{StaticResource FieldLabel}" Margin="0,0,0,4"/>
+                                <ComboBox ItemsSource="{Binding Emulators}"
+                                          SelectedItem="{Binding SelectedEmulator, Mode=TwoWay}"
+                                          DisplayMemberPath="Name"
+                                          Style="{StaticResource DarkComboBox}"
+                                          IsEnabled="{Binding IsAssociatedEmulatorEnabled}"/>
+                            </StackPanel>
+
+                            <Border Grid.Column="3"
+                                    Style="{StaticResource StatusBadgeBorder}"
+                                    Margin="14,22,0,0"
+                                    VerticalAlignment="Top"
+                                    Visibility="{Binding ShowBannerStatusBadge, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock Text="{Binding BannerStatusText}" Foreground="#76E0B7" FontWeight="SemiBold"/>
+                            </Border>
+                        </Grid>
+                    </Border>
+
+                    <Border Style="{StaticResource SectionCard}" Visibility="{Binding ShowPlatformOptionsSection, Converter={StaticResource BoolToVisibility}}">
+                        <StackPanel>
+                            <TextBlock Text="Platform Options" Style="{StaticResource SectionTitle}"/>
+                            <TextBlock Text="{Binding PlatformOptionsDescription}" Style="{StaticResource SectionDescription}"/>
 
                             <TextBlock Text="Games Directory" Style="{StaticResource FieldLabel}"/>
                             <Grid Margin="0,0,0,6">
@@ -233,112 +302,32 @@
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <TextBox Text="{Binding GamesDirectory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-                                <Button Grid.Column="1" Content="Browse" Margin="8,0,0,0" Width="90" Click="BrowseFolder_Click"/>
+                                <TextBox Text="{Binding GamesDirectory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBox}"/>
+                                <Button Grid.Column="1" Content="Browse" Style="{StaticResource BrowseButton}" Click="BrowseFolder_Click"/>
                             </Grid>
                             <TextBlock Text="Relative paths are used when the directory is on the same drive as LaunchBox." Style="{StaticResource InlineHelper}" Margin="0,0,0,2"/>
-                            <TextBlock Text="Games directory is required." Style="{StaticResource InlineHelper}" Foreground="#FF5656" Visibility="{Binding IsGamesDirectoryValid, Converter={StaticResource InverseBoolToVisibility}}" Margin="0,0,0,12"/>
+                            <TextBlock Text="Games directory is required." Style="{StaticResource InlineHelper}" Foreground="#FF6E6E" Visibility="{Binding IsGamesDirectoryValid, Converter={StaticResource InverseBoolToVisibility}}" Margin="0,0,0,14"/>
 
-                            <TextBlock Text="Associated Emulator" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowAssociatedEmulatorField, Converter={StaticResource BoolToVisibility}}"/>
-                            <ComboBox ItemsSource="{Binding Emulators}"
-                                      SelectedItem="{Binding SelectedEmulator, Mode=TwoWay}"
-                                      DisplayMemberPath="Name"
-                                      Style="{StaticResource DarkComboBox}"
-                                      IsEnabled="{Binding IsAssociatedEmulatorEnabled}"
-                                      Visibility="{Binding ShowAssociatedEmulatorField, Converter={StaticResource BoolToVisibility}}"
-                                      Margin="0,0,0,6"/>
-                            <TextBlock Text="Available for emulator platforms." Style="{StaticResource InlineHelper}" Margin="0,0,0,12" Visibility="{Binding ShowAssociatedEmulatorField, Converter={StaticResource BoolToVisibility}}"/>
+                            <TextBlock Text="Game Layout" Style="{StaticResource FieldLabel}"/>
+                            <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                <RadioButton Content="Install in Root"
+                                             Margin="0,0,18,0"
+                                             IsChecked="{Binding IsInstallInRootLayout, Mode=TwoWay}"/>
+                                <RadioButton Content="Install in Subdirectory"
+                                             IsChecked="{Binding IsInstallInSubdirectoryLayout, Mode=TwoWay}"/>
+                            </StackPanel>
+                            <TextBlock Text="Choose whether games install directly in the platform folder or inside a game-specific subdirectory." Style="{StaticResource InlineHelper}"/>
+                        </StackPanel>
+                    </Border>
 
-                            <TextBlock Text="Emulator Core" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowGenericEmulatorCoreFields, Converter={StaticResource BoolToVisibility}}"/>
-                            <TextBox Text="{Binding EmulatorCoreName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Visibility="{Binding ShowGenericEmulatorCoreFields, Converter={StaticResource BoolToVisibility}}"/>
-                            <TextBlock Text="Optional core display name (e.g. MAME, SNES9x)." Style="{StaticResource InlineHelper}" Margin="0,6,0,8" Visibility="{Binding ShowGenericEmulatorCoreFields, Converter={StaticResource BoolToVisibility}}"/>
+                    <Border Style="{StaticResource SectionCard}" Visibility="{Binding ShowEmulatorOptionsSection, Converter={StaticResource BoolToVisibility}}">
+                        <StackPanel>
+                            <TextBlock Text="Emulator Options" Style="{StaticResource SectionTitle}"/>
+                            <TextBlock Text="{Binding EmulatorOptionsDescription}" Style="{StaticResource SectionDescription}"/>
 
-                            <TextBlock Text="Emulator Core Id" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowGenericEmulatorCoreFields, Converter={StaticResource BoolToVisibility}}"/>
-                            <TextBox Text="{Binding EmulatorCoreId, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Visibility="{Binding ShowGenericEmulatorCoreFields, Converter={StaticResource BoolToVisibility}}"/>
-                            <TextBlock Text="Optional core id (e.g. mame, snes9x)." Style="{StaticResource InlineHelper}" Margin="0,6,0,8" Visibility="{Binding ShowGenericEmulatorCoreFields, Converter={StaticResource BoolToVisibility}}"/>
-
-                            <TextBlock Text="Emulator Core Path" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowGenericEmulatorCoreFields, Converter={StaticResource BoolToVisibility}}"/>
-                            <TextBox Text="{Binding EmulatorCorePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Visibility="{Binding ShowGenericEmulatorCoreFields, Converter={StaticResource BoolToVisibility}}"/>
-                            <TextBlock Text="Optional core path for RetroArch or standalone emulators." Style="{StaticResource InlineHelper}" Margin="0,6,0,12" Visibility="{Binding ShowGenericEmulatorCoreFields, Converter={StaticResource BoolToVisibility}}"/>
-
-                            <TextBlock Text="Emulator Launch Args" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowGenericEmulatorCoreFields, Converter={StaticResource BoolToVisibility}}"/>
-                            <TextBox Text="{Binding EmulatorLaunchArgs, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Visibility="{Binding ShowGenericEmulatorCoreFields, Converter={StaticResource BoolToVisibility}}"/>
-                            <TextBlock Text="Use {rom} placeholder for ROM path." Style="{StaticResource InlineHelper}" Margin="0,6,0,12" Visibility="{Binding ShowGenericEmulatorCoreFields, Converter={StaticResource BoolToVisibility}}"/>
-
-                            <CheckBox Content="Extract archive before install"
-                                      IsChecked="{Binding ExtractAfterDownload, Mode=TwoWay}"
-                                      Visibility="{Binding ShowExtractAfterDownloadField, Converter={StaticResource BoolToVisibility}}"
-                                      Margin="0,0,0,6"/>
-                            <TextBlock Text="Supports .zip, .7z, and .rar files." Style="{StaticResource InlineHelper}" Margin="24,0,0,10" Visibility="{Binding ShowExtractAfterDownloadField, Converter={StaticResource BoolToVisibility}}"/>
-
-                            <TextBlock Text="ROM Install Root" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowRomInstallRootField, Converter={StaticResource BoolToVisibility}}"/>
-                            <TextBox Text="{Binding RomInstallRoot, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Visibility="{Binding ShowRomInstallRootField, Converter={StaticResource BoolToVisibility}}"/>
-                            <TextBlock Text="Optional override for ROM install root path." Style="{StaticResource InlineHelper}" Margin="0,6,0,8" Visibility="{Binding ShowRomInstallRootField, Converter={StaticResource BoolToVisibility}}"/>
-
-                            <TextBlock Text="ROM Archive Policy" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowRomArchivePolicyField, Converter={StaticResource BoolToVisibility}}"/>
-                            <TextBox Text="{Binding RomArchivePolicy, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Visibility="{Binding ShowRomArchivePolicyField, Converter={StaticResource BoolToVisibility}}"/>
-                            <TextBlock Text="Set to Preserve to keep archives (e.g. Arcade)." Style="{StaticResource InlineHelper}" Margin="0,6,0,12" Visibility="{Binding ShowRomArchivePolicyField, Converter={StaticResource BoolToVisibility}}"/>
-
-                            <TextBlock Text="Supported File Types" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowSupportedFileTypesField, Converter={StaticResource BoolToVisibility}}"/>
-                            <TextBox Text="{Binding SupportedFileTypes, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Visibility="{Binding ShowSupportedFileTypesField, Converter={StaticResource BoolToVisibility}}"/>
-                            <TextBlock Text="Comma-separated extensions used for candidate discovery (example: .cue,.bin,.chd,.iso,.zip)." Style="{StaticResource InlineHelper}" Margin="0,6,0,12" Visibility="{Binding ShowSupportedFileTypesField, Converter={StaticResource BoolToVisibility}}"/>
-
-                            <TextBlock Text="Archive Handling" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowArchiveHandlingModeField, Converter={StaticResource BoolToVisibility}}"/>
-                            <ComboBox Style="{StaticResource DarkComboBox}"
-                                      SelectedValue="{Binding ArchiveHandlingMode, Mode=TwoWay}"
-                                      SelectedValuePath="Content"
-                                      Visibility="{Binding ShowArchiveHandlingModeField, Converter={StaticResource BoolToVisibility}}"
-                                      Margin="0,0,0,6">
-                                <ComboBoxItem Content="NeverExtract" />
-                                <ComboBoxItem Content="ExtractForInspection" />
-                                <ComboBoxItem Content="ExtractAlways" />
-                            </ComboBox>
-                            <TextBlock Text="Controls whether archives are extracted never, for inspection, or always." Style="{StaticResource InlineHelper}" Margin="0,0,0,12" Visibility="{Binding ShowArchiveHandlingModeField, Converter={StaticResource BoolToVisibility}}"/>
-
-                            <TextBlock Text="Preferred Launch Extensions" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowPreferredLaunchExtensionsField, Converter={StaticResource BoolToVisibility}}"/>
-                            <TextBox Text="{Binding PreferredLaunchExtensions, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Visibility="{Binding ShowPreferredLaunchExtensionsField, Converter={StaticResource BoolToVisibility}}"/>
-                            <TextBlock Text="Optional extension priority order for launch artifact resolution." Style="{StaticResource InlineHelper}" Margin="0,6,0,12" Visibility="{Binding ShowPreferredLaunchExtensionsField, Converter={StaticResource BoolToVisibility}}"/>
-
-                            <CheckBox Content="Use Game Subdirectory" IsChecked="{Binding UseGameSubdirectory, Mode=TwoWay}" Margin="0,0,0,6" Visibility="{Binding ShowUseGameSubdirectoryField, Converter={StaticResource BoolToVisibility}}"/>
-                            <CheckBox Content="Install All Matching Files" IsChecked="{Binding InstallAllMatchingFiles, Mode=TwoWay}" Margin="0,0,0,6" Visibility="{Binding ShowInstallAllMatchingFilesField, Converter={StaticResource BoolToVisibility}}"/>
-                            <CheckBox Content="Install From Archive Directly" IsChecked="{Binding InstallFromArchiveDirectly, Mode=TwoWay}" Margin="0,0,0,12" Visibility="{Binding ShowInstallFromArchiveDirectlyField, Converter={StaticResource BoolToVisibility}}"/>
-
-                            <TextBlock Text="Install Layout" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowInstallLayoutModeField, Converter={StaticResource BoolToVisibility}}"/>
-                            <ComboBox Style="{StaticResource DarkComboBox}"
-                                      SelectedValue="{Binding InstallLayoutMode, Mode=TwoWay}"
-                                      SelectedValuePath="Content"
-                                      Visibility="{Binding ShowInstallLayoutModeField, Converter={StaticResource BoolToVisibility}}"
-                                      Margin="0,0,0,6">
-                                <ComboBoxItem Content="UsePlatformRoot" />
-                                <ComboBoxItem Content="CreatePerGameSubfolder" />
-                                <ComboBoxItem Content="PreserveArchiveStructure" />
-                            </ComboBox>
-                            <TextBlock Text="Choose platform root, per-game subfolder, or archive-structure-preserving layout." Style="{StaticResource InlineHelper}" Margin="0,0,0,12" Visibility="{Binding ShowInstallLayoutModeField, Converter={StaticResource BoolToVisibility}}"/>
-
-                            <TextBlock Text="Artifact Selection" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowArtifactSelectionModeField, Converter={StaticResource BoolToVisibility}}"/>
-                            <ComboBox Style="{StaticResource DarkComboBox}"
-                                      SelectedValue="{Binding ArtifactSelectionMode, Mode=TwoWay}"
-                                      SelectedValuePath="Content"
-                                      Visibility="{Binding ShowArtifactSelectionModeField, Converter={StaticResource BoolToVisibility}}"
-                                      Margin="0,0,0,6">
-                                <ComboBoxItem Content="FirstSupportedFile" />
-                                <ComboBoxItem Content="LargestSupportedFile" />
-                                <ComboBoxItem Content="ExtensionPriority" />
-                            </ComboBox>
-                            <TextBlock Text="Selection strategy used when multiple supported artifacts are present." Style="{StaticResource InlineHelper}" Margin="0,0,0,12" Visibility="{Binding ShowArtifactSelectionModeField, Converter={StaticResource BoolToVisibility}}"/>
-
-                            <CheckBox Content="Enable General Fallback Installer" IsChecked="{Binding UseGeneralFallbackInstaller, Mode=TwoWay}" Margin="0,0,0,12" Visibility="{Binding ShowUseGeneralFallbackInstallerField, Converter={StaticResource BoolToVisibility}}"/>
-
-                            <TextBlock Text="PS3 Games Directory" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowPs3GameDirectoryField, Converter={StaticResource BoolToVisibility}}"/>
-                            <Grid Margin="0,0,0,6" Visibility="{Binding ShowPs3GameDirectoryField, Converter={StaticResource BoolToVisibility}}">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBox Text="{Binding Ps3GameDirectory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-                                <Button Grid.Column="1" Content="Browse" Margin="8,0,0,0" Width="90" Click="BrowsePs3Games_Click"/>
-                            </Grid>
-                            <TextBlock Text="Override the PS3 install directory when using RPCS3." Style="{StaticResource InlineHelper}" Margin="0,0,0,12" Visibility="{Binding ShowPs3GameDirectoryField, Converter={StaticResource BoolToVisibility}}"/>
+                            <TextBlock Text="RetroArch Core" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowRetroArchCoreSelectionField, Converter={StaticResource BoolToVisibility}}"/>
+                            <TextBox Text="{Binding EmulatorCoreName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBox}" Visibility="{Binding ShowRetroArchCoreSelectionField, Converter={StaticResource BoolToVisibility}}"/>
+                            <TextBlock Text="Enter the RetroArch core name used for this platform, such as snes9x." Style="{StaticResource InlineHelper}" Margin="0,6,0,12" Visibility="{Binding ShowRetroArchCoreSelectionField, Converter={StaticResource BoolToVisibility}}"/>
 
                             <TextBlock Text="RPCS3 Executable" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowRpcs3ExecutablePathField, Converter={StaticResource BoolToVisibility}}"/>
                             <Grid Margin="0,0,0,6" Visibility="{Binding ShowRpcs3ExecutablePathField, Converter={StaticResource BoolToVisibility}}">
@@ -346,8 +335,8 @@
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <TextBox Text="{Binding Rpcs3ExecutablePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-                                <Button Grid.Column="1" Content="Browse" Margin="8,0,0,0" Width="90" Click="BrowseRpcs3Executable_Click"/>
+                                <TextBox Text="{Binding Rpcs3ExecutablePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBox}"/>
+                                <Button Grid.Column="1" Content="Browse" Style="{StaticResource BrowseButton}" Click="BrowseRpcs3Executable_Click"/>
                             </Grid>
                             <TextBlock Text="Required to install PKG files and launch via RPCS3." Style="{StaticResource InlineHelper}" Margin="0,0,0,12" Visibility="{Binding ShowRpcs3ExecutablePathField, Converter={StaticResource BoolToVisibility}}"/>
 
@@ -357,38 +346,10 @@
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <TextBox Text="{Binding Rpcs3LicenseDirectory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-                                <Button Grid.Column="1" Content="Browse" Margin="8,0,0,0" Width="90" Click="BrowseRpcs3License_Click"/>
+                                <TextBox Text="{Binding Rpcs3LicenseDirectory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBox}"/>
+                                <Button Grid.Column="1" Content="Browse" Style="{StaticResource BrowseButton}" Click="BrowseRpcs3License_Click"/>
                             </Grid>
                             <TextBlock Text="Optional override for RPCS3 dev_hdd0/home/00000001/exdata." Style="{StaticResource InlineHelper}" Margin="0,0,0,12" Visibility="{Binding ShowRpcs3LicenseDirectoryField, Converter={StaticResource BoolToVisibility}}"/>
-
-                            <CheckBox Content="Install DLC Automatically" IsChecked="{Binding InstallDlcAutomatically, Mode=TwoWay}" Margin="0,0,0,6" Visibility="{Binding ShowSkipRegionMismatchedDlcField, Converter={StaticResource BoolToVisibility}}"/>
-                            <CheckBox Content="Install Updates Automatically" IsChecked="{Binding InstallUpdatesAutomatically, Mode=TwoWay}" Margin="0,0,0,6" Visibility="{Binding ShowSkipRegionMismatchedDlcField, Converter={StaticResource BoolToVisibility}}"/>
-                            <CheckBox Content="Skip Region-Mismatched DLC" IsChecked="{Binding SkipRegionMismatchedDlc, Mode=TwoWay}" Margin="0,0,0,6" Visibility="{Binding ShowSkipRegionMismatchedDlcField, Converter={StaticResource BoolToVisibility}}"/>
-                            <CheckBox Content="Skip Unmatched RAP Files" IsChecked="{Binding SkipUnmatchedRapFiles, Mode=TwoWay}" Margin="0,0,0,6" Visibility="{Binding ShowSkipUnmatchedRapFilesField, Converter={StaticResource BoolToVisibility}}"/>
-                            <CheckBox Content="Prefer Metadata-Based Package Matching" IsChecked="{Binding PreferMetadataBasedPackageMatching, Mode=TwoWay}" Margin="0,0,0,12" Visibility="{Binding ShowPreferMetadataBasedPackageMatchingField, Converter={StaticResource BoolToVisibility}}"/>
-
-                             <TextBlock Text="PS4 Games Directory" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowPs4GamesDirectoryField, Converter={StaticResource BoolToVisibility}}"/>
-                            <Grid Margin="0,0,0,6" Visibility="{Binding ShowPs4GamesDirectoryField, Converter={StaticResource BoolToVisibility}}">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBox Text="{Binding Ps4GamesDirectory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-                                <Button Grid.Column="1" Content="Browse" Margin="8,0,0,0" Width="90" Click="BrowsePs4Games_Click"/>
-                            </Grid>
-                            <TextBlock Text="Override the PS4 serial-based install root used for ShadPS4." Style="{StaticResource InlineHelper}" Margin="0,0,0,12" Visibility="{Binding ShowPs4GamesDirectoryField, Converter={StaticResource BoolToVisibility}}"/>
-
-                            <TextBlock Text="ShadPS4 Executable" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowShadPs4ExecutablePathField, Converter={StaticResource BoolToVisibility}}"/>
-                            <Grid Margin="0,0,0,6" Visibility="{Binding ShowShadPs4ExecutablePathField, Converter={StaticResource BoolToVisibility}}">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*"/>
-                                    <ColumnDefinition Width="Auto"/>
-                                </Grid.ColumnDefinitions>
-                                <TextBox Text="{Binding ShadPs4ExecutablePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-                                <Button Grid.Column="1" Content="Browse" Margin="8,0,0,0" Width="90" Click="BrowseShadPs4Executable_Click"/>
-                            </Grid>
-                            <TextBlock Text="Optional ShadPS4 executable override. LaunchBox emulator mapping is used when empty." Style="{StaticResource InlineHelper}" Margin="0,0,0,12" Visibility="{Binding ShowShadPs4ExecutablePathField, Converter={StaticResource BoolToVisibility}}"/>
 
                             <TextBlock Text="External PKG Extractor" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowPs4ExternalPkgExtractorPathField, Converter={StaticResource BoolToVisibility}}"/>
                             <Grid Margin="0,0,0,6" Visibility="{Binding ShowPs4ExternalPkgExtractorPathField, Converter={StaticResource BoolToVisibility}}">
@@ -396,338 +357,387 @@
                                     <ColumnDefinition Width="*"/>
                                     <ColumnDefinition Width="Auto"/>
                                 </Grid.ColumnDefinitions>
-                                <TextBox Text="{Binding Ps4ExternalPkgExtractorPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-                                <Button Grid.Column="1" Content="Browse" Margin="8,0,0,0" Width="90" Click="BrowsePs4ExternalExtractor_Click"/>
+                                <TextBox Text="{Binding Ps4ExternalPkgExtractorPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBox}"/>
+                                <Button Grid.Column="1" Content="Browse" Style="{StaticResource BrowseButton}" Click="BrowsePs4ExternalExtractor_Click"/>
                             </Grid>
-                            <TextBlock Text="Required only for direct .pkg download workflow (ShadPS4 0.8+ has no built-in PKG installer)." Style="{StaticResource InlineHelper}" Margin="0,0,0,12" Visibility="{Binding ShowPs4ExternalPkgExtractorPathField, Converter={StaticResource BoolToVisibility}}"/>
+                            <TextBlock Text="Required only for direct .pkg download workflow when no built-in PKG installer is available." Style="{StaticResource InlineHelper}" Margin="0,0,0,10" Visibility="{Binding ShowPs4ExternalPkgExtractorPathField, Converter={StaticResource BoolToVisibility}}"/>
 
-                             <CheckBox Content="Fail if direct PKG encountered but extractor missing"
-                                       IsChecked="{Binding Ps4FailIfDirectPkgExtractorMissing, Mode=TwoWay}"
-                                       Margin="0,0,0,12"
-                                       Visibility="{Binding ShowPs4FailIfDirectPkgExtractorMissingField, Converter={StaticResource BoolToVisibility}}"/>
+                            <TextBlock Text="Target Extracted File Type" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowPs4ExternalPkgExtractorPathField, Converter={StaticResource BoolToVisibility}}"/>
+                            <TextBox Text="{Binding TargetImportFile, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBox}" Visibility="{Binding ShowPs4ExternalPkgExtractorPathField, Converter={StaticResource BoolToVisibility}}"/>
+                            <TextBlock Text="Optional extracted file target used by the PS4 workflow." Style="{StaticResource InlineHelper}" Margin="0,6,0,12" Visibility="{Binding ShowPs4ExternalPkgExtractorPathField, Converter={StaticResource BoolToVisibility}}"/>
 
-                             <TextBlock Text="PCSX2 Executable" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowPcsx2ExecutablePathField, Converter={StaticResource BoolToVisibility}}"/>
-                             <Grid Margin="0,0,0,12" Visibility="{Binding ShowPcsx2ExecutablePathField, Converter={StaticResource BoolToVisibility}}">
-                                 <Grid.ColumnDefinitions>
-                                     <ColumnDefinition Width="*"/>
-                                     <ColumnDefinition Width="Auto"/>
-                                 </Grid.ColumnDefinitions>
-                                 <TextBox Text="{Binding Pcsx2ExecutablePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-                                 <Button Grid.Column="1" Content="Browse" Margin="8,0,0,0" Width="90" Click="BrowsePcsx2Executable_Click"/>
-                             </Grid>
+                            <CheckBox Content="Fail if direct PKG extractor is missing"
+                                      IsChecked="{Binding Ps4FailIfDirectPkgExtractorMissing, Mode=TwoWay}"
+                                      Margin="0,0,0,8"
+                                      Visibility="{Binding ShowPs4FailIfDirectPkgExtractorMissingField, Converter={StaticResource BoolToVisibility}}"/>
 
-                             <TextBlock Text="PSP Emulator Mode" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowPspEmulatorModeField, Converter={StaticResource BoolToVisibility}}"/>
-                             <ComboBox Style="{StaticResource DarkComboBox}"
-                                       SelectedValue="{Binding PspEmulatorMode, Mode=TwoWay}"
-                                       SelectedValuePath="Content"
-                                       Visibility="{Binding ShowPspEmulatorModeField, Converter={StaticResource BoolToVisibility}}"
-                                       Margin="0,0,0,12">
-                                 <ComboBoxItem Content="StandalonePPSSPP" />
-                                 <ComboBoxItem Content="RetroArchPPSSPP" />
-                             </ComboBox>
+                            <Border Style="{StaticResource CalloutBorder}" Visibility="{Binding ShowPs4ExternalPkgExtractorPathField, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock Text="PKG extractor configuration is not required for all PS4 installs. It is only needed for workflows involving direct .pkg content." Style="{StaticResource InlineHelper}"/>
+                            </Border>
 
-                             <TextBlock Text="PPSSPP Executable">
-                                 <TextBlock.Style>
-                                     <Style TargetType="TextBlock" BasedOn="{StaticResource FieldLabel}">
-                                         <Setter Property="Visibility" Value="Collapsed"/>
-                                         <Style.Triggers>
-                                             <MultiDataTrigger>
-                                                 <MultiDataTrigger.Conditions>
-                                                     <Condition Binding="{Binding ShowPpssppExecutablePathField}" Value="True"/>
-                                                     <Condition Binding="{Binding IsPspStandaloneMode}" Value="True"/>
-                                                 </MultiDataTrigger.Conditions>
-                                                 <Setter Property="Visibility" Value="Visible"/>
-                                             </MultiDataTrigger>
-                                         </Style.Triggers>
-                                     </Style>
-                                 </TextBlock.Style>
-                             </TextBlock>
-                             <Grid Margin="0,0,0,12">
-                                 <Grid.Style>
-                                     <Style TargetType="Grid">
-                                         <Setter Property="Visibility" Value="Collapsed"/>
-                                         <Style.Triggers>
-                                             <MultiDataTrigger>
-                                                 <MultiDataTrigger.Conditions>
-                                                     <Condition Binding="{Binding ShowPpssppExecutablePathField}" Value="True"/>
-                                                     <Condition Binding="{Binding IsPspStandaloneMode}" Value="True"/>
-                                                 </MultiDataTrigger.Conditions>
-                                                 <Setter Property="Visibility" Value="Visible"/>
-                                             </MultiDataTrigger>
-                                         </Style.Triggers>
-                                     </Style>
-                                 </Grid.Style>
-                                 <Grid.ColumnDefinitions>
-                                     <ColumnDefinition Width="*"/>
-                                     <ColumnDefinition Width="Auto"/>
-                                 </Grid.ColumnDefinitions>
-                                 <TextBox Text="{Binding PpssppExecutablePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-                                 <Button Grid.Column="1" Content="Browse" Margin="8,0,0,0" Width="90" Click="BrowsePpssppExecutable_Click"/>
-                             </Grid>
+                            <TextBlock Text="PCSX2 Executable" Style="{StaticResource FieldLabel}" Margin="0,12,0,6" Visibility="{Binding ShowPcsx2ExecutablePathField, Converter={StaticResource BoolToVisibility}}"/>
+                            <Grid Margin="0,0,0,12" Visibility="{Binding ShowPcsx2ExecutablePathField, Converter={StaticResource BoolToVisibility}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox Text="{Binding Pcsx2ExecutablePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBox}"/>
+                                <Button Grid.Column="1" Content="Browse" Style="{StaticResource BrowseButton}" Click="BrowsePcsx2Executable_Click"/>
+                            </Grid>
 
-                             <TextBlock Text="RetroArch Executable">
-                                 <TextBlock.Style>
-                                     <Style TargetType="TextBlock" BasedOn="{StaticResource FieldLabel}">
-                                         <Setter Property="Visibility" Value="Collapsed"/>
-                                         <Style.Triggers>
-                                             <MultiDataTrigger>
-                                                 <MultiDataTrigger.Conditions>
-                                                     <Condition Binding="{Binding ShowRetroArchExecutablePathField}" Value="True"/>
-                                                     <Condition Binding="{Binding IsPspRetroArchMode}" Value="True"/>
-                                                 </MultiDataTrigger.Conditions>
-                                                 <Setter Property="Visibility" Value="Visible"/>
-                                             </MultiDataTrigger>
-                                         </Style.Triggers>
-                                     </Style>
-                                 </TextBlock.Style>
-                             </TextBlock>
-                             <Grid Margin="0,0,0,12">
-                                 <Grid.Style>
-                                     <Style TargetType="Grid">
-                                         <Setter Property="Visibility" Value="Collapsed"/>
-                                         <Style.Triggers>
-                                             <MultiDataTrigger>
-                                                 <MultiDataTrigger.Conditions>
-                                                     <Condition Binding="{Binding ShowRetroArchExecutablePathField}" Value="True"/>
-                                                     <Condition Binding="{Binding IsPspRetroArchMode}" Value="True"/>
-                                                 </MultiDataTrigger.Conditions>
-                                                 <Setter Property="Visibility" Value="Visible"/>
-                                             </MultiDataTrigger>
-                                         </Style.Triggers>
-                                     </Style>
-                                 </Grid.Style>
-                                 <Grid.ColumnDefinitions>
-                                     <ColumnDefinition Width="*"/>
-                                     <ColumnDefinition Width="Auto"/>
-                                 </Grid.ColumnDefinitions>
-                                 <TextBox Text="{Binding RetroArchExecutablePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-                                 <Button Grid.Column="1" Content="Browse" Margin="8,0,0,0" Width="90" Click="BrowseRetroArchExecutable_Click"/>
-                             </Grid>
+                            <TextBlock Text="PSP Emulator Mode" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowPspEmulatorModeField, Converter={StaticResource BoolToVisibility}}"/>
+                            <ComboBox Style="{StaticResource DarkComboBox}"
+                                      SelectedValue="{Binding PspEmulatorMode, Mode=TwoWay}"
+                                      SelectedValuePath="Content"
+                                      Visibility="{Binding ShowPspEmulatorModeField, Converter={StaticResource BoolToVisibility}}"
+                                      Margin="0,0,0,12">
+                                <ComboBoxItem Content="StandalonePPSSPP" />
+                                <ComboBoxItem Content="RetroArchPPSSPP" />
+                            </ComboBox>
 
-                             <TextBlock Text="RetroArch PPSSPP Core">
-                                 <TextBlock.Style>
-                                     <Style TargetType="TextBlock" BasedOn="{StaticResource FieldLabel}">
-                                         <Setter Property="Visibility" Value="Collapsed"/>
-                                         <Style.Triggers>
-                                             <MultiDataTrigger>
-                                                 <MultiDataTrigger.Conditions>
-                                                     <Condition Binding="{Binding ShowRetroArchPpssppCorePathField}" Value="True"/>
-                                                     <Condition Binding="{Binding IsPspRetroArchMode}" Value="True"/>
-                                                 </MultiDataTrigger.Conditions>
-                                                 <Setter Property="Visibility" Value="Visible"/>
-                                             </MultiDataTrigger>
-                                         </Style.Triggers>
-                                     </Style>
-                                 </TextBlock.Style>
-                             </TextBlock>
-                             <TextBox Text="{Binding RetroArchPpssppCorePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,12">
-                                 <TextBox.Style>
-                                     <Style TargetType="TextBox">
-                                         <Setter Property="Visibility" Value="Collapsed"/>
-                                         <Style.Triggers>
-                                             <MultiDataTrigger>
-                                                 <MultiDataTrigger.Conditions>
-                                                     <Condition Binding="{Binding ShowRetroArchPpssppCorePathField}" Value="True"/>
-                                                     <Condition Binding="{Binding IsPspRetroArchMode}" Value="True"/>
-                                                 </MultiDataTrigger.Conditions>
-                                                 <Setter Property="Visibility" Value="Visible"/>
-                                             </MultiDataTrigger>
-                                         </Style.Triggers>
-                                     </Style>
-                                 </TextBox.Style>
-                             </TextBox>
+                            <TextBlock Text="PPSSPP Executable">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource FieldLabel}">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <MultiDataTrigger>
+                                                <MultiDataTrigger.Conditions>
+                                                    <Condition Binding="{Binding ShowPpssppExecutablePathField}" Value="True"/>
+                                                    <Condition Binding="{Binding IsPspStandaloneMode}" Value="True"/>
+                                                </MultiDataTrigger.Conditions>
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </MultiDataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <Grid Margin="0,0,0,12">
+                                <Grid.Style>
+                                    <Style TargetType="Grid">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <MultiDataTrigger>
+                                                <MultiDataTrigger.Conditions>
+                                                    <Condition Binding="{Binding ShowPpssppExecutablePathField}" Value="True"/>
+                                                    <Condition Binding="{Binding IsPspStandaloneMode}" Value="True"/>
+                                                </MultiDataTrigger.Conditions>
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </MultiDataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Grid.Style>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox Text="{Binding PpssppExecutablePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBox}"/>
+                                <Button Grid.Column="1" Content="Browse" Style="{StaticResource BrowseButton}" Click="BrowsePpssppExecutable_Click"/>
+                            </Grid>
 
-                             <CheckBox Content="Validate RetroArch PPSSPP Assets"
-                                       IsChecked="{Binding ValidateRetroArchPpssppAssets, Mode=TwoWay}"
-                                       Margin="0,0,0,6">
-                                 <CheckBox.Style>
-                                     <Style TargetType="CheckBox">
-                                         <Setter Property="Visibility" Value="Collapsed"/>
-                                         <Style.Triggers>
-                                             <MultiDataTrigger>
-                                                 <MultiDataTrigger.Conditions>
-                                                     <Condition Binding="{Binding ShowValidateRetroArchPpssppAssetsField}" Value="True"/>
-                                                     <Condition Binding="{Binding IsPspRetroArchMode}" Value="True"/>
-                                                 </MultiDataTrigger.Conditions>
-                                                 <Setter Property="Visibility" Value="Visible"/>
-                                             </MultiDataTrigger>
-                                         </Style.Triggers>
-                                     </Style>
-                                 </CheckBox.Style>
-                             </CheckBox>
+                            <TextBlock Text="RetroArch Executable">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource FieldLabel}">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <MultiDataTrigger>
+                                                <MultiDataTrigger.Conditions>
+                                                    <Condition Binding="{Binding ShowRetroArchExecutablePathField}" Value="True"/>
+                                                    <Condition Binding="{Binding IsPspRetroArchMode}" Value="True"/>
+                                                </MultiDataTrigger.Conditions>
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </MultiDataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <Grid Margin="0,0,0,12">
+                                <Grid.Style>
+                                    <Style TargetType="Grid">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <MultiDataTrigger>
+                                                <MultiDataTrigger.Conditions>
+                                                    <Condition Binding="{Binding ShowRetroArchExecutablePathField}" Value="True"/>
+                                                    <Condition Binding="{Binding IsPspRetroArchMode}" Value="True"/>
+                                                </MultiDataTrigger.Conditions>
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </MultiDataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Grid.Style>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox Text="{Binding RetroArchExecutablePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBox}"/>
+                                <Button Grid.Column="1" Content="Browse" Style="{StaticResource BrowseButton}" Click="BrowseRetroArchExecutable_Click"/>
+                            </Grid>
 
-                             <CheckBox Content="Fail If Emulator Not Ready"
-                                       IsChecked="{Binding FailInstallIfEmulatorNotReady, Mode=TwoWay}"
-                                       Margin="0,0,0,12"
-                                       Visibility="{Binding ShowFailInstallIfEmulatorNotReadyField, Converter={StaticResource BoolToVisibility}}"/>
+                            <TextBlock Text="RetroArch PPSSPP Core">
+                                <TextBlock.Style>
+                                    <Style TargetType="TextBlock" BasedOn="{StaticResource FieldLabel}">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <MultiDataTrigger>
+                                                <MultiDataTrigger.Conditions>
+                                                    <Condition Binding="{Binding ShowRetroArchPpssppCorePathField}" Value="True"/>
+                                                    <Condition Binding="{Binding IsPspRetroArchMode}" Value="True"/>
+                                                </MultiDataTrigger.Conditions>
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </MultiDataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBlock.Style>
+                            </TextBlock>
+                            <TextBox Text="{Binding RetroArchPpssppCorePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,0,12">
+                                <TextBox.Style>
+                                    <Style TargetType="TextBox" BasedOn="{StaticResource DarkTextBox}">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <MultiDataTrigger>
+                                                <MultiDataTrigger.Conditions>
+                                                    <Condition Binding="{Binding ShowRetroArchPpssppCorePathField}" Value="True"/>
+                                                    <Condition Binding="{Binding IsPspRetroArchMode}" Value="True"/>
+                                                </MultiDataTrigger.Conditions>
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </MultiDataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </TextBox.Style>
+                            </TextBox>
 
-                             <TextBlock Text="Vita3K Executable" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowVita3kExecutablePathField, Converter={StaticResource BoolToVisibility}}"/>
-                             <Grid Margin="0,0,0,6" Visibility="{Binding ShowVita3kExecutablePathField, Converter={StaticResource BoolToVisibility}}">
-                                 <Grid.ColumnDefinitions>
-                                     <ColumnDefinition Width="*"/>
-                                     <ColumnDefinition Width="Auto"/>
-                                 </Grid.ColumnDefinitions>
-                                 <TextBox Text="{Binding Vita3kExecutablePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-                                 <Button Grid.Column="1" Content="Browse" Margin="8,0,0,0" Width="90" Click="BrowseVita3kExecutable_Click"/>
-                             </Grid>
-                             <CheckBox Content="Install Vita Updates Automatically" IsChecked="{Binding VitaInstallUpdatesAutomatically, Mode=TwoWay}" Margin="0,0,0,6" Visibility="{Binding ShowVitaInstallUpdatesAutomaticallyField, Converter={StaticResource BoolToVisibility}}"/>
-                             <CheckBox Content="Install Vita DLC Automatically" IsChecked="{Binding VitaInstallDlcAutomatically, Mode=TwoWay}" Margin="0,0,0,6" Visibility="{Binding ShowVitaInstallDlcAutomaticallyField, Converter={StaticResource BoolToVisibility}}"/>
-                             <CheckBox Content="Fail If Vita Emulator Not Ready" IsChecked="{Binding VitaFailIfEmulatorNotReady, Mode=TwoWay}" Margin="0,0,0,12" Visibility="{Binding ShowVitaFailIfEmulatorNotReadyField, Converter={StaticResource BoolToVisibility}}"/>
+                            <CheckBox Content="Validate RetroArch PPSSPP Assets"
+                                      IsChecked="{Binding ValidateRetroArchPpssppAssets, Mode=TwoWay}"
+                                      Margin="0,0,0,8">
+                                <CheckBox.Style>
+                                    <Style TargetType="CheckBox">
+                                        <Setter Property="Visibility" Value="Collapsed"/>
+                                        <Style.Triggers>
+                                            <MultiDataTrigger>
+                                                <MultiDataTrigger.Conditions>
+                                                    <Condition Binding="{Binding ShowValidateRetroArchPpssppAssetsField}" Value="True"/>
+                                                    <Condition Binding="{Binding IsPspRetroArchMode}" Value="True"/>
+                                                </MultiDataTrigger.Conditions>
+                                                <Setter Property="Visibility" Value="Visible"/>
+                                            </MultiDataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </CheckBox.Style>
+                            </CheckBox>
 
-                             <TextBlock Text="Eden Executable" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowSwitchEdenExecutablePathField, Converter={StaticResource BoolToVisibility}}"/>
-                             <Grid Margin="0,0,0,12" Visibility="{Binding ShowSwitchEdenExecutablePathField, Converter={StaticResource BoolToVisibility}}">
-                                 <Grid.ColumnDefinitions>
-                                     <ColumnDefinition Width="*"/>
-                                     <ColumnDefinition Width="Auto"/>
-                                 </Grid.ColumnDefinitions>
-                                 <TextBox Text="{Binding SwitchEdenExecutablePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-                                 <Button Grid.Column="1" Content="Browse" Margin="8,0,0,0" Width="90" Click="BrowseSwitchEdenExecutable_Click"/>
-                             </Grid>
+                            <CheckBox Content="Fail If Emulator Not Ready"
+                                      IsChecked="{Binding FailInstallIfEmulatorNotReady, Mode=TwoWay}"
+                                      Margin="0,0,0,12"
+                                      Visibility="{Binding ShowFailInstallIfEmulatorNotReadyField, Converter={StaticResource BoolToVisibility}}"/>
 
-                             <TextBlock Text="Azahar Executable" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowAzaharExecutablePathField, Converter={StaticResource BoolToVisibility}}"/>
-                             <Grid Margin="0,0,0,6" Visibility="{Binding ShowAzaharExecutablePathField, Converter={StaticResource BoolToVisibility}}">
-                                 <Grid.ColumnDefinitions>
-                                     <ColumnDefinition Width="*"/>
-                                     <ColumnDefinition Width="Auto"/>
-                                 </Grid.ColumnDefinitions>
-                                 <TextBox Text="{Binding AzaharExecutablePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-                                 <Button Grid.Column="1" Content="Browse" Margin="8,0,0,0" Width="90" Click="BrowseAzaharExecutable_Click"/>
-                             </Grid>
+                            <TextBlock Text="Vita3K Executable" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowVita3kExecutablePathField, Converter={StaticResource BoolToVisibility}}"/>
+                            <Grid Margin="0,0,0,12" Visibility="{Binding ShowVita3kExecutablePathField, Converter={StaticResource BoolToVisibility}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox Text="{Binding Vita3kExecutablePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBox}"/>
+                                <Button Grid.Column="1" Content="Browse" Style="{StaticResource BrowseButton}" Click="BrowseVita3kExecutable_Click"/>
+                            </Grid>
 
-                             <TextBlock Text="AzaharPlus Executable" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowAzaharPlusExecutablePathField, Converter={StaticResource BoolToVisibility}}"/>
-                             <Grid Margin="0,0,0,12" Visibility="{Binding ShowAzaharPlusExecutablePathField, Converter={StaticResource BoolToVisibility}}">
-                                 <Grid.ColumnDefinitions>
-                                     <ColumnDefinition Width="*"/>
-                                     <ColumnDefinition Width="Auto"/>
-                                 </Grid.ColumnDefinitions>
-                                 <TextBox Text="{Binding AzaharPlusExecutablePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-                                 <Button Grid.Column="1" Content="Browse" Margin="8,0,0,0" Width="90" Click="BrowseAzaharPlusExecutable_Click"/>
-                             </Grid>
+                            <TextBlock Text="Eden Executable" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowSwitchEdenExecutablePathField, Converter={StaticResource BoolToVisibility}}"/>
+                            <Grid Margin="0,0,0,12" Visibility="{Binding ShowSwitchEdenExecutablePathField, Converter={StaticResource BoolToVisibility}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox Text="{Binding SwitchEdenExecutablePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBox}"/>
+                                <Button Grid.Column="1" Content="Browse" Style="{StaticResource BrowseButton}" Click="BrowseSwitchEdenExecutable_Click"/>
+                            </Grid>
 
-                             <TextBlock Text="Dolphin Executable" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowDolphinExecutablePathField, Converter={StaticResource BoolToVisibility}}"/>
-                             <Grid Margin="0,0,0,12" Visibility="{Binding ShowDolphinExecutablePathField, Converter={StaticResource BoolToVisibility}}">
-                                 <Grid.ColumnDefinitions>
-                                     <ColumnDefinition Width="*"/>
-                                     <ColumnDefinition Width="Auto"/>
-                                 </Grid.ColumnDefinitions>
-                                 <TextBox Text="{Binding DolphinExecutablePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-                                 <Button Grid.Column="1" Content="Browse" Margin="8,0,0,0" Width="90" Click="BrowseDolphinExecutable_Click"/>
-                             </Grid>
+                            <TextBlock Text="Azahar Executable" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowAzaharExecutablePathField, Converter={StaticResource BoolToVisibility}}"/>
+                            <Grid Margin="0,0,0,12" Visibility="{Binding ShowAzaharExecutablePathField, Converter={StaticResource BoolToVisibility}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox Text="{Binding AzaharExecutablePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBox}"/>
+                                <Button Grid.Column="1" Content="Browse" Style="{StaticResource BrowseButton}" Click="BrowseAzaharExecutable_Click"/>
+                            </Grid>
 
-                             <TextBlock Text="Cemu Executable" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowCemuExecutablePathField, Converter={StaticResource BoolToVisibility}}"/>
-                             <Grid Margin="0,0,0,12" Visibility="{Binding ShowCemuExecutablePathField, Converter={StaticResource BoolToVisibility}}">
-                                 <Grid.ColumnDefinitions>
-                                     <ColumnDefinition Width="*"/>
-                                     <ColumnDefinition Width="Auto"/>
-                                 </Grid.ColumnDefinitions>
-                                 <TextBox Text="{Binding CemuExecutablePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-                                 <Button Grid.Column="1" Content="Browse" Margin="8,0,0,0" Width="90" Click="BrowseCemuExecutable_Click"/>
-                             </Grid>
+                            <TextBlock Text="AzaharPlus Executable" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowAzaharPlusExecutablePathField, Converter={StaticResource BoolToVisibility}}"/>
+                            <Grid Margin="0,0,0,12" Visibility="{Binding ShowAzaharPlusExecutablePathField, Converter={StaticResource BoolToVisibility}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox Text="{Binding AzaharPlusExecutablePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBox}"/>
+                                <Button Grid.Column="1" Content="Browse" Style="{StaticResource BrowseButton}" Click="BrowseAzaharPlusExecutable_Click"/>
+                            </Grid>
 
-                             <StackPanel Margin="0,0,0,0" Visibility="{Binding IsExtractionBehaviorEnabled, Converter={StaticResource BoolToVisibility}}">
-                                <TextBlock Text="Extraction Behavior" Style="{StaticResource FieldLabel}"/>
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                                    <RadioButton Content="Extract to Root"
-                                                 Margin="0,0,18,0"
-                                                 IsChecked="{Binding ExtractionBehavior, Converter={StaticResource EnumEqualsToBool}, ConverterParameter=Direct}"/>
-                                    <RadioButton Content="Extract to Subdirectory (Game Name)"
-                                                 IsChecked="{Binding ExtractionBehavior, Converter={StaticResource EnumEqualsToBool}, ConverterParameter=Subfolder}"/>
-                                </StackPanel>
-                            </StackPanel>
-                    </StackPanel>
+                            <TextBlock Text="Dolphin Executable" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowDolphinExecutablePathField, Converter={StaticResource BoolToVisibility}}"/>
+                            <Grid Margin="0,0,0,12" Visibility="{Binding ShowDolphinExecutablePathField, Converter={StaticResource BoolToVisibility}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox Text="{Binding DolphinExecutablePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBox}"/>
+                                <Button Grid.Column="1" Content="Browse" Style="{StaticResource BrowseButton}" Click="BrowseDolphinExecutable_Click"/>
+                            </Grid>
 
-                    <StackPanel Grid.Column="2">
-                        <StackPanel Visibility="{Binding ShowBasicOptionsSection, Converter={StaticResource BoolToVisibility}}">
-                            <TextBlock Text="Basic Options" Style="{StaticResource SectionHeader}"/>
+                            <TextBlock Text="Cemu Executable" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowCemuExecutablePathField, Converter={StaticResource BoolToVisibility}}"/>
+                            <Grid Margin="0,0,0,12" Visibility="{Binding ShowCemuExecutablePathField, Converter={StaticResource BoolToVisibility}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox Text="{Binding CemuExecutablePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBox}"/>
+                                <Button Grid.Column="1" Content="Browse" Style="{StaticResource BrowseButton}" Click="BrowseCemuExecutable_Click"/>
+                            </Grid>
 
-                            <CheckBox Content="Self-Contained"
-                                      IsChecked="{Binding SelfContained, Mode=TwoWay}"
-                                      Margin="0,0,0,6"/>
-                            <TextBlock Text="When enabled, the extracted file is used directly as the ROM path." Style="{StaticResource InlineHelper}" Margin="24,0,0,12"/>
+                            <TextBlock Text="Supported File Formats" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowSupportedFileTypesField, Converter={StaticResource BoolToVisibility}}"/>
+                            <TextBox Text="{Binding SupportedFileTypes, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBox}" Visibility="{Binding ShowSupportedFileTypesField, Converter={StaticResource BoolToVisibility}}"/>
+                            <TextBlock Text="Comma-separated extensions used for candidate discovery and emulator handoff." Style="{StaticResource InlineHelper}" Margin="0,6,0,12" Visibility="{Binding ShowSupportedFileTypesField, Converter={StaticResource BoolToVisibility}}"/>
 
-                            <StackPanel Margin="0,0,0,6" IsEnabled="{Binding IsTargetFilesEnabled}">
-                                <TextBlock Text="Target File(s)" Style="{StaticResource FieldLabel}"/>
-                                <TextBox Text="{Binding TargetImportFile, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-                                <TextBlock Text="Separate entries with commas (example: eboot.bin, default.xex)." Style="{StaticResource InlineHelper}" Margin="0,6,0,0"/>
-                                <TextBlock Text="{Binding TargetImportFilesSummary}" Style="{StaticResource InlineHelper}" Margin="0,2,0,0"/>
-                            </StackPanel>
+                            <TextBlock Text="No emulator-specific configuration is required for the selected emulator." Style="{StaticResource InlineHelper}" Visibility="{Binding ShowEmulatorOptionsSection, Converter={StaticResource InverseBoolToVisibility}}"/>
                         </StackPanel>
+                    </Border>
 
-                        <StackPanel Visibility="{Binding ShowEnhancedOptionsSection, Converter={StaticResource BoolToVisibility}}">
-                            <TextBlock Text="Enhanced Options" Style="{StaticResource SectionHeader}" Margin="0,0,0,6"/>
+                    <Border Style="{StaticResource SectionCard}" Visibility="{Binding ShowExtraConfigurationSection, Converter={StaticResource BoolToVisibility}}">
+                        <StackPanel>
+                            <TextBlock Text="Extra Configuration" Style="{StaticResource SectionTitle}"/>
+                            <TextBlock Text="{Binding ExtraConfigurationDescription}" Style="{StaticResource SectionDescription}"/>
 
-                            <TextBlock Text="Installation Mode" Style="{StaticResource FieldLabel}"/>
-                            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                                <RadioButton Content="Manual"
-                                             Margin="0,0,18,0"
-                                             IsChecked="{Binding InstallerMode, Converter={StaticResource EnumEqualsToBool}, ConverterParameter=Manual}"/>
-                                <RadioButton Content="Automatic"
-                                             IsChecked="{Binding InstallerMode, Converter={StaticResource EnumEqualsToBool}, ConverterParameter=AutoInnoSilent}"/>
+                            <StackPanel Visibility="{Binding ShowPs3GameDirectoryField, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock Text="PS3 Games Directory Override" Style="{StaticResource FieldLabel}"/>
+                                <Grid Margin="0,0,0,6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox Text="{Binding Ps3GameDirectory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBox}"/>
+                                    <Button Grid.Column="1" Content="Browse" Style="{StaticResource BrowseButton}" Click="BrowsePs3Games_Click"/>
+                                </Grid>
+                                <TextBlock Text="Override the PS3 install directory when using RPCS3." Style="{StaticResource InlineHelper}" Margin="0,0,0,12"/>
                             </StackPanel>
-                            <StackPanel Margin="0,0,0,12" IsEnabled="{Binding IsInstallModeAutomatic}">
-                                <TextBlock Text="Custom Silent Install Arguments" Style="{StaticResource FieldLabel}"/>
-                                <TextBox Text="{Binding InstallerSilentArgs, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-                                <TextBlock Text="Uses default install options when left empty." Style="{StaticResource InlineHelper}" Margin="0,6,0,0"/>
+
+                            <StackPanel Visibility="{Binding ShowPs4GamesDirectoryField, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock Text="PS4 Games Directory Override" Style="{StaticResource FieldLabel}"/>
+                                <Grid Margin="0,0,0,6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox Text="{Binding Ps4GamesDirectory, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBox}"/>
+                                    <Button Grid.Column="1" Content="Browse" Style="{StaticResource BrowseButton}" Click="BrowsePs4Games_Click"/>
+                                </Grid>
+                                <TextBlock Text="Optional serial-based install root used specifically for PS4 content." Style="{StaticResource InlineHelper}" Margin="0,0,0,12"/>
                             </StackPanel>
 
-                            <Border Height="1" Background="#2D374B" Margin="0,0,0,14"/>
-
-                            <CheckBox Content="Install Bonus Content" IsChecked="{Binding InstallBonus, Mode=TwoWay}" Margin="0,0,0,6"/>
-                            <StackPanel Margin="24,0,0,10" IsEnabled="{Binding IsBonusOptionsEnabled}">
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                                    <RadioButton Content="Centralized Install"
+                            <StackPanel Visibility="{Binding ShowInstallationTypeSection, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock Text="Installation Type" Style="{StaticResource FieldLabel}"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,14">
+                                    <RadioButton Content="Basic"
                                                  Margin="0,0,18,0"
-                                                 IsChecked="{Binding BonusInstallLocation, Converter={StaticResource EnumEqualsToBool}, ConverterParameter=Centralized}"/>
-                                    <RadioButton Content="Install in Game Folder"
-                                                 IsChecked="{Binding BonusInstallLocation, Converter={StaticResource EnumEqualsToBool}, ConverterParameter=GameFolder}"/>
+                                                 IsChecked="{Binding InstallationType, Converter={StaticResource EnumEqualsToBool}, ConverterParameter=Basic}"/>
+                                    <RadioButton Content="Enhanced"
+                                                 IsChecked="{Binding InstallationType, Converter={StaticResource EnumEqualsToBool}, ConverterParameter=Enhanced}"/>
                                 </StackPanel>
-                                <Grid Margin="0,0,0,4" IsEnabled="{Binding IsBonusCentralizedSelected}">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBox Text="{Binding BonusRootPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-                                    <Button Grid.Column="1" Content="Browse" Margin="8,0,0,0" Width="90" Click="BrowseBonusRoot_Click"/>
-                                </Grid>
-                                <TextBlock Text="Game folder installs create a “Bonus Content” directory in the Installation Directory." Style="{StaticResource InlineHelper}"/>
                             </StackPanel>
 
-                            <CheckBox Content="Extract Pre-Requisites" IsChecked="{Binding InstallPreReqs, Mode=TwoWay}" Margin="0,0,0,6"/>
-                            <StackPanel Margin="24,0,0,10" IsEnabled="{Binding IsPreReqsOptionsEnabled}">
-                                <Grid Margin="0,0,0,4">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBox Text="{Binding PreReqsRootPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-                                    <Button Grid.Column="1" Content="Browse" Margin="8,0,0,0" Width="90" Click="BrowsePreReqsRoot_Click"/>
-                                </Grid>
-                                <TextBlock Text="{Binding PreReqsTargetSummary}" Style="{StaticResource InlineHelper}"/>
+                            <StackPanel Visibility="{Binding ShowBasicOptionsSection, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock Text="Basic Workflow" Style="{StaticResource FieldLabel}"/>
+                                <CheckBox Content="Self-Contained" IsChecked="{Binding SelfContained, Mode=TwoWay}" Margin="0,0,0,6"/>
+                                <TextBlock Text="When enabled, the extracted file is used directly as the ROM path." Style="{StaticResource InlineHelper}" Margin="24,0,0,10"/>
+
+                                <StackPanel IsEnabled="{Binding IsTargetFilesEnabled}" Margin="0,0,0,12">
+                                    <TextBlock Text="Target File(s)" Style="{StaticResource FieldLabel}"/>
+                                    <TextBox Text="{Binding TargetImportFile, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBox}"/>
+                                    <TextBlock Text="Separate entries with commas (example: eboot.bin, default.xex)." Style="{StaticResource InlineHelper}" Margin="0,6,0,0"/>
+                                    <TextBlock Text="{Binding TargetImportFilesSummary}" Style="{StaticResource InlineHelper}" Margin="0,3,0,0"/>
+                                </StackPanel>
+
+                                <CheckBox Content="Enable General Fallback Installer" IsChecked="{Binding UseGeneralFallbackInstaller, Mode=TwoWay}" Margin="0,0,0,12" Visibility="{Binding ShowUseGeneralFallbackInstallerField, Converter={StaticResource BoolToVisibility}}"/>
                             </StackPanel>
 
-                            <CheckBox Content="Install Soundtracks" IsChecked="{Binding InstallOst, Mode=TwoWay}" Margin="0,0,0,6"/>
-                            <StackPanel Margin="24,0,0,0" IsEnabled="{Binding IsOstOptionsEnabled}">
-                                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
-                                    <RadioButton Content="Centralized Install"
+                            <StackPanel Visibility="{Binding ShowEnhancedOptionsSection, Converter={StaticResource BoolToVisibility}}">
+                                <TextBlock Text="Enhanced Workflow" Style="{StaticResource FieldLabel}"/>
+
+                                <TextBlock Text="Installation Mode" Style="{StaticResource FieldLabel}"/>
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
+                                    <RadioButton Content="Manual"
                                                  Margin="0,0,18,0"
-                                                 IsChecked="{Binding OstInstallLocation, Converter={StaticResource EnumEqualsToBool}, ConverterParameter=Centralized}"/>
-                                    <RadioButton Content="Install in Game Folder"
-                                                 IsChecked="{Binding OstInstallLocation, Converter={StaticResource EnumEqualsToBool}, ConverterParameter=GameFolder}"/>
+                                                 IsChecked="{Binding InstallerMode, Converter={StaticResource EnumEqualsToBool}, ConverterParameter=Manual}"/>
+                                    <RadioButton Content="Automatic"
+                                                 IsChecked="{Binding InstallerMode, Converter={StaticResource EnumEqualsToBool}, ConverterParameter=AutoInnoSilent}"/>
                                 </StackPanel>
-                                <Grid Margin="0,0,0,4" IsEnabled="{Binding IsOstCentralizedSelected}">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="Auto"/>
-                                    </Grid.ColumnDefinitions>
-                                    <TextBox Text="{Binding MusicRootPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-                                    <Button Grid.Column="1" Content="Browse" Margin="8,0,0,0" Width="90" Click="BrowseMusicRoot_Click"/>
-                                </Grid>
-                                <TextBlock Text="Game folder installs create a “Soundtracks” directory in the Installation Directory." Style="{StaticResource InlineHelper}"/>
+                                <StackPanel Margin="0,0,0,12" IsEnabled="{Binding IsInstallModeAutomatic}">
+                                    <TextBlock Text="Custom Silent Install Arguments" Style="{StaticResource FieldLabel}"/>
+                                    <TextBox Text="{Binding InstallerSilentArgs, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBox}"/>
+                                    <TextBlock Text="Uses default install options when left empty." Style="{StaticResource InlineHelper}" Margin="0,6,0,0"/>
+                                </StackPanel>
+
+                                <CheckBox Content="Install Bonus Content" IsChecked="{Binding InstallBonus, Mode=TwoWay}" Margin="0,0,0,6"/>
+                                <StackPanel Margin="24,0,0,12" IsEnabled="{Binding IsBonusOptionsEnabled}">
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                        <RadioButton Content="Centralized Install"
+                                                     Margin="0,0,18,0"
+                                                     IsChecked="{Binding BonusInstallLocation, Converter={StaticResource EnumEqualsToBool}, ConverterParameter=Centralized}"/>
+                                        <RadioButton Content="Install in Game Folder"
+                                                     IsChecked="{Binding BonusInstallLocation, Converter={StaticResource EnumEqualsToBool}, ConverterParameter=GameFolder}"/>
+                                    </StackPanel>
+                                    <Grid Margin="0,0,0,4" IsEnabled="{Binding IsBonusCentralizedSelected}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox Text="{Binding BonusRootPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBox}"/>
+                                        <Button Grid.Column="1" Content="Browse" Style="{StaticResource BrowseButton}" Click="BrowseBonusRoot_Click"/>
+                                    </Grid>
+                                    <TextBlock Text="Game folder installs create a Bonus Content directory in the installation directory." Style="{StaticResource InlineHelper}"/>
+                                </StackPanel>
+
+                                <CheckBox Content="Extract Pre-Requisites" IsChecked="{Binding InstallPreReqs, Mode=TwoWay}" Margin="0,0,0,6"/>
+                                <StackPanel Margin="24,0,0,12" IsEnabled="{Binding IsPreReqsOptionsEnabled}">
+                                    <Grid Margin="0,0,0,4">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox Text="{Binding PreReqsRootPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBox}"/>
+                                        <Button Grid.Column="1" Content="Browse" Style="{StaticResource BrowseButton}" Click="BrowsePreReqsRoot_Click"/>
+                                    </Grid>
+                                    <TextBlock Text="{Binding PreReqsTargetSummary}" Style="{StaticResource InlineHelper}"/>
+                                </StackPanel>
+
+                                <CheckBox Content="Install Soundtracks" IsChecked="{Binding InstallOst, Mode=TwoWay}" Margin="0,0,0,6"/>
+                                <StackPanel Margin="24,0,0,12" IsEnabled="{Binding IsOstOptionsEnabled}">
+                                    <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                                        <RadioButton Content="Centralized Install"
+                                                     Margin="0,0,18,0"
+                                                     IsChecked="{Binding OstInstallLocation, Converter={StaticResource EnumEqualsToBool}, ConverterParameter=Centralized}"/>
+                                        <RadioButton Content="Install in Game Folder"
+                                                     IsChecked="{Binding OstInstallLocation, Converter={StaticResource EnumEqualsToBool}, ConverterParameter=GameFolder}"/>
+                                    </StackPanel>
+                                    <Grid Margin="0,0,0,4" IsEnabled="{Binding IsOstCentralizedSelected}">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox Text="{Binding MusicRootPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBox}"/>
+                                        <Button Grid.Column="1" Content="Browse" Style="{StaticResource BrowseButton}" Click="BrowseMusicRoot_Click"/>
+                                    </Grid>
+                                    <TextBlock Text="Game folder installs create a Soundtracks directory in the installation directory." Style="{StaticResource InlineHelper}"/>
+                                </StackPanel>
                             </StackPanel>
+
+                            <CheckBox Content="Install DLC Automatically" IsChecked="{Binding InstallDlcAutomatically, Mode=TwoWay}" Margin="0,0,0,8" Visibility="{Binding ShowSkipRegionMismatchedDlcField, Converter={StaticResource BoolToVisibility}}"/>
+                            <CheckBox Content="Install Updates Automatically" IsChecked="{Binding InstallUpdatesAutomatically, Mode=TwoWay}" Margin="0,0,0,8" Visibility="{Binding ShowSkipRegionMismatchedDlcField, Converter={StaticResource BoolToVisibility}}"/>
+                            <CheckBox Content="Skip Region-Mismatched DLC" IsChecked="{Binding SkipRegionMismatchedDlc, Mode=TwoWay}" Margin="0,0,0,8" Visibility="{Binding ShowSkipRegionMismatchedDlcField, Converter={StaticResource BoolToVisibility}}"/>
+                            <CheckBox Content="Skip Unmatched RAP Files" IsChecked="{Binding SkipUnmatchedRapFiles, Mode=TwoWay}" Margin="0,0,0,8" Visibility="{Binding ShowSkipUnmatchedRapFilesField, Converter={StaticResource BoolToVisibility}}"/>
+                            <CheckBox Content="Prefer Metadata-Based Package Matching" IsChecked="{Binding PreferMetadataBasedPackageMatching, Mode=TwoWay}" Margin="0,0,0,12" Visibility="{Binding ShowPreferMetadataBasedPackageMatchingField, Converter={StaticResource BoolToVisibility}}"/>
+
+                            <CheckBox Content="Install Vita Updates Automatically" IsChecked="{Binding VitaInstallUpdatesAutomatically, Mode=TwoWay}" Margin="0,0,0,8" Visibility="{Binding ShowVitaInstallUpdatesAutomaticallyField, Converter={StaticResource BoolToVisibility}}"/>
+                            <CheckBox Content="Install Vita DLC Automatically" IsChecked="{Binding VitaInstallDlcAutomatically, Mode=TwoWay}" Margin="0,0,0,8" Visibility="{Binding ShowVitaInstallDlcAutomaticallyField, Converter={StaticResource BoolToVisibility}}"/>
+                            <CheckBox Content="Fail If Vita Emulator Not Ready" IsChecked="{Binding VitaFailIfEmulatorNotReady, Mode=TwoWay}" Margin="0,0,0,0" Visibility="{Binding ShowVitaFailIfEmulatorNotReadyField, Converter={StaticResource BoolToVisibility}}"/>
                         </StackPanel>
-                    </StackPanel>
-                </Grid>
-            </StackPanel>
+                    </Border>
+                </StackPanel>
             </ScrollViewer>
         </Grid>
     </Grid>

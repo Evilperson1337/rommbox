@@ -57,7 +57,65 @@ namespace RomMbox.Tests.Services
         }
 
         [Fact]
-        public void Resolves_By_RommPlatformId_Before_NameMatching()
+        public void Resolves_Wii_To_Wii_And_Does_Not_Absorb_Into_WiiU()
+        {
+            var registry = new PlatformInstallerRegistry(new Dictionary<string, IPlatformInstaller>
+            {
+                ["wii"] = new IdentityStubInstaller(
+                    platformKey: "wii",
+                    displayName: "Nintendo Wii",
+                    supportedIds: new[] { "26", "wii" },
+                    supportedAliases: new[] { "wii", "nintendo wii" }),
+                ["wiiu"] = new IdentityStubInstaller(
+                    platformKey: "wiiu",
+                    displayName: "Nintendo Wii U",
+                    supportedIds: new[] { "27", "wiiu" },
+                    supportedAliases: new[] { "wii u", "nintendo wii u", "wiiu" })
+            });
+            var logger = TestLogger.Create();
+
+            var resolved = InstallContentStep.ResolveInstallerKey(
+                platformKey: "26",
+                platformDisplayName: "Wii",
+                launchBoxPlatformName: "Nintendo Wii",
+                registry: registry,
+                logger: logger,
+                fileExtension: ".rvz");
+
+            resolved.Should().Be("wii");
+        }
+
+        [Fact]
+        public void Resolves_PlayStation_To_Ps1_And_Does_Not_Absorb_Into_Psp()
+        {
+            var registry = new PlatformInstallerRegistry(new Dictionary<string, IPlatformInstaller>
+            {
+                ["ps1"] = new IdentityStubInstaller(
+                    platformKey: "ps1",
+                    displayName: "PlayStation",
+                    supportedIds: new[] { "22", "ps1" },
+                    supportedAliases: new[] { "playstation", "sony playstation", "psx", "ps1" }),
+                ["psp"] = new IdentityStubInstaller(
+                    platformKey: "psp",
+                    displayName: "PlayStation Portable",
+                    supportedIds: new[] { "34", "psp" },
+                    supportedAliases: new[] { "psp", "playstation portable", "sony playstation portable" })
+            });
+            var logger = TestLogger.Create();
+
+            var resolved = InstallContentStep.ResolveInstallerKey(
+                platformKey: "22",
+                platformDisplayName: "PlayStation",
+                launchBoxPlatformName: "Sony Playstation",
+                registry: registry,
+                logger: logger,
+                fileExtension: ".chd");
+
+            resolved.Should().Be("ps1");
+        }
+
+        [Fact]
+        public void Resolves_By_RommPlatformId_When_NameEvidence_Is_Absent()
         {
             var registry = new PlatformInstallerRegistry(new Dictionary<string, IPlatformInstaller>
             {
@@ -72,8 +130,8 @@ namespace RomMbox.Tests.Services
 
             var resolved = InstallContentStep.ResolveInstallerKey(
                 platformKey: "22",
-                platformDisplayName: "Something Else",
-                launchBoxPlatformName: "Another Name",
+                platformDisplayName: string.Empty,
+                launchBoxPlatformName: string.Empty,
                 registry: registry,
                 logger: logger);
 
@@ -221,6 +279,35 @@ namespace RomMbox.Tests.Services
                 logger: logger);
 
             resolved.Should().Be("wiiu");
+        }
+
+        [Fact]
+        public void Uses_Extension_Filtering_To_Prevent_Wii_Being_Classified_As_WiiU()
+        {
+            var registry = new PlatformInstallerRegistry(new Dictionary<string, IPlatformInstaller>
+            {
+                ["wii"] = new IdentityStubInstaller(
+                    platformKey: "wii",
+                    displayName: "Nintendo Wii",
+                    supportedIds: new[] { "wii" },
+                    supportedAliases: new[] { "wii", "nintendo wii" }),
+                ["wiiu"] = new IdentityStubInstaller(
+                    platformKey: "wiiu",
+                    displayName: "Nintendo Wii U",
+                    supportedIds: new[] { "wiiu" },
+                    supportedAliases: new[] { "wiiu", "wii u", "nintendo wii u" })
+            });
+            var logger = TestLogger.Create();
+
+            var resolved = InstallContentStep.ResolveInstallerKey(
+                platformKey: string.Empty,
+                platformDisplayName: "Nintendo Wii",
+                launchBoxPlatformName: string.Empty,
+                registry: registry,
+                logger: logger,
+                fileExtension: ".rvz");
+
+            resolved.Should().Be("wii");
         }
 
         [Fact]
@@ -476,6 +563,31 @@ namespace RomMbox.Tests.Services
                 logger: logger);
 
             resolved.Should().Be("psp");
+        }
+
+        [Fact]
+        public void Returns_Empty_When_Only_A_Foreign_Numeric_Id_Matches_A_Dedicated_Installer()
+        {
+            var registry = new PlatformInstallerRegistry(new Dictionary<string, IPlatformInstaller>
+            {
+                ["n64"] = new IdentityStubInstaller(
+                    platformKey: "n64",
+                    displayName: "Nintendo 64",
+                    supportedIds: new[] { "8", "n64" },
+                    supportedAliases: new[] { "n64", "nintendo 64" }),
+                ["general"] = new StubInstaller("general", "General Platform")
+            });
+            var logger = TestLogger.Create();
+
+            var resolved = InstallContentStep.ResolveInstallerKey(
+                platformKey: "8",
+                platformDisplayName: "Game Boy Advance",
+                launchBoxPlatformName: "Nintendo Game Boy Advance",
+                registry: registry,
+                logger: logger,
+                fileExtension: ".zip");
+
+            resolved.Should().BeEmpty();
         }
 
         [Fact]

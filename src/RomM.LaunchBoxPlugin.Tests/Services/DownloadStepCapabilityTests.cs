@@ -55,6 +55,7 @@ namespace RomMbox.Tests.Services
             result.Success.Should().BeTrue();
             events.Should().Contain(evt => evt.Phase == InstallPhase.Extracting && evt.Message.Contains("Extraction skipped", StringComparison.OrdinalIgnoreCase),
                 "plugin metadata requiring staging inspection should force extraction reporting");
+            context.TempRoot.Should().StartWith(Path.Combine(temp.Path, ".staging"));
         }
 
         [Fact]

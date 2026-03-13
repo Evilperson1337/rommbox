@@ -199,7 +199,8 @@ namespace RomMbox.Tests.Services
                 "ShadPs4ExecutablePath",
                 "Ps4GamesDirectory",
                 "Ps4ExternalPkgExtractorPath",
-                "Ps4FailIfDirectPkgExtractorMissing"
+                "Ps4FailIfDirectPkgExtractorMissing",
+                "SupportedFileTypes"
             });
         }
 

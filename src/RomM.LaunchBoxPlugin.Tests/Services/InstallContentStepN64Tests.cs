@@ -6,6 +6,7 @@ using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using FluentAssertions;
+using RomM.Platforms.Abstractions.Install;
 using RomM.Platforms.Abstractions;
 using RomM.Platforms.Abstractions.Models.Detection;
 using RomM.Platforms.Abstractions.Models.Install;
@@ -240,6 +241,23 @@ namespace RomMbox.Tests.Services
             File.Exists(archivePath).Should().BeFalse();
             Directory.Exists(Path.Combine(context.DownloadDirectory, ".staging")).Should().BeFalse();
             File.Exists(stagedIso).Should().BeFalse();
+        }
+
+        [Fact]
+        public void TryDeleteOperationRootAndEmptyParents_Removes_Empty_Platform_Staging_Directory()
+        {
+            using var temp = new TempDirectory();
+
+            var platformRoot = Path.Combine(temp.Path, "Games", "Sony Playstation");
+            var operationRoot = Path.Combine(platformRoot, ".staging", "cleanup-op");
+            var tempRoot = Path.Combine(operationRoot, "download");
+            Directory.CreateDirectory(tempRoot);
+            File.WriteAllText(Path.Combine(tempRoot, "artifact.tmp"), "data");
+
+            InstallStagingPathHelper.TryDeleteOperationRootAndEmptyParents(tempRoot);
+
+            Directory.Exists(operationRoot).Should().BeFalse();
+            Directory.Exists(Path.Combine(platformRoot, ".staging")).Should().BeFalse();
         }
 
         private sealed class TrackingInstaller : IPlatformInstaller, IPlatformInstallerMetadata

@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using RomM.Platforms.Abstractions.Install;
 using RomM.Platforms.Abstractions.Models.Metadata;
 using RomMbox.Models.Download;
 using RomMbox.Models.Install;
@@ -71,6 +72,9 @@ namespace RomMbox.Services.Install.Pipeline.Steps
 
             context.Logger?.Info($"ExtractionDecision | ExtractAfterDownload={extractAfterDownload}, Behavior={extractionBehavior}, IsWindows={isWindowsPlatform}, InstallScenario={installScenario}.");
             context.Logger?.Info($"Archive download requested. RomId={context.RommDetails.Id ?? string.Empty}, PlatformId={context.RommDetails.PlatformId ?? string.Empty}.");
+            var platformInstallRoot = ResolvePlatformInstallRoot(context);
+            var operationStagingRoot = InstallStagingPathHelper.ResolveOperationRoot(platformInstallRoot, context.OperationId);
+            context.Logger?.Info($"Resolved platform-scoped staging root: '{operationStagingRoot}'.");
             var shouldReportExtraction = extractAfterDownload;
 
             var downloadProgress = new Progress<DownloadProgress>(update =>
@@ -118,6 +122,7 @@ namespace RomMbox.Services.Install.Pipeline.Steps
             var result = await _downloadService.DownloadRomAsync(
                     context.RommDetails,
                     context.DownloadDirectory,
+                    operationStagingRoot,
                     serverUrl,
                     extractionBehavior,
                     extractAfterDownload,
@@ -228,6 +233,21 @@ namespace RomMbox.Services.Install.Pipeline.Steps
             }
 
             return new string(value.ToLowerInvariant().Where(char.IsLetterOrDigit).ToArray());
+        }
+
+        private static string ResolvePlatformInstallRoot(InstallContext context)
+        {
+            if (!string.IsNullOrWhiteSpace(context?.InstallDirectory))
+            {
+                return context.InstallDirectory;
+            }
+
+            if (!string.IsNullOrWhiteSpace(context?.DownloadDirectory))
+            {
+                return System.IO.Path.GetFullPath(context.DownloadDirectory);
+            }
+
+            return string.Empty;
         }
     }
 }

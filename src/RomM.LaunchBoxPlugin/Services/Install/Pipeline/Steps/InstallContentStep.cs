@@ -95,7 +95,9 @@ namespace RomMbox.Services.Install.Pipeline.Steps
                     progress?.Report(new InstallProgressEvent(Phase, $"Installing {context.Game.Title}...", value));
                 });
 
-                var stagingRoot = Path.Combine(context.InstallDirectory, ".staging", context.OperationId ?? Guid.NewGuid().ToString("N"));
+                var stagingRoot = !string.IsNullOrWhiteSpace(context.TempRoot)
+                    ? context.TempRoot
+                    : InstallStagingPathHelper.ResolveOperationRoot(context.InstallDirectory, context.OperationId);
                 Directory.CreateDirectory(stagingRoot);
 
                 var platformContext = new RomM.Platforms.Abstractions.Models.Install.InstallContext
@@ -177,7 +179,13 @@ namespace RomMbox.Services.Install.Pipeline.Steps
                 var launchBoxPlatformName = context.Game?.Platform ?? string.Empty;
                 context.Logger?.Info($"Detected platform: LaunchBox='{launchBoxPlatformName}', RomMId='{platformKey}', RomMName='{platformDisplayName}'.");
 
-                var resolvedKey = ResolveInstallerKey(platformKey, platformDisplayName, launchBoxPlatformName, _platformInstallers, context.Logger);
+                var resolvedKey = ResolveInstallerKey(
+                    platformKey,
+                    platformDisplayName,
+                    launchBoxPlatformName,
+                    _platformInstallers,
+                    context.Logger,
+                    ResolveInputExtension(context));
                 if (!string.IsNullOrWhiteSpace(resolvedKey) && !string.Equals(resolvedKey, platformKey, StringComparison.OrdinalIgnoreCase))
                 {
                     if (ShouldWarnOnResolvedKeyDifference(platformKey, resolvedKey, _platformInstallers))
@@ -246,7 +254,7 @@ namespace RomMbox.Services.Install.Pipeline.Steps
                             progress?.Report(new InstallProgressEvent(InstallPhase.Extracting, "Extracting ROM archive...", 0));
                             try
                             {
-                                var extractionRoot = Path.Combine(context.DownloadDirectory ?? context.InstallDirectory ?? string.Empty, ".staging", context.OperationId ?? Guid.NewGuid().ToString("N"), "extracted");
+                                var extractionRoot = InstallStagingPathHelper.ResolveOperationPath(context.InstallDirectory, context.OperationId, "rom-extracted");
                                 context.Logger?.Info($"ROM install extraction requested; extracting archive '{context.ArchivePath}' to '{extractionRoot}'.");
                                 context.ExtractedPath = await _archiveService
                                     .ExtractAsync(context.ArchivePath, extractionRoot, ExtractionBehavior.Subfolder, cancellationToken)
@@ -271,6 +279,9 @@ namespace RomMbox.Services.Install.Pipeline.Steps
                     {
                         GameName = context.Game.Title,
                         InstallDirectory = context.InstallDirectory,
+                        StagingDirectory = !string.IsNullOrWhiteSpace(context.TempRoot)
+                            ? context.TempRoot
+                            : InstallStagingPathHelper.ResolveOperationRoot(context.InstallDirectory, context.OperationId),
                         ArchivePath = context.ArchivePath,
                         ExtractedPath = context.ExtractedPath,
                         Settings = PlatformInstallSettingsMapper.Map(context.PlatformMapping),
@@ -581,18 +592,7 @@ namespace RomMbox.Services.Install.Pipeline.Steps
 
             try
             {
-                if (Directory.Exists(stagingRoot))
-                {
-                    Directory.Delete(stagingRoot, recursive: true);
-                }
-
-                var stagingParent = Path.GetDirectoryName(stagingRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-                if (!string.IsNullOrWhiteSpace(stagingParent)
-                    && Directory.Exists(stagingParent)
-                    && !Directory.EnumerateFileSystemEntries(stagingParent).Any())
-                {
-                    Directory.Delete(stagingParent, recursive: false);
-                }
+                InstallStagingPathHelper.TryDeleteOperationRootAndEmptyParents(stagingRoot);
             }
             catch (Exception ex)
             {
@@ -625,7 +625,9 @@ namespace RomMbox.Services.Install.Pipeline.Steps
                 }
             }
 
-            var stagingRoot = ResolveOperationStagingRoot(context.ExtractedPath);
+            var stagingRoot = !string.IsNullOrWhiteSpace(context?.TempRoot)
+                ? context.TempRoot
+                : ResolveOperationStagingRoot(context.ExtractedPath);
             if (string.IsNullOrWhiteSpace(stagingRoot))
             {
                 return string.Empty;
@@ -719,9 +721,21 @@ namespace RomMbox.Services.Install.Pipeline.Steps
             executablePath = canonicalExecutablePath;
             installRootPath = canonicalGameDirectory;
 
+            if (IsPs4InstallContext(context)
+                && !string.IsNullOrWhiteSpace(result.InstallRootPath)
+                && GameInstallPathHelper.IsPathUnderDirectory(result.InstallRootPath, canonicalGameDirectory))
+            {
+                executablePath = result.ExecutablePath;
+                installRootPath = result.InstallRootPath;
+                logger?.Info($"Skipping canonical ROM layout rewrite for PS4 because install root is already under canonical game directory: '{result.InstallRootPath}'.");
+                return string.Empty;
+            }
+
             try
             {
-                if (!File.Exists(result.ExecutablePath))
+                var installedFileExists = File.Exists(result.ExecutablePath);
+                var installedDirectoryExists = Directory.Exists(result.ExecutablePath);
+                if (!installedFileExists && !installedDirectoryExists)
                 {
                     return $"Installed content missing on disk at '{result.ExecutablePath}'.";
                 }
@@ -741,6 +755,15 @@ namespace RomMbox.Services.Install.Pipeline.Steps
                     return string.Empty;
                 }
 
+                if (installedDirectoryExists)
+                {
+                    Directory.CreateDirectory(canonicalGameDirectory);
+                    MoveInstalledDirectory(result.ExecutablePath, canonicalExecutablePath, logger);
+                    executablePath = canonicalExecutablePath;
+                    logger?.Info($"Canonical ROM directory reconciled: '{result.ExecutablePath}' -> '{canonicalExecutablePath}'.");
+                    return string.Empty;
+                }
+
                 Directory.CreateDirectory(canonicalGameDirectory);
                 MoveInstalledFile(result.ExecutablePath, canonicalExecutablePath, logger);
                 logger?.Info($"Canonical ROM artifact reconciled: '{result.ExecutablePath}' -> '{canonicalExecutablePath}'.");
@@ -751,6 +774,19 @@ namespace RomMbox.Services.Install.Pipeline.Steps
                 logger?.Warning($"Failed to reconcile installed ROM layout: {ex.Message}");
                 return "Installed content could not be reconciled to the canonical game directory.";
             }
+        }
+
+        private static bool IsPs4InstallContext(InstallContext context)
+        {
+            var platformId = context?.RommDetails?.PlatformId ?? string.Empty;
+            var platformName = context?.RommDetails?.PlatformDisplayName ?? string.Empty;
+            var launchBoxPlatform = context?.Game?.Platform ?? string.Empty;
+
+            return string.Equals(platformId, "ps4", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(platformId, "20", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(platformName, "PlayStation 4", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(launchBoxPlatform, "Sony Playstation 4", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(launchBoxPlatform, "PlayStation 4", StringComparison.OrdinalIgnoreCase);
         }
 
         private static string ResolveActualInstallRoot(RomM.Platforms.Abstractions.Models.Install.InstallResult result)
@@ -816,6 +852,57 @@ namespace RomMbox.Services.Install.Pipeline.Steps
 
             var sourceDirectory = Path.GetDirectoryName(sourcePath);
             TryDeleteDirectoryIfEmpty(sourceDirectory, logger);
+        }
+
+        private static void MoveInstalledDirectory(string sourcePath, string destinationPath, Services.Logging.LoggingService logger)
+        {
+            var destinationParent = Path.GetDirectoryName(destinationPath);
+            if (string.IsNullOrWhiteSpace(destinationParent))
+            {
+                throw new InvalidOperationException("Destination directory could not be resolved.");
+            }
+
+            Directory.CreateDirectory(destinationParent);
+            if (Directory.Exists(destinationPath))
+            {
+                Directory.Delete(destinationPath, recursive: true);
+            }
+
+            if (string.Equals(Path.GetPathRoot(sourcePath), Path.GetPathRoot(destinationPath), StringComparison.OrdinalIgnoreCase))
+            {
+                Directory.Move(sourcePath, destinationPath);
+            }
+            else
+            {
+                CopyDirectoryContents(sourcePath, destinationPath);
+                Directory.Delete(sourcePath, recursive: true);
+            }
+
+            var sourceDirectory = Path.GetDirectoryName(sourcePath);
+            TryDeleteDirectoryIfEmpty(sourceDirectory, logger);
+        }
+
+        private static void CopyDirectoryContents(string sourceDirectory, string destinationDirectory)
+        {
+            Directory.CreateDirectory(destinationDirectory);
+            foreach (var directory in Directory.EnumerateDirectories(sourceDirectory, "*", SearchOption.AllDirectories))
+            {
+                var relative = Path.GetRelativePath(sourceDirectory, directory);
+                Directory.CreateDirectory(Path.Combine(destinationDirectory, relative));
+            }
+
+            foreach (var file in Directory.EnumerateFiles(sourceDirectory, "*", SearchOption.AllDirectories))
+            {
+                var relative = Path.GetRelativePath(sourceDirectory, file);
+                var destinationFile = Path.Combine(destinationDirectory, relative);
+                var destinationFolder = Path.GetDirectoryName(destinationFile);
+                if (!string.IsNullOrWhiteSpace(destinationFolder))
+                {
+                    Directory.CreateDirectory(destinationFolder);
+                }
+
+                File.Copy(file, destinationFile, overwrite: true);
+            }
         }
 
         private static void MoveDirectoryContents(string sourceDirectory, string destinationDirectory, Services.Logging.LoggingService logger)
@@ -911,16 +998,7 @@ namespace RomMbox.Services.Install.Pipeline.Steps
                     return string.Empty;
                 }
 
-                var current = new DirectoryInfo(Path.GetFullPath(currentDirectoryPath));
-                while (current?.Parent != null)
-                {
-                    if (string.Equals(current.Parent.Name, ".staging", StringComparison.OrdinalIgnoreCase))
-                    {
-                        return current.FullName;
-                    }
-
-                    current = current.Parent;
-                }
+                return InstallStagingPathHelper.TryResolveOperationRootFromPath(currentDirectoryPath) ?? string.Empty;
             }
             catch
             {
@@ -958,7 +1036,8 @@ namespace RomMbox.Services.Install.Pipeline.Steps
             string platformDisplayName,
             string launchBoxPlatformName,
             PlatformInstallerRegistry registry,
-            Services.Logging.LoggingService logger)
+            Services.Logging.LoggingService logger,
+            string fileExtension = "")
         {
             if (registry == null)
             {
@@ -967,88 +1046,34 @@ namespace RomMbox.Services.Install.Pipeline.Steps
 
             logger?.Info($"Installer resolution candidates: RomMId='{platformKey ?? string.Empty}', RomMName='{platformDisplayName ?? string.Empty}', LaunchBox='{launchBoxPlatformName ?? string.Empty}'.");
 
-            if (!string.IsNullOrWhiteSpace(platformKey)
-                && registry.TryGetInstaller(platformKey, out _))
+            var resolution = PlatformIdentityResolver.Resolve(
+                registry,
+                new PlatformResolutionEvidence
+                {
+                    PlatformKey = platformKey ?? string.Empty,
+                    PlatformDisplayName = platformDisplayName ?? string.Empty,
+                    LaunchBoxPlatformName = launchBoxPlatformName ?? string.Empty,
+                    FileExtension = fileExtension ?? string.Empty
+                });
+
+            if (resolution.CandidateDiagnostics.Count > 0)
             {
-                logger?.Info($"Resolved platform installer by direct key lookup: '{platformKey}'.");
-                return platformKey;
+                logger?.Info($"Platform classifier evidence: Extension='{fileExtension ?? string.Empty}', Candidates=[{string.Join(" | ", resolution.CandidateDiagnostics)}].");
             }
 
-            var allInstallers = registry.GetAll().Values
-                .Where(installer => installer != null)
-                .ToArray();
-
-            var candidates = new[]
+            if (!string.IsNullOrWhiteSpace(resolution.ResolvedPlatformKey))
             {
-                platformDisplayName,
-                launchBoxPlatformName
-            };
-
-            var normalizedCandidates = candidates
-                .Where(value => !string.IsNullOrWhiteSpace(value))
-                .SelectMany(ExpandNormalizedPlatformCandidates)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToArray();
-
-            foreach (var installer in allInstallers.OrderByDescending(candidate => NormalizePlatformToken(candidate.DisplayName).Length))
-            {
-                var normalizedDisplay = NormalizePlatformToken(installer.DisplayName);
-                var normalizedKey = NormalizePlatformToken(installer.PlatformKey);
-                if (normalizedCandidates.Any(candidate => string.Equals(candidate, normalizedDisplay, StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(candidate, normalizedKey, StringComparison.OrdinalIgnoreCase)
-                    || (!string.IsNullOrWhiteSpace(normalizedDisplay) && normalizedDisplay.Length >= 8 && candidate.Contains(normalizedDisplay, StringComparison.OrdinalIgnoreCase))
-                    || (!string.IsNullOrWhiteSpace(normalizedDisplay) && candidate.Length >= 8 && normalizedDisplay.Contains(candidate, StringComparison.OrdinalIgnoreCase))
-                    || (!string.IsNullOrWhiteSpace(normalizedKey) && normalizedKey.Length >= 8 && candidate.Contains(normalizedKey, StringComparison.OrdinalIgnoreCase))
-                    || (!string.IsNullOrWhiteSpace(normalizedKey) && candidate.Length >= 8 && normalizedKey.Contains(candidate, StringComparison.OrdinalIgnoreCase))))
-                {
-                    logger?.Info($"Resolved platform installer by name match: '{installer.DisplayName}' ({installer.PlatformKey}).");
-                    return installer.PlatformKey;
-                }
+                logger?.Info($"Resolved platform installer: '{resolution.ResolvedPlatformKey}'. Reason='{resolution.ResolutionReason}'.");
+                return resolution.ResolvedPlatformKey;
             }
 
-            foreach (var installer in allInstallers)
+            if (resolution.IsAmbiguous)
             {
-                if (installer is not RomM.Platforms.Abstractions.IPlatformInstallerIdentityMetadata identity
-                    || identity.SupportedPlatformAliases == null)
-                {
-                    continue;
-                }
-
-                var normalizedAliases = identity.SupportedPlatformAliases
-                    .Where(value => !string.IsNullOrWhiteSpace(value))
-                    .Select(NormalizePlatformToken)
-                    .Where(value => !string.IsNullOrWhiteSpace(value))
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .ToArray();
-
-                if (normalizedAliases.Length == 0)
-                {
-                    continue;
-                }
-
-                if (normalizedCandidates.Any(candidate => normalizedAliases.Contains(candidate, StringComparer.OrdinalIgnoreCase)))
-                {
-                    logger?.Info($"Resolved platform installer by alias match: '{installer.DisplayName}' ({installer.PlatformKey}).");
-                    return installer.PlatformKey;
-                }
-            }
-
-            if (!string.IsNullOrWhiteSpace(platformKey))
-            {
-                foreach (var installer in allInstallers)
-                {
-                    if (installer is RomM.Platforms.Abstractions.IPlatformInstallerIdentityMetadata identity
-                        && identity.SupportedPlatformIds != null
-                        && identity.SupportedPlatformIds.Any(id => string.Equals(id?.Trim(), platformKey.Trim(), StringComparison.OrdinalIgnoreCase)))
-                    {
-                        logger?.Info($"Resolved platform installer by RomM platform id '{platformKey}': '{installer.DisplayName}' ({installer.PlatformKey}).");
-                        return installer.PlatformKey;
-                    }
-                }
+                logger?.Warning($"Platform classification ambiguous. Reason='{resolution.ResolutionReason}'. Conservative fallback will be used.");
             }
 
             logger?.Warning($"No dedicated platform installer match found. RomMId='{platformKey ?? string.Empty}', RomMName='{platformDisplayName ?? string.Empty}', LaunchBox='{launchBoxPlatformName ?? string.Empty}'. Registered keys=[{string.Join(",", registry.GetAll().Keys.OrderBy(key => key, StringComparer.OrdinalIgnoreCase))}].");
-            return platformKey ?? string.Empty;
+            return string.Empty;
         }
 
         private static string NormalizePlatformToken(string value)
@@ -1080,6 +1105,19 @@ namespace RomMbox.Services.Install.Pipeline.Steps
                     yield return normalized.Substring(prefix.Length);
                 }
             }
+        }
+
+        private static string ResolveInputExtension(InstallContext context)
+        {
+            var candidatePath = context?.ExtractedPath;
+            if (string.IsNullOrWhiteSpace(candidatePath))
+            {
+                candidatePath = context?.ArchivePath;
+            }
+
+            return string.IsNullOrWhiteSpace(candidatePath)
+                ? string.Empty
+                : Path.GetExtension(candidatePath) ?? string.Empty;
         }
 
         internal static bool ShouldWarnOnResolvedKeyDifference(

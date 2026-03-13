@@ -9,6 +9,7 @@ using System.Diagnostics;
 using System.Text;
 using System.Xml;
 using System.Xml.Linq;
+using RomM.Platforms.Abstractions.Install;
 using RomMbox.Models;
 using RomMbox.Models.Import;
 using RomMbox.Models.Install;
@@ -1465,8 +1466,9 @@ namespace RomMbox.Services
                 try
                 {
                     var detectInstallType = installScenario != InstallScenario.Basic;
+                    var stagingRoot = InstallStagingPathHelper.ResolveOperationRoot(installLocation.InstallDirectory, Guid.NewGuid().ToString("N"));
                     result = await _downloadService
-                        .DownloadRomAsync(rom, downloadDirectory, serverUrl, extractionBehavior, extractAfterDownload, cancellationToken, null, null, detectInstallType)
+                        .DownloadRomAsync(rom, downloadDirectory, stagingRoot, serverUrl, extractionBehavior, extractAfterDownload, cancellationToken, null, null, detectInstallType)
                         .ConfigureAwait(false);
                 }
                 finally
