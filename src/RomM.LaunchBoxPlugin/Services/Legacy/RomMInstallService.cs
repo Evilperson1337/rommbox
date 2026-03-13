@@ -3,6 +3,7 @@ using System.IO;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
+using RomM.Platforms.Abstractions.Install;
 using RomMbox.Models;
 using RomMbox.Models.Install;
 using RomMbox.Models.PlatformMapping;
@@ -10,6 +11,8 @@ using RomMbox.Models.Romm;
 using RomMbox.Services.Logging;
 using RomMbox.Services.Settings;
 using RomMbox.Services.Install;
+using RomMbox.Plugin;
+using RomMbox.Services.PlatformInstallers;
 using Unbroken.LaunchBox.Plugins.Data;
 
 namespace RomMbox.Services.Install
@@ -24,6 +27,8 @@ namespace RomMbox.Services.Install
         private readonly InstallStateService _installStateService;
         private readonly IRommClient _client;
         private readonly DownloadService _downloadService;
+        private readonly PlatformInstallerRegistry _platformInstallers;
+        private readonly PlatformLoggerAdapter _platformLogger;
 
         /// <summary>
         /// Creates a new installer service with required dependencies.
@@ -40,6 +45,8 @@ namespace RomMbox.Services.Install
             _client = client;
             var archiveService = new ArchiveService(logger, settingsManager);
             _downloadService = new DownloadService(logger, client, archiveService, settingsManager);
+            _platformInstallers = PluginEntry.PlatformInstallers ?? new PlatformInstallerLoader(logger).Load();
+            _platformLogger = new PlatformLoggerAdapter(logger);
         }
 
         /// <summary>
@@ -115,15 +122,16 @@ namespace RomMbox.Services.Install
                     return RomMInstallResult.Failed(installLocation.Message ?? "Install directory unavailable.");
                 }
 
-                var downloadDirectory = InstallDestinationService.IsWindowsPlatform(platform.Name)
-                    ? installLocation.InstallDirectory
-                    : EnsureGameSubfolder(installLocation.InstallDirectory, game.Title);
+                var downloadDirectory = GameInstallPathPolicy.ShouldUseGameSubfolder(platform.Name, rom.PlatformId)
+                    ? EnsureGameSubfolder(installLocation.InstallDirectory, game.Title)
+                    : installLocation.InstallDirectory;
                 _logger?.Info($"Downloading ROM for '{game.Title}' to '{downloadDirectory}'. Scenario={installScenario}, Extract={extractAfterDownload}, Behavior={extractionBehavior}.");
 
                 var serverUrl = _settingsManager.Load().ServerUrl;
                 var detectInstallType = installScenario != InstallScenario.Basic;
+                var stagingRoot = InstallStagingPathHelper.ResolveOperationRoot(installLocation.InstallDirectory, Guid.NewGuid().ToString("N"));
                 downloadResult = _downloadService
-                    .DownloadRomAsync(rom, downloadDirectory, serverUrl, extractionBehavior, extractAfterDownload, cancellationToken, downloadProgress, extractionProgress, detectInstallType)
+                    .DownloadRomAsync(rom, downloadDirectory, stagingRoot, serverUrl, extractionBehavior, extractAfterDownload, cancellationToken, downloadProgress, extractionProgress, detectInstallType)
                     .ConfigureAwait(false)
                     .GetAwaiter()
                     .GetResult();
@@ -142,9 +150,25 @@ namespace RomMbox.Services.Install
 
                 if (InstallDestinationService.IsWindowsPlatform(platform.Name))
                 {
-                    var installSubsystem = new WindowsInstallSubsystem(_logger, new ArchiveService(_logger, _settingsManager));
-                    var installResult = installSubsystem
-                        .InstallAsync(downloadResult.ArchivePath, downloadResult.ExtractedPath, installLocation.InstallDirectory, mapping, game.Title, cancellationToken)
+                    if (_platformInstallers == null || !_platformInstallers.TryGetInstaller("windows", out var installer))
+                    {
+                        return RomMInstallResult.Failed("Windows platform installer not available.");
+                    }
+
+                    var installContext = new RomM.Platforms.Abstractions.Models.Install.InstallContext
+                    {
+                        GameName = game.Title,
+                        InstallDirectory = installLocation.InstallDirectory,
+                        ArchivePath = downloadResult.ArchivePath,
+                        ExtractedPath = downloadResult.ExtractedPath,
+                        Settings = PlatformInstallSettingsMapper.Map(mapping),
+                        SelectExecutableAsync = PlatformInstallerUi.SelectExecutableAsync,
+                        ConfirmAsync = PlatformInstallerUi.ConfirmAsync,
+                        Logger = _platformLogger
+                    };
+
+                    var installResult = installer
+                        .InstallAsync(installContext, null, cancellationToken)
                         .ConfigureAwait(false)
                         .GetAwaiter()
                         .GetResult();
@@ -171,7 +195,8 @@ namespace RomMbox.Services.Install
                         game.EmulatorId = windowsEmulatorId;
                     }
 
-                    var windowsInstallRoot = Path.Combine(installLocation.InstallDirectory, NormalizePathSegment(game.Title));
+                    var windowsInstallRoot = installResult.InstallRootPath
+                        ?? Path.Combine(installLocation.InstallDirectory, NormalizePathSegment(game.Title));
                     if (installResult.InstallType.HasValue)
                     {
                         _installStateService.UpsertIdentityAsync(
@@ -195,6 +220,7 @@ namespace RomMbox.Services.Install
                         WindowsInstallType = installResult.InstallType?.ToString(),
                         InstalledPath = installResult.ExecutablePath ?? finalPath,
                         RommLaunchPath = installResult.ExecutablePath ?? finalPath,
+                        PlatformContentId = installResult.PlatformContentId,
                         RommLaunchArgs = installResult.Arguments != null && installResult.Arguments.Count > 0
                             ? string.Join(" ", installResult.Arguments)
                             : string.Empty,

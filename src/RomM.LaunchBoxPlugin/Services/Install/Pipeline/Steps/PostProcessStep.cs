@@ -28,9 +28,14 @@ namespace RomMbox.Services.Install.Pipeline.Steps
                 context.Game.ApplicationPath = ToLaunchBoxRelativePath(finalPath);
             }
 
-            if (context.InstallerArguments != null && context.InstallerArguments.Length > 0)
+            var serializedArguments = SerializeInstallerArguments(context.InstallerArguments, finalPath);
+            if (!string.IsNullOrWhiteSpace(serializedArguments))
             {
-                context.Game.CommandLine = string.Join(" ", context.InstallerArguments);
+                context.Game.CommandLine = serializedArguments;
+            }
+            else
+            {
+                context.Game.CommandLine = string.Empty;
             }
 
             context.Game.Installed = true;
@@ -41,12 +46,19 @@ namespace RomMbox.Services.Install.Pipeline.Steps
             {
                 context.Game.EmulatorId = emulatorId;
             }
+            else if (!string.IsNullOrWhiteSpace(context.PlatformMapping?.AssociatedEmulatorId))
+            {
+                context.Game.EmulatorId = context.PlatformMapping.AssociatedEmulatorId;
+            }
 
             context.InstallStateSnapshot.InstalledPath = finalPath;
             context.InstallStateSnapshot.RommLaunchPath = finalPath;
-            context.InstallStateSnapshot.RommLaunchArgs = context.InstallerArguments != null && context.InstallerArguments.Length > 0
-                ? string.Join(" ", context.InstallerArguments)
-                : string.Empty;
+            context.InstallStateSnapshot.RommLaunchArgs = serializedArguments;
+            if (string.IsNullOrWhiteSpace(context.InstallStateSnapshot.RommLaunchArgs)
+                && !string.IsNullOrWhiteSpace(context.PlatformMapping?.EmulatorLaunchArgs))
+            {
+                context.InstallStateSnapshot.RommLaunchArgs = context.PlatformMapping.EmulatorLaunchArgs;
+            }
             context.InstallStateSnapshot.ArchivePath = context.ArchivePath;
             if (string.IsNullOrWhiteSpace(context.InstallStateSnapshot.InstallRootPath))
             {
@@ -89,6 +101,44 @@ namespace RomMbox.Services.Install.Pipeline.Steps
             }
 
             return absolutePath;
+        }
+
+        private static string SerializeInstallerArguments(string[] installerArguments, string finalPath)
+        {
+            if (installerArguments == null || installerArguments.Length == 0)
+            {
+                return string.Empty;
+            }
+
+            var serialized = string.Join(" ", installerArguments).Trim();
+            if (string.IsNullOrWhiteSpace(serialized))
+            {
+                return string.Empty;
+            }
+
+            if (IsRomOnlyArgument(serialized, finalPath))
+            {
+                return string.Empty;
+            }
+
+            return serialized;
+        }
+
+        private static bool IsRomOnlyArgument(string serializedArguments, string finalPath)
+        {
+            if (string.IsNullOrWhiteSpace(serializedArguments) || string.IsNullOrWhiteSpace(finalPath))
+            {
+                return false;
+            }
+
+            var trimmedArguments = serializedArguments.Trim();
+            var trimmedPath = finalPath.Trim();
+            var quotedPath = trimmedPath.Contains(" ", StringComparison.Ordinal)
+                ? $"\"{trimmedPath}\""
+                : trimmedPath;
+
+            return string.Equals(trimmedArguments, trimmedPath, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(trimmedArguments, quotedPath, StringComparison.OrdinalIgnoreCase);
         }
 
         private static string ResolveEmulatorId(Unbroken.LaunchBox.Plugins.Data.IDataManager dataManager, string platformName)

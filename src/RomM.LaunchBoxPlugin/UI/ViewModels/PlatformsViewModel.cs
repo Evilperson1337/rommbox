@@ -10,8 +10,10 @@ using System.Threading.Tasks;
 using System.Windows;
 using RomMbox.Models.Install;
 using RomMbox.Models.PlatformMapping;
+using RomMbox.Plugin;
 using RomMbox.Services;
 using RomMbox.Services.Logging;
+using RomMbox.Services.PlatformInstallers;
 using RomMbox.Services.Settings;
 using RomMbox.UI.Infrastructure;
 using RomMbox.UI.Models;
@@ -27,6 +29,8 @@ public sealed class PlatformsViewModel : ObservableObject
     private readonly MainWindowViewModel _shell;
     private readonly LoggingService _logger;
     private readonly SettingsManager _settingsManager;
+    private readonly PlatformInstallerRegistry _platformInstallers;
+    private readonly PlatformReadinessService _readinessService;
     private PlatformMappingService _mappingService;
     private string _mappingServiceServerUrl = string.Empty;
     private bool _hasLoaded;
@@ -41,6 +45,8 @@ public sealed class PlatformsViewModel : ObservableObject
         _shell = shell;
         _logger = LoggingServiceFactory.Create();
         _settingsManager = new SettingsManager(_logger);
+        _platformInstallers = PluginEntry.PlatformInstallers ?? new PlatformInstallerLoader(_logger).Load();
+        _readinessService = new PlatformReadinessService(_platformInstallers);
         
         EnsureMappingService();
 
@@ -211,7 +217,26 @@ public sealed class PlatformsViewModel : ObservableObject
                         BonusInstallLocation = RomMbox.Models.PlatformMapping.OptionalContentLocation.Centralized,
                         PreReqsRootPath = "",
                         InstallPreReqs = false,
-                        CustomInstallDirectory = ""
+                        CustomInstallDirectory = "",
+                        EmulatorCoreId = string.Empty,
+                        EmulatorCoreName = string.Empty,
+                        EmulatorCorePath = string.Empty,
+                        EmulatorLaunchArgs = string.Empty,
+                        RomInstallRoot = string.Empty,
+                        RomArchivePolicy = string.Empty,
+                        PluginKey = string.Empty,
+                        PluginSettings = string.Empty,
+                        SupportedFileTypes = string.Empty,
+                        PreferredLaunchExtensions = string.Empty,
+                        ArchiveHandlingMode = string.Empty,
+                        UseGameSubdirectory = true,
+                        InstallAllMatchingFiles = true,
+                        InstallFromArchiveDirectly = false,
+                        InstallLayoutMode = string.Empty,
+                        ArtifactSelectionMode = string.Empty,
+                        UseGeneralFallbackInstaller = false,
+                        ReadinessStatus = "Needs Connection",
+                        ReadinessMessage = "Configure and connect to RomM first."
                     });
                 });
                 return;
@@ -234,6 +259,8 @@ public sealed class PlatformsViewModel : ObservableObject
                 foreach (var mapping in result.Mappings)
                 {
                     var excludedMatch = excluded.Contains(mapping.RommPlatformId, StringComparer.OrdinalIgnoreCase);
+                    var persisted = _mappingService.GetMapping(mapping.RommPlatformId);
+                    var readiness = _readinessService.Evaluate(mapping.RommPlatformId, persisted);
                     Platforms.Add(mapping.RommPlatformName);
                     Mappings.Add(new Models.PlatformMapping
                     {
@@ -260,7 +287,30 @@ public sealed class PlatformsViewModel : ObservableObject
                         InstallPreReqs = mapping.InstallPreReqs,
                         ExtractAfterDownload = mapping.ExtractAfterDownload,
                         ExtractionBehavior = mapping.ExtractionBehavior,
-                        CustomInstallDirectory = mapping.CustomInstallDirectory
+                        CustomInstallDirectory = mapping.CustomInstallDirectory,
+                        EmulatorCoreId = mapping.EmulatorCoreId,
+                        EmulatorCoreName = mapping.EmulatorCoreName,
+                        EmulatorCorePath = mapping.EmulatorCorePath,
+                        EmulatorLaunchArgs = mapping.EmulatorLaunchArgs,
+                        RomInstallRoot = mapping.RomInstallRoot,
+                        RomArchivePolicy = mapping.RomArchivePolicy,
+                        PluginKey = mapping.PluginKey,
+                        PluginSettings = mapping.PluginSettings,
+                        SupportedFileTypes = mapping.SupportedFileTypes,
+                        PreferredLaunchExtensions = mapping.PreferredLaunchExtensions,
+                        ArchiveHandlingMode = mapping.ArchiveHandlingMode,
+                        UseGameSubdirectory = mapping.UseGameSubdirectory,
+                        InstallAllMatchingFiles = mapping.InstallAllMatchingFiles,
+                        InstallFromArchiveDirectly = mapping.InstallFromArchiveDirectly,
+                        InstallLayoutMode = mapping.InstallLayoutMode,
+                        ArtifactSelectionMode = mapping.ArtifactSelectionMode,
+                        UseGeneralFallbackInstaller = mapping.UseGeneralFallbackInstaller,
+                        Ps4GamesDirectory = mapping.Ps4GamesDirectory,
+                        ShadPs4ExecutablePath = mapping.ShadPs4ExecutablePath,
+                        Ps4ExternalPkgExtractorPath = mapping.Ps4ExternalPkgExtractorPath,
+                        Ps4FailIfDirectPkgExtractorMissing = mapping.Ps4FailIfDirectPkgExtractorMissing,
+                        ReadinessStatus = readiness.Status,
+                        ReadinessMessage = readiness.Message
                     });
                 }
 
@@ -310,7 +360,30 @@ public sealed class PlatformsViewModel : ObservableObject
                         BonusInstallLocation = RomMbox.Models.PlatformMapping.OptionalContentLocation.Centralized,
                         PreReqsRootPath = "",
                         InstallPreReqs = false,
-                        CustomInstallDirectory = ""
+                        CustomInstallDirectory = "",
+                        EmulatorCoreId = string.Empty,
+                        EmulatorCoreName = string.Empty,
+                        EmulatorCorePath = string.Empty,
+                        EmulatorLaunchArgs = string.Empty,
+                        RomInstallRoot = string.Empty,
+                        RomArchivePolicy = string.Empty,
+                        PluginKey = string.Empty,
+                        PluginSettings = string.Empty,
+                        SupportedFileTypes = string.Empty,
+                        PreferredLaunchExtensions = string.Empty,
+                        ArchiveHandlingMode = string.Empty,
+                        UseGameSubdirectory = true,
+                        InstallAllMatchingFiles = true,
+                        InstallFromArchiveDirectly = false,
+                        InstallLayoutMode = string.Empty,
+                        ArtifactSelectionMode = string.Empty,
+                        UseGeneralFallbackInstaller = false,
+                        Ps4GamesDirectory = string.Empty,
+                        ShadPs4ExecutablePath = string.Empty,
+                        Ps4ExternalPkgExtractorPath = string.Empty,
+                        Ps4FailIfDirectPkgExtractorMissing = false,
+                        ReadinessStatus = "Needs Connection",
+                        ReadinessMessage = "Configure and connect to RomM first."
                     });
                 });
             }
@@ -435,7 +508,36 @@ public sealed class PlatformsViewModel : ObservableObject
                         BonusInstallLocation = mapping.BonusInstallLocation,
                         PreReqsRootPath = mapping.PreReqsRootPath,
                         InstallPreReqs = mapping.InstallPreReqs,
-                        CustomInstallDirectory = mapping.CustomInstallDirectory
+                        CustomInstallDirectory = mapping.CustomInstallDirectory,
+                        EmulatorCoreId = mapping.EmulatorCoreId,
+                        EmulatorCoreName = mapping.EmulatorCoreName,
+                        EmulatorCorePath = mapping.EmulatorCorePath,
+                        EmulatorLaunchArgs = mapping.EmulatorLaunchArgs,
+                        RomInstallRoot = mapping.RomInstallRoot,
+                        RomArchivePolicy = mapping.RomArchivePolicy,
+                        PluginKey = mapping.PluginKey,
+                        PluginSettings = mapping.PluginSettings,
+                        SupportedFileTypes = mapping.SupportedFileTypes,
+                        PreferredLaunchExtensions = mapping.PreferredLaunchExtensions,
+                        ArchiveHandlingMode = mapping.ArchiveHandlingMode,
+                        UseGameSubdirectory = mapping.UseGameSubdirectory,
+                        InstallAllMatchingFiles = mapping.InstallAllMatchingFiles,
+                        InstallFromArchiveDirectly = mapping.InstallFromArchiveDirectly,
+                        InstallLayoutMode = mapping.InstallLayoutMode,
+                        ArtifactSelectionMode = mapping.ArtifactSelectionMode,
+                        UseGeneralFallbackInstaller = mapping.UseGeneralFallbackInstaller,
+                        Ps4GamesDirectory = mapping.Ps4GamesDirectory,
+                        ShadPs4ExecutablePath = mapping.ShadPs4ExecutablePath,
+                        Ps4ExternalPkgExtractorPath = mapping.Ps4ExternalPkgExtractorPath,
+                        Ps4FailIfDirectPkgExtractorMissing = mapping.Ps4FailIfDirectPkgExtractorMissing,
+                        Ps3GameDirectory = mapping.Ps3GameDirectory,
+                        Rpcs3ExecutablePath = mapping.Rpcs3ExecutablePath,
+                        InstallDlcAutomatically = mapping.InstallDlcAutomatically,
+                        InstallUpdatesAutomatically = mapping.InstallUpdatesAutomatically,
+                        Rpcs3LicenseDirectory = mapping.Rpcs3LicenseDirectory,
+                        SkipRegionMismatchedDlc = mapping.SkipRegionMismatchedDlc,
+                        SkipUnmatchedRapFiles = mapping.SkipUnmatchedRapFiles,
+                        PreferMetadataBasedPackageMatching = mapping.PreferMetadataBasedPackageMatching
                     };
                 })
                 .ToArray();
@@ -572,9 +674,32 @@ public sealed class PlatformsViewModel : ObservableObject
         }
 
         var defaultInstallDirectory = ResolveDefaultInstallDirectory(mapping.LaunchBoxPlatform);
+        var resolutionCandidates = new[]
+        {
+            mapping.RommPlatformId,
+            mapping.RomMPlatform,
+            mapping.LaunchBoxPlatform,
+            mapping.PluginKey
+        };
+
+        var resolvedPluginKey = resolutionCandidates
+            .Where(candidate => !string.IsNullOrWhiteSpace(candidate))
+            .Select(candidate => _platformInstallers.ResolveConfigPluginKey(candidate))
+            .FirstOrDefault(candidate => !string.IsNullOrWhiteSpace(candidate) && !string.Equals(candidate, "general", StringComparison.OrdinalIgnoreCase))
+            ?? _platformInstallers.ResolveConfigPluginKey(mapping.PluginKey);
+
+        if (string.IsNullOrWhiteSpace(resolvedPluginKey))
+        {
+            resolvedPluginKey = _platformInstallers.ResolveConfigPluginKey(mapping.RommPlatformId);
+        }
+
+        mapping.PluginKey = resolvedPluginKey;
+        var configDescriptor = _platformInstallers.GetConfigDescriptor(resolvedPluginKey);
+        _logger?.Info($"Platform configuration opened for '{mapping.RomMPlatform}'. PluginKey='{resolvedPluginKey}', RomMId='{mapping.RommPlatformId}'.");
         var viewModel = new ViewModels.PlatformInstallConfigViewModel(
             mapping,
             defaultInstallDirectory,
+            configDescriptor,
             onSave: () => SaveInlineConfiguration(mapping),
             onBack: () => ExitInlineConfiguration());
         SelectedMapping = mapping;

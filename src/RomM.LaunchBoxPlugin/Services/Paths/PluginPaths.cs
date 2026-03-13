@@ -83,6 +83,12 @@ namespace RomMbox.Services.Paths
         /// <returns>The LaunchBox root path, or empty if unavailable.</returns>
         public static string GetLaunchBoxRootDirectory()
         {
+            var overrideRoot = Environment.GetEnvironmentVariable("ROMMBOX_TEST_LAUNCHBOX_ROOT");
+            if (!string.IsNullOrWhiteSpace(overrideRoot))
+            {
+                return overrideRoot;
+            }
+
             var baseDirectory = AppDomain.CurrentDomain.BaseDirectory ?? string.Empty;
             if (string.IsNullOrWhiteSpace(baseDirectory))
             {

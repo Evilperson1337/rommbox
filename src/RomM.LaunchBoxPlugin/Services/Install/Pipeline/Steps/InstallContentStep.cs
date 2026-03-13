@@ -1,20 +1,30 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using RomM.Platforms.Abstractions.Install;
 using RomMbox.Models.Install;
+using PlatformInstallProgress = RomM.Platforms.Abstractions.Models.Install.InstallProgress;
+using PlatformInstallType = RomM.Platforms.Abstractions.Models.Install.InstallType;
 using RomMbox.Services.Install;
+using RomMbox.Models.PlatformMapping;
+using RomMbox.Services.PlatformInstallers;
 
 namespace RomMbox.Services.Install.Pipeline.Steps
 {
     internal sealed class InstallContentStep : IInstallStep
     {
-        private readonly WindowsInstallSubsystem _windowsSubsystem;
+        private readonly PlatformInstallerRegistry _platformInstallers;
+        private readonly PlatformLoggerAdapter _platformLogger;
+        private readonly ArchiveService _archiveService;
 
-        public InstallContentStep(WindowsInstallSubsystem windowsSubsystem)
+        public InstallContentStep(PlatformInstallerRegistry platformInstallers, PlatformLoggerAdapter platformLogger, ArchiveService archiveService)
         {
-            _windowsSubsystem = windowsSubsystem;
+            _platformInstallers = platformInstallers;
+            _platformLogger = platformLogger;
+            _archiveService = archiveService;
         }
 
         public InstallPhase Phase => InstallPhase.Installing;
@@ -46,6 +56,34 @@ namespace RomMbox.Services.Install.Pipeline.Steps
 
             if (InstallDestinationService.IsWindowsPlatform(platform.Name))
             {
+                context.Logger?.Info($"Windows install input: ArchivePath='{context.ArchivePath ?? string.Empty}', ExtractedPath='{context.ExtractedPath ?? string.Empty}', InstallDir='{context.InstallDirectory}'.");
+                if (string.IsNullOrWhiteSpace(context.ExtractedPath) && !string.IsNullOrWhiteSpace(context.ArchivePath))
+                {
+                    try
+                    {
+                        var extractionRoot = Path.Combine(context.InstallDirectory ?? string.Empty, ".staging", context.OperationId ?? Guid.NewGuid().ToString("N"), "extracted");
+                        context.Logger?.Info($"Extraction missing for Windows install; extracting archive '{context.ArchivePath}' to '{extractionRoot}'.");
+                        context.ExtractedPath = await _archiveService
+                            .ExtractAsync(context.ArchivePath, extractionRoot, ExtractionBehavior.Subfolder, cancellationToken)
+                            .ConfigureAwait(false);
+                    }
+                    catch (Exception ex)
+                    {
+                        context.Logger?.Error("Extraction failed before Windows install.", ex);
+                        return InstallResult.Failed(Phase, $"Extraction failed: {ex.Message}");
+                    }
+
+                    if (string.IsNullOrWhiteSpace(context.ExtractedPath))
+                    {
+                        return InstallResult.Failed(Phase, "Extraction failed.");
+                    }
+                }
+
+                if (_platformInstallers == null || !_platformInstallers.TryGetInstaller("windows", out var installer))
+                {
+                    return InstallResult.Failed(Phase, "Windows platform installer not available.");
+                }
+
                 progress?.Report(new InstallProgressEvent(Phase, $"Installing {context.Game.Title}...", 0));
                 context.Logger?.Info($"InstallStarted. Game='{context.Game.Title}', InstallDir='{context.InstallDirectory}'.");
                 if (!context.InstallStateSnapshot?.LastAttemptUtc.HasValue ?? false)
@@ -56,23 +94,33 @@ namespace RomMbox.Services.Install.Pipeline.Steps
                 {
                     progress?.Report(new InstallProgressEvent(Phase, $"Installing {context.Game.Title}...", value));
                 });
-                var extractionProgress = new Progress<Models.Download.DownloadProgress>(update =>
-                {
-                    if (update.TotalBytes.HasValue && update.TotalBytes.Value > 0)
-                    {
-                        var percent = Math.Clamp((update.BytesReceived / (double)update.TotalBytes.Value) * 100d, 0, 100);
-                        progress?.Report(new InstallProgressEvent(InstallPhase.Extracting, "Extracting...", percent));
-                    }
-                    else
-                    {
-                        progress?.Report(new InstallProgressEvent(InstallPhase.Extracting, "Extracting..."));
-                    }
-                });
 
-                var stagingRoot = Path.Combine(context.InstallDirectory, ".staging", context.OperationId ?? Guid.NewGuid().ToString("N"));
+                var stagingRoot = !string.IsNullOrWhiteSpace(context.TempRoot)
+                    ? context.TempRoot
+                    : InstallStagingPathHelper.ResolveOperationRoot(context.InstallDirectory, context.OperationId);
                 Directory.CreateDirectory(stagingRoot);
-                var result = await _windowsSubsystem
-                    .InstallAsync(context.ArchivePath, context.ExtractedPath, stagingRoot, context.PlatformMapping, context.Game.Title, cancellationToken, extractionProgress, installProgress, context.InstallDirectory, preferFinalInstallDirForInstaller: true)
+
+                var platformContext = new RomM.Platforms.Abstractions.Models.Install.InstallContext
+                {
+                    GameName = context.Game.Title,
+                    InstallDirectory = context.InstallDirectory,
+                    StagingDirectory = stagingRoot,
+                    ArchivePath = context.ArchivePath,
+                    ExtractedPath = context.ExtractedPath,
+                    Settings = PlatformInstallSettingsMapper.Map(context.PlatformMapping),
+                    SelectExecutableAsync = PlatformInstallerUi.SelectExecutableAsync,
+                    ConfirmAsync = PlatformInstallerUi.ConfirmAsync,
+                    Logger = _platformLogger
+                };
+
+                var result = await installer
+                    .InstallAsync(platformContext, new Progress<PlatformInstallProgress>(update =>
+                    {
+                        var percent = update.Percent.HasValue
+                            ? Math.Clamp(update.Percent.Value, 0, 100)
+                            : (double?)null;
+                        progress?.Report(new InstallProgressEvent(Phase, update.Message ?? "Installing...", percent));
+                    }), cancellationToken)
                     .ConfigureAwait(false);
                 if (!result.Success)
                 {
@@ -80,12 +128,13 @@ namespace RomMbox.Services.Install.Pipeline.Steps
                     return InstallResult.Failed(Phase, result.Message ?? "Windows install failed.");
                 }
 
-                var usedStaging = result.InstallType != InstallType.Installer;
-                string finalInstallRoot = context.InstallDirectory;
-                string stagingRewriteRoot = stagingRoot;
+                var usedStaging = result.InstallType.HasValue
+                    && result.InstallType.Value != PlatformInstallType.Installer;
+                var finalInstallRoot = context.InstallDirectory;
+                var stagingRewriteRoot = stagingRoot;
                 if (usedStaging)
                 {
-                    var safeGameName = WindowsInstallSubsystem.NormalizeGameFolderNameInternal(context.Game.Title, "Game");
+                    var safeGameName = NormalizeGameFolderName(context.Game.Title, "Game");
                     var stagedGameRoot = Path.Combine(stagingRoot, safeGameName);
                     if (Directory.Exists(stagedGameRoot))
                     {
@@ -117,9 +166,170 @@ namespace RomMbox.Services.Install.Pipeline.Steps
                 }
 
                 context.InstallStateSnapshot.WindowsInstallType = result.InstallType?.ToString();
-                var updatedResult = new WindowsInstallResultProxy(result, context.InstalledExecutablePath);
-                context.InstallStateSnapshot.InstallRootPath = ResolveInstallRootPath(updatedResult, context.InstallDirectory);
+                context.InstallStateSnapshot.InstallRootPath = usedStaging
+                    ? finalInstallRoot
+                    : result.InstallRootPath ?? context.InstallDirectory;
                 return InstallResult.Successful();
+            }
+
+            if (_platformInstallers != null && context.RommDetails != null)
+            {
+                var platformKey = context.RommDetails.PlatformId ?? string.Empty;
+                var platformDisplayName = context.RommDetails.PlatformDisplayName ?? string.Empty;
+                var launchBoxPlatformName = context.Game?.Platform ?? string.Empty;
+                context.Logger?.Info($"Detected platform: LaunchBox='{launchBoxPlatformName}', RomMId='{platformKey}', RomMName='{platformDisplayName}'.");
+
+                var resolvedKey = ResolveInstallerKey(
+                    platformKey,
+                    platformDisplayName,
+                    launchBoxPlatformName,
+                    _platformInstallers,
+                    context.Logger,
+                    ResolveInputExtension(context));
+                if (!string.IsNullOrWhiteSpace(resolvedKey) && !string.Equals(resolvedKey, platformKey, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (ShouldWarnOnResolvedKeyDifference(platformKey, resolvedKey, _platformInstallers))
+                    {
+                        context.Logger?.Warning($"Platform key mismatch. Provided='{platformKey}', Resolved='{resolvedKey}'.");
+                    }
+                    else
+                    {
+                        context.Logger?.Info($"Mapped RomM platform identifier '{platformKey}' to installer key '{resolvedKey}'.");
+                    }
+                }
+
+                var keyToUse = string.IsNullOrWhiteSpace(resolvedKey) ? platformKey : resolvedKey;
+                var foundInstaller = _platformInstallers.TryGetInstallerOrFallback(keyToUse, out var romInstaller, out var usedFallbackInstaller);
+
+                if (!foundInstaller || romInstaller == null)
+                {
+                    context.Logger?.Warning($"Platform installer not found for RomM platform '{platformKey}'.");
+                }
+                else
+                {
+                    if (usedFallbackInstaller)
+                    {
+                        var mappingFallbackEnabled = context.PlatformMapping?.UseGeneralFallbackInstaller == true;
+                        var supportedExtensions = context.PlatformMapping?.SupportedFileTypes ?? string.Empty;
+                        var archiveHandling = context.PlatformMapping?.ArchiveHandlingMode ?? string.Empty;
+                        context.Logger?.Warning($"No dedicated plugin found for platform '{platformDisplayName}'. Falling back to GeneralPlatformInstaller. MappingFallbackEnabled={mappingFallbackEnabled}.");
+                        context.Logger?.Info($"Using General ROM Plugin settings. SupportedExtensions='{supportedExtensions}', ArchiveHandling='{archiveHandling}', ExtractAfterDownload={context.PlatformMapping?.ExtractAfterDownload == true}.");
+                    }
+
+                    context.Logger?.Info($"Matched platform plugin: {romInstaller.DisplayName} ({romInstaller.PlatformKey}).");
+                }
+
+                if (romInstaller != null)
+                {
+                    progress?.Report(new InstallProgressEvent(Phase, $"Installing {context.Game.Title}...", 0));
+                    context.Logger?.Info($"ROM install input: ArchivePath='{context.ArchivePath ?? string.Empty}', ExtractedPath='{context.ExtractedPath ?? string.Empty}', InstallDir='{context.InstallDirectory}'.");
+
+                    var usingGeneralRomPlugin = string.Equals(romInstaller.PlatformKey, "general", StringComparison.OrdinalIgnoreCase);
+                    var archiveHandlingMode = context.PlatformMapping?.ArchiveHandlingMode ?? string.Empty;
+                    var generalPluginAllowsPreExtraction = usingGeneralRomPlugin
+                        && (string.Equals(archiveHandlingMode, "ExtractAlways", StringComparison.OrdinalIgnoreCase)
+                            || string.Equals(archiveHandlingMode, "ExtractForInspection", StringComparison.OrdinalIgnoreCase));
+
+                    if (context.PlatformMapping?.ExtractAfterDownload == false
+                        && !string.IsNullOrWhiteSpace(context.ArchivePath)
+                        && _archiveService.IsSupportedArchive(context.ArchivePath)
+                        && (!usingGeneralRomPlugin || generalPluginAllowsPreExtraction))
+                    {
+                        var archivePolicy = context.PlatformMapping?.RomArchivePolicy ?? string.Empty;
+                        var preserveArchivePlatform = string.Equals(context.RommDetails?.PlatformId, "snes", StringComparison.OrdinalIgnoreCase)
+                            || string.Equals(context.RommDetails?.PlatformId, "n64", StringComparison.OrdinalIgnoreCase)
+                            || string.Equals(context.RommDetails?.PlatformId, "arcade", StringComparison.OrdinalIgnoreCase)
+                            || string.Equals(romInstaller.PlatformKey, "snes", StringComparison.OrdinalIgnoreCase)
+                            || string.Equals(romInstaller.PlatformKey, "n64", StringComparison.OrdinalIgnoreCase)
+                            || string.Equals(romInstaller.PlatformKey, "arcade", StringComparison.OrdinalIgnoreCase)
+                            || string.Equals(keyToUse, "snes", StringComparison.OrdinalIgnoreCase)
+                            || string.Equals(keyToUse, "n64", StringComparison.OrdinalIgnoreCase)
+                            || string.Equals(keyToUse, "arcade", StringComparison.OrdinalIgnoreCase);
+                        if (preserveArchivePlatform)
+                        {
+                            context.Logger?.Info("Archive-preserve ROM platform detected; skipping extraction before ROM install.");
+                        }
+                        else if (!string.Equals(archivePolicy, "Preserve", StringComparison.OrdinalIgnoreCase))
+                        {
+                            progress?.Report(new InstallProgressEvent(InstallPhase.Extracting, "Extracting ROM archive...", 0));
+                            try
+                            {
+                                var extractionRoot = InstallStagingPathHelper.ResolveOperationPath(context.InstallDirectory, context.OperationId, "rom-extracted");
+                                context.Logger?.Info($"ROM install extraction requested; extracting archive '{context.ArchivePath}' to '{extractionRoot}'.");
+                                context.ExtractedPath = await _archiveService
+                                    .ExtractAsync(context.ArchivePath, extractionRoot, ExtractionBehavior.Subfolder, cancellationToken)
+                                    .ConfigureAwait(false);
+                                progress?.Report(new InstallProgressEvent(InstallPhase.Extracting, "ROM archive extracted.", 100));
+                            }
+                            catch (Exception ex)
+                            {
+                                context.Logger?.Error("ROM extraction failed before install.", ex);
+                                return InstallResult.Failed(Phase, $"Extraction failed: {ex.Message}");
+                            }
+                        }
+                    }
+                    else if (usingGeneralRomPlugin
+                             && !string.IsNullOrWhiteSpace(context.ArchivePath)
+                             && _archiveService.IsSupportedArchive(context.ArchivePath))
+                    {
+                        context.Logger?.Info($"General ROM plugin selected; skipping pre-install extraction. ArchiveHandlingMode='{archiveHandlingMode}'. Downloaded artifact will be installed directly.");
+                    }
+
+                    var platformContext = new RomM.Platforms.Abstractions.Models.Install.InstallContext
+                    {
+                        GameName = context.Game.Title,
+                        InstallDirectory = context.InstallDirectory,
+                        StagingDirectory = !string.IsNullOrWhiteSpace(context.TempRoot)
+                            ? context.TempRoot
+                            : InstallStagingPathHelper.ResolveOperationRoot(context.InstallDirectory, context.OperationId),
+                        ArchivePath = context.ArchivePath,
+                        ExtractedPath = context.ExtractedPath,
+                        Settings = PlatformInstallSettingsMapper.Map(context.PlatformMapping),
+                        RomSettings = PlatformInstallSettingsMapper.MapRomSettings(context.PlatformMapping, context.DataManager, context.Game?.Platform),
+                        Logger = _platformLogger
+                    };
+
+                    var result = await romInstaller
+                        .InstallAsync(platformContext, new Progress<PlatformInstallProgress>(update =>
+                        {
+                            var percent = update.Percent.HasValue
+                                ? Math.Clamp(update.Percent.Value, 0, 100)
+                                : (double?)null;
+                            progress?.Report(new InstallProgressEvent(Phase, update.Message ?? "Installing...", percent));
+                        }), cancellationToken)
+                        .ConfigureAwait(false);
+                    if (!result.Success)
+                    {
+                        return InstallResult.Failed(Phase, result.Message ?? "ROM install failed.");
+                    }
+
+                    var canonicalizeFailure = EnsureCanonicalRomInstallLayout(context, result, context.Logger, out var canonicalExecutablePath, out var canonicalInstallRootPath);
+                    if (!string.IsNullOrWhiteSpace(canonicalizeFailure))
+                    {
+                        return InstallResult.Failed(Phase, canonicalizeFailure);
+                    }
+
+                    var cleanupFailure = FinalizeRomInstallArtifacts(context, canonicalExecutablePath, context.Logger);
+                    if (!string.IsNullOrWhiteSpace(cleanupFailure))
+                    {
+                        return InstallResult.Failed(Phase, cleanupFailure);
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(result.ExecutablePath))
+                    {
+                        context.InstalledExecutablePath = canonicalExecutablePath;
+                        context.InstallerArguments = result.Arguments == null
+                            ? Array.Empty<string>()
+                            : result.Arguments.ToArray();
+                    }
+
+                    context.AdditionalApplications = result.AdditionalApplications ?? Array.Empty<RomM.Platforms.Abstractions.Models.Install.AdditionalApplicationLaunchInfo>();
+
+                    context.InstallStateSnapshot.WindowsInstallType = result.InstallType?.ToString();
+                    context.InstallStateSnapshot.PlatformContentId = result.PlatformContentId ?? string.Empty;
+                    context.InstallStateSnapshot.InstallRootPath = canonicalInstallRootPath;
+                    return InstallResult.Successful();
+                }
             }
 
             if (installScenario == InstallScenario.Enhanced || installScenario == InstallScenario.Installer)
@@ -147,55 +357,6 @@ namespace RomMbox.Services.Install.Pipeline.Steps
 
             context.InstalledExecutablePath = finalPath;
             return InstallResult.Successful();
-        }
-
-        private static string ResolveInstallRootPath(WindowsInstallResult result, string installDirectory)
-        {
-            if (!string.IsNullOrWhiteSpace(result?.ExecutablePath))
-            {
-                var directory = Path.GetDirectoryName(result.ExecutablePath);
-                if (!string.IsNullOrWhiteSpace(directory))
-                {
-                    if (!string.IsNullOrWhiteSpace(installDirectory))
-                    {
-                        var normalizedRoot = installDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-                            + Path.DirectorySeparatorChar;
-                        if (directory.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase))
-                        {
-                            var remainder = directory.Substring(normalizedRoot.Length);
-                            var segments = remainder.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-                            var firstSegment = segments.FirstOrDefault(segment => !string.IsNullOrWhiteSpace(segment));
-                            if (!string.IsNullOrWhiteSpace(firstSegment))
-                            {
-                                return Path.Combine(installDirectory, firstSegment);
-                            }
-                        }
-                    }
-
-                    return directory;
-                }
-            }
-
-            return installDirectory;
-        }
-
-        private static string FormatBytes(long bytes)
-        {
-            const double scale = 1024d;
-            var abs = Math.Abs(bytes);
-            if (abs >= scale * scale * scale)
-            {
-                return (bytes / (scale * scale * scale)).ToString("0.0") + " GB";
-            }
-            if (abs >= scale * scale)
-            {
-                return (bytes / (scale * scale)).ToString("0.0") + " MB";
-            }
-            if (abs >= scale)
-            {
-                return (bytes / scale).ToString("0.0") + " KB";
-            }
-            return bytes + " B";
         }
 
         private static string ResolveTargetFile(string extractedPath, string targetImportFile, string fallbackPath, Services.Logging.LoggingService logger)
@@ -300,46 +461,125 @@ namespace RomMbox.Services.Install.Pipeline.Steps
             return value.Contains(" ") ? $"\"{value}\"" : value;
         }
 
-        private static (bool Success, string FinalInstallRoot, string Message) TryCommitStaging(string stagingRoot, string installRoot, string gameName, Services.Logging.LoggingService logger)
+        private static string NormalizeGameFolderName(string gameName, string fallback)
         {
+            var value = string.IsNullOrWhiteSpace(gameName) ? fallback : gameName;
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return "Game";
+            }
+
+            var invalid = Path.GetInvalidFileNameChars();
+            var cleaned = new string(value.Select(ch => invalid.Contains(ch) ? '_' : ch).ToArray());
+            return string.IsNullOrWhiteSpace(cleaned) ? "Game" : cleaned.Trim();
+        }
+
+        private static StagingCommitResult TryCommitStaging(
+            string stagingRoot,
+            string installDirectory,
+            string gameName,
+            Services.Logging.LoggingService logger)
+        {
+            if (string.IsNullOrWhiteSpace(stagingRoot) || !Directory.Exists(stagingRoot))
+            {
+                return StagingCommitResult.Failed("Staging folder missing; install could not be finalized.");
+            }
+
+            if (string.IsNullOrWhiteSpace(installDirectory))
+            {
+                return StagingCommitResult.Failed("Install directory missing; install could not be finalized.");
+            }
+
             try
             {
-                if (string.IsNullOrWhiteSpace(stagingRoot) || !Directory.Exists(stagingRoot))
+                Directory.CreateDirectory(installDirectory);
+
+                var entries = Directory.GetFileSystemEntries(stagingRoot);
+                if (entries.Length == 0)
                 {
-                    return (false, string.Empty, "Staging root missing after install.");
+                    return StagingCommitResult.Failed("Staging folder was empty; install could not be finalized.");
                 }
 
-                var safeGameName = WindowsInstallSubsystem.NormalizeGameFolderNameInternal(gameName, "Game");
-                var stagedGameRoot = Path.Combine(stagingRoot, safeGameName);
-                var finalGameRoot = Path.Combine(installRoot, safeGameName);
-                var sourceRoot = Directory.Exists(stagedGameRoot) ? stagedGameRoot : stagingRoot;
-
-                var previousRoot = finalGameRoot + ".previous";
-                if (Directory.Exists(previousRoot))
+                var singleDirectory = entries.Length == 1 && Directory.Exists(entries[0]);
+                if (singleDirectory && !Directory.EnumerateFiles(stagingRoot).Any())
                 {
-                    Directory.Delete(previousRoot, recursive: true);
+                    var stagedRoot = entries[0];
+                    var targetRoot = Path.Combine(installDirectory, Path.GetFileName(stagedRoot));
+                    if (Directory.Exists(targetRoot))
+                    {
+                        return StagingCommitResult.Failed($"Install target '{targetRoot}' already exists.");
+                    }
+
+                    Directory.Move(stagedRoot, targetRoot);
+                    TryCleanupStaging(stagingRoot, logger);
+                    return StagingCommitResult.FromSuccess(targetRoot);
                 }
 
-                if (Directory.Exists(finalGameRoot))
+                var finalRoot = Path.Combine(installDirectory, NormalizeGameFolderName(gameName, "Game"));
+                if (Directory.Exists(finalRoot))
                 {
-                    Directory.Move(finalGameRoot, previousRoot);
+                    return StagingCommitResult.Failed($"Install target '{finalRoot}' already exists.");
                 }
 
-                Directory.CreateDirectory(installRoot);
-                Directory.Move(sourceRoot, finalGameRoot);
-
-                if (Directory.Exists(previousRoot))
+                Directory.CreateDirectory(finalRoot);
+                foreach (var entry in entries)
                 {
-                    Directory.Delete(previousRoot, recursive: true);
+                    var name = Path.GetFileName(entry);
+                    if (string.IsNullOrWhiteSpace(name))
+                    {
+                        continue;
+                    }
+
+                    var destination = Path.Combine(finalRoot, name);
+                    if (Directory.Exists(entry))
+                    {
+                        Directory.Move(entry, destination);
+                    }
+                    else
+                    {
+                        File.Move(entry, destination, overwrite: true);
+                    }
                 }
 
                 TryCleanupStaging(stagingRoot, logger);
-                return (true, finalGameRoot, string.Empty);
+                return StagingCommitResult.FromSuccess(finalRoot);
             }
             catch (Exception ex)
             {
-                logger?.Error($"Failed to commit staging install: {ex.Message}");
-                return (false, string.Empty, $"Failed to commit staging install: {ex.Message}");
+                logger?.Warning($"Failed to finalize staging folder '{stagingRoot}': {ex.Message}");
+                return StagingCommitResult.Failed("Failed to finalize staging folder.");
+            }
+        }
+
+        private static string RewriteStagedPath(string executablePath, string stagingRoot, string finalRoot)
+        {
+            if (string.IsNullOrWhiteSpace(executablePath)
+                || string.IsNullOrWhiteSpace(stagingRoot)
+                || string.IsNullOrWhiteSpace(finalRoot))
+            {
+                return executablePath;
+            }
+
+            try
+            {
+                var normalizedExecutable = Path.GetFullPath(executablePath);
+                var normalizedStaging = Path.GetFullPath(stagingRoot)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                var normalizedFinal = Path.GetFullPath(finalRoot)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+                if (!normalizedExecutable.StartsWith(normalizedStaging, StringComparison.OrdinalIgnoreCase))
+                {
+                    return executablePath;
+                }
+
+                var relative = normalizedExecutable.Substring(normalizedStaging.Length)
+                    .TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                return Path.Combine(normalizedFinal, relative);
+            }
+            catch
+            {
+                return executablePath;
             }
         }
 
@@ -352,18 +592,7 @@ namespace RomMbox.Services.Install.Pipeline.Steps
 
             try
             {
-                if (Directory.Exists(stagingRoot))
-                {
-                    Directory.Delete(stagingRoot, recursive: true);
-                }
-
-                var stagingParent = Path.GetDirectoryName(stagingRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-                if (!string.IsNullOrWhiteSpace(stagingParent)
-                    && Directory.Exists(stagingParent)
-                    && !Directory.EnumerateFileSystemEntries(stagingParent).Any())
-                {
-                    Directory.Delete(stagingParent, recursive: false);
-                }
+                InstallStagingPathHelper.TryDeleteOperationRootAndEmptyParents(stagingRoot);
             }
             catch (Exception ex)
             {
@@ -371,70 +600,544 @@ namespace RomMbox.Services.Install.Pipeline.Steps
             }
         }
 
-        private static string RewriteStagedPath(string path, string stagingRoot, string finalRoot)
+        private static string FinalizeRomInstallArtifacts(InstallContext context, string finalExecutablePath, Services.Logging.LoggingService logger)
         {
-            if (string.IsNullOrWhiteSpace(path) || string.IsNullOrWhiteSpace(stagingRoot) || string.IsNullOrWhiteSpace(finalRoot))
+            if (context == null)
             {
-                return path;
+                return string.Empty;
+            }
+
+            var shouldDeleteArchive = ShouldDeleteArchiveAfterInstall(context, finalExecutablePath);
+            if (shouldDeleteArchive)
+            {
+                try
+                {
+                    if (!string.IsNullOrWhiteSpace(context.ArchivePath) && File.Exists(context.ArchivePath))
+                    {
+                        logger?.Info($"Deleting extracted archive after successful install: '{context.ArchivePath}'.");
+                        File.Delete(context.ArchivePath);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    logger?.Warning($"Failed to delete archive '{context.ArchivePath}': {ex.Message}");
+                    return "Installed content but failed to delete the downloaded archive.";
+                }
+            }
+
+            var stagingRoot = !string.IsNullOrWhiteSpace(context?.TempRoot)
+                ? context.TempRoot
+                : ResolveOperationStagingRoot(context.ExtractedPath);
+            if (string.IsNullOrWhiteSpace(stagingRoot))
+            {
+                return string.Empty;
             }
 
             try
             {
-                var normalizedStaging = Path.GetFullPath(stagingRoot).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-                    + Path.DirectorySeparatorChar;
-                var normalizedPath = Path.GetFullPath(path);
-                if (normalizedPath.StartsWith(normalizedStaging, StringComparison.OrdinalIgnoreCase))
+                TryCleanupStaging(stagingRoot, logger);
+                if (Directory.Exists(stagingRoot))
                 {
-                    var suffix = normalizedPath.Substring(normalizedStaging.Length);
-                    return Path.Combine(finalRoot, suffix);
+                    return "Installed content but failed to clean the staging directory.";
                 }
+            }
+            catch (Exception ex)
+            {
+                logger?.Warning($"Failed to clean staging root '{stagingRoot}': {ex.Message}");
+                return "Installed content but failed to clean the staging directory.";
+            }
+
+            return string.Empty;
+        }
+
+        private static string FinalizeExtractedRomInstallArtifacts(InstallContext context, Services.Logging.LoggingService logger)
+        {
+            return FinalizeRomInstallArtifacts(context, context?.InstalledExecutablePath ?? context?.ExtractedPath ?? string.Empty, logger);
+        }
+
+        private static bool ShouldDeleteArchiveAfterInstall(InstallContext context, string finalExecutablePath)
+        {
+            if (context == null
+                || string.IsNullOrWhiteSpace(context.ArchivePath)
+                || !File.Exists(context.ArchivePath))
+            {
+                return false;
+            }
+
+            var archivePolicy = context.PlatformMapping?.RomArchivePolicy ?? string.Empty;
+            if (string.Equals(archivePolicy, "Preserve", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(finalExecutablePath))
+            {
+                return false;
+            }
+
+            try
+            {
+                return !string.Equals(
+                    Path.GetFullPath(context.ArchivePath),
+                    Path.GetFullPath(finalExecutablePath),
+                    StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return !string.Equals(context.ArchivePath, finalExecutablePath, StringComparison.OrdinalIgnoreCase);
+            }
+        }
+
+        private static string EnsureCanonicalRomInstallLayout(
+            InstallContext context,
+            RomM.Platforms.Abstractions.Models.Install.InstallResult result,
+            Services.Logging.LoggingService logger,
+            out string executablePath,
+            out string installRootPath)
+        {
+            executablePath = result?.ExecutablePath ?? string.Empty;
+            installRootPath = result?.InstallRootPath ?? context?.InstallDirectory ?? string.Empty;
+
+            if (context == null
+                || result == null
+                || string.IsNullOrWhiteSpace(result.ExecutablePath)
+                || string.IsNullOrWhiteSpace(context.InstallDirectory)
+                || string.IsNullOrWhiteSpace(context.DownloadDirectory)
+                || InstallDestinationService.IsWindowsPlatform(context.Game?.Platform)
+                || !GameInstallPathPolicy.ShouldUseGameSubfolder(context.Game?.Platform, context.RommDetails?.PlatformId))
+            {
+                return string.Empty;
+            }
+
+            var canonicalGameDirectory = !string.IsNullOrWhiteSpace(context.DownloadDirectory)
+                ? Path.GetFullPath(context.DownloadDirectory)
+                : GameInstallPathHelper.ResolveGameDirectory(context.InstallDirectory, context.Game?.Title);
+            var canonicalExecutablePath = GameInstallPathHelper.ResolveTargetFilePath(context.InstallDirectory, result.ExecutablePath, context.Game?.Title);
+            if (string.IsNullOrWhiteSpace(canonicalGameDirectory) || string.IsNullOrWhiteSpace(canonicalExecutablePath))
+            {
+                return "Installed content path could not be resolved.";
+            }
+
+            executablePath = canonicalExecutablePath;
+            installRootPath = canonicalGameDirectory;
+
+            if (IsPs4InstallContext(context)
+                && !string.IsNullOrWhiteSpace(result.InstallRootPath)
+                && GameInstallPathHelper.IsPathUnderDirectory(result.InstallRootPath, canonicalGameDirectory))
+            {
+                executablePath = result.ExecutablePath;
+                installRootPath = result.InstallRootPath;
+                logger?.Info($"Skipping canonical ROM layout rewrite for PS4 because install root is already under canonical game directory: '{result.InstallRootPath}'.");
+                return string.Empty;
+            }
+
+            try
+            {
+                var installedFileExists = File.Exists(result.ExecutablePath);
+                var installedDirectoryExists = Directory.Exists(result.ExecutablePath);
+                if (!installedFileExists && !installedDirectoryExists)
+                {
+                    return $"Installed content missing on disk at '{result.ExecutablePath}'.";
+                }
+
+                if (string.Equals(Path.GetFullPath(result.ExecutablePath), canonicalExecutablePath, StringComparison.OrdinalIgnoreCase))
+                {
+                    return string.Empty;
+                }
+
+                var actualInstallRoot = ResolveActualInstallRoot(result);
+                if (CanMoveInstalledDirectory(actualInstallRoot, context.InstallDirectory, canonicalGameDirectory, result.ExecutablePath))
+                {
+                    MoveDirectoryContents(actualInstallRoot, canonicalGameDirectory, logger);
+                    TryDeleteDirectoryIfEmpty(actualInstallRoot, logger);
+                    executablePath = RewriteInstalledPath(result.ExecutablePath, actualInstallRoot, canonicalGameDirectory);
+                    logger?.Info($"Canonical ROM install root reconciled: '{actualInstallRoot}' -> '{canonicalGameDirectory}'.");
+                    return string.Empty;
+                }
+
+                if (installedDirectoryExists)
+                {
+                    Directory.CreateDirectory(canonicalGameDirectory);
+                    MoveInstalledDirectory(result.ExecutablePath, canonicalExecutablePath, logger);
+                    executablePath = canonicalExecutablePath;
+                    logger?.Info($"Canonical ROM directory reconciled: '{result.ExecutablePath}' -> '{canonicalExecutablePath}'.");
+                    return string.Empty;
+                }
+
+                Directory.CreateDirectory(canonicalGameDirectory);
+                MoveInstalledFile(result.ExecutablePath, canonicalExecutablePath, logger);
+                logger?.Info($"Canonical ROM artifact reconciled: '{result.ExecutablePath}' -> '{canonicalExecutablePath}'.");
+                return string.Empty;
+            }
+            catch (Exception ex)
+            {
+                logger?.Warning($"Failed to reconcile installed ROM layout: {ex.Message}");
+                return "Installed content could not be reconciled to the canonical game directory.";
+            }
+        }
+
+        private static bool IsPs4InstallContext(InstallContext context)
+        {
+            var platformId = context?.RommDetails?.PlatformId ?? string.Empty;
+            var platformName = context?.RommDetails?.PlatformDisplayName ?? string.Empty;
+            var launchBoxPlatform = context?.Game?.Platform ?? string.Empty;
+
+            return string.Equals(platformId, "ps4", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(platformId, "20", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(platformName, "PlayStation 4", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(launchBoxPlatform, "Sony Playstation 4", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(launchBoxPlatform, "PlayStation 4", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string ResolveActualInstallRoot(RomM.Platforms.Abstractions.Models.Install.InstallResult result)
+        {
+            if (!string.IsNullOrWhiteSpace(result?.InstallRootPath) && Directory.Exists(result.InstallRootPath))
+            {
+                return Path.GetFullPath(result.InstallRootPath);
+            }
+
+            if (!string.IsNullOrWhiteSpace(result?.ExecutablePath))
+            {
+                return Path.GetDirectoryName(Path.GetFullPath(result.ExecutablePath)) ?? string.Empty;
+            }
+
+            return string.Empty;
+        }
+
+        private static bool CanMoveInstalledDirectory(string actualInstallRoot, string platformInstallRoot, string canonicalGameDirectory, string executablePath)
+        {
+            if (string.IsNullOrWhiteSpace(actualInstallRoot)
+                || string.IsNullOrWhiteSpace(platformInstallRoot)
+                || string.IsNullOrWhiteSpace(canonicalGameDirectory)
+                || !Directory.Exists(actualInstallRoot)
+                || !GameInstallPathHelper.IsPathUnderDirectory(executablePath, actualInstallRoot))
+            {
+                return false;
+            }
+
+            var normalizedActual = Path.GetFullPath(actualInstallRoot)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var normalizedPlatform = Path.GetFullPath(platformInstallRoot)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var normalizedCanonical = Path.GetFullPath(canonicalGameDirectory)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+            return !string.Equals(normalizedActual, normalizedPlatform, StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(normalizedActual, normalizedCanonical, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static void MoveInstalledFile(string sourcePath, string destinationPath, Services.Logging.LoggingService logger)
+        {
+            var destinationDirectory = Path.GetDirectoryName(destinationPath);
+            if (string.IsNullOrWhiteSpace(destinationDirectory))
+            {
+                throw new InvalidOperationException("Destination directory could not be resolved.");
+            }
+
+            Directory.CreateDirectory(destinationDirectory);
+            if (File.Exists(destinationPath))
+            {
+                File.Delete(destinationPath);
+            }
+
+            if (string.Equals(Path.GetPathRoot(sourcePath), Path.GetPathRoot(destinationPath), StringComparison.OrdinalIgnoreCase))
+            {
+                File.Move(sourcePath, destinationPath);
+            }
+            else
+            {
+                File.Copy(sourcePath, destinationPath, overwrite: true);
+                File.Delete(sourcePath);
+            }
+
+            var sourceDirectory = Path.GetDirectoryName(sourcePath);
+            TryDeleteDirectoryIfEmpty(sourceDirectory, logger);
+        }
+
+        private static void MoveInstalledDirectory(string sourcePath, string destinationPath, Services.Logging.LoggingService logger)
+        {
+            var destinationParent = Path.GetDirectoryName(destinationPath);
+            if (string.IsNullOrWhiteSpace(destinationParent))
+            {
+                throw new InvalidOperationException("Destination directory could not be resolved.");
+            }
+
+            Directory.CreateDirectory(destinationParent);
+            if (Directory.Exists(destinationPath))
+            {
+                Directory.Delete(destinationPath, recursive: true);
+            }
+
+            if (string.Equals(Path.GetPathRoot(sourcePath), Path.GetPathRoot(destinationPath), StringComparison.OrdinalIgnoreCase))
+            {
+                Directory.Move(sourcePath, destinationPath);
+            }
+            else
+            {
+                CopyDirectoryContents(sourcePath, destinationPath);
+                Directory.Delete(sourcePath, recursive: true);
+            }
+
+            var sourceDirectory = Path.GetDirectoryName(sourcePath);
+            TryDeleteDirectoryIfEmpty(sourceDirectory, logger);
+        }
+
+        private static void CopyDirectoryContents(string sourceDirectory, string destinationDirectory)
+        {
+            Directory.CreateDirectory(destinationDirectory);
+            foreach (var directory in Directory.EnumerateDirectories(sourceDirectory, "*", SearchOption.AllDirectories))
+            {
+                var relative = Path.GetRelativePath(sourceDirectory, directory);
+                Directory.CreateDirectory(Path.Combine(destinationDirectory, relative));
+            }
+
+            foreach (var file in Directory.EnumerateFiles(sourceDirectory, "*", SearchOption.AllDirectories))
+            {
+                var relative = Path.GetRelativePath(sourceDirectory, file);
+                var destinationFile = Path.Combine(destinationDirectory, relative);
+                var destinationFolder = Path.GetDirectoryName(destinationFile);
+                if (!string.IsNullOrWhiteSpace(destinationFolder))
+                {
+                    Directory.CreateDirectory(destinationFolder);
+                }
+
+                File.Copy(file, destinationFile, overwrite: true);
+            }
+        }
+
+        private static void MoveDirectoryContents(string sourceDirectory, string destinationDirectory, Services.Logging.LoggingService logger)
+        {
+            Directory.CreateDirectory(destinationDirectory);
+            foreach (var entry in Directory.EnumerateFileSystemEntries(sourceDirectory))
+            {
+                var name = Path.GetFileName(entry);
+                if (string.IsNullOrWhiteSpace(name))
+                {
+                    continue;
+                }
+
+                var destination = Path.Combine(destinationDirectory, name);
+                if (Directory.Exists(entry))
+                {
+                    if (Directory.Exists(destination))
+                    {
+                        Directory.Delete(destination, recursive: true);
+                    }
+
+                    if (string.Equals(Path.GetPathRoot(entry), Path.GetPathRoot(destination), StringComparison.OrdinalIgnoreCase))
+                    {
+                        Directory.Move(entry, destination);
+                    }
+                    else
+                    {
+                        CopyDirectory(entry, destination);
+                        Directory.Delete(entry, recursive: true);
+                    }
+                }
+                else
+                {
+                    MoveInstalledFile(entry, destination, logger);
+                }
+            }
+        }
+
+        private static void CopyDirectory(string sourceDirectory, string destinationDirectory)
+        {
+            Directory.CreateDirectory(destinationDirectory);
+            foreach (var file in Directory.EnumerateFiles(sourceDirectory, "*", SearchOption.AllDirectories))
+            {
+                var relativePath = Path.GetRelativePath(sourceDirectory, file);
+                var destinationPath = Path.Combine(destinationDirectory, relativePath);
+                Directory.CreateDirectory(Path.GetDirectoryName(destinationPath) ?? destinationDirectory);
+                File.Copy(file, destinationPath, overwrite: true);
+            }
+        }
+
+        private static string RewriteInstalledPath(string executablePath, string sourceRoot, string destinationRoot)
+        {
+            if (string.IsNullOrWhiteSpace(executablePath)
+                || string.IsNullOrWhiteSpace(sourceRoot)
+                || string.IsNullOrWhiteSpace(destinationRoot))
+            {
+                return executablePath;
+            }
+
+            var relativePath = Path.GetRelativePath(sourceRoot, executablePath);
+            return Path.Combine(destinationRoot, relativePath);
+        }
+
+        private static void TryDeleteDirectoryIfEmpty(string directoryPath, Services.Logging.LoggingService logger)
+        {
+            if (string.IsNullOrWhiteSpace(directoryPath) || !Directory.Exists(directoryPath))
+            {
+                return;
+            }
+
+            try
+            {
+                if (!Directory.EnumerateFileSystemEntries(directoryPath).Any())
+                {
+                    Directory.Delete(directoryPath, recursive: false);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger?.Debug($"Directory cleanup skipped for '{directoryPath}': {ex.Message}");
+            }
+        }
+
+        private static string ResolveOperationStagingRoot(string extractedPath)
+        {
+            try
+            {
+                var currentDirectoryPath = Directory.Exists(extractedPath)
+                    ? extractedPath
+                    : Path.GetDirectoryName(extractedPath);
+                if (string.IsNullOrWhiteSpace(currentDirectoryPath))
+                {
+                    return string.Empty;
+                }
+
+                return InstallStagingPathHelper.TryResolveOperationRootFromPath(currentDirectoryPath) ?? string.Empty;
             }
             catch
             {
             }
 
-            return path;
+            return string.Empty;
         }
 
-
-        private sealed class WindowsInstallResultProxy
+        private readonly struct StagingCommitResult
         {
-            public WindowsInstallResultProxy(WindowsInstallResult original, string executablePath)
+            public bool Success { get; }
+            public string Message { get; }
+            public string FinalInstallRoot { get; }
+
+            private StagingCommitResult(bool success, string message, string finalInstallRoot)
             {
-                ExecutablePath = executablePath ?? original?.ExecutablePath;
+                Success = success;
+                Message = message;
+                FinalInstallRoot = finalInstallRoot;
             }
 
-            public string ExecutablePath { get; }
+            public static StagingCommitResult FromSuccess(string finalInstallRoot)
+            {
+                return new StagingCommitResult(true, string.Empty, finalInstallRoot ?? string.Empty);
+            }
+
+            public static StagingCommitResult Failed(string message)
+            {
+                return new StagingCommitResult(false, message ?? "Install finalization failed.", string.Empty);
+            }
         }
 
-        private static string ResolveInstallRootPath(WindowsInstallResultProxy result, string installDirectory)
+        internal static string ResolveInstallerKey(
+            string platformKey,
+            string platformDisplayName,
+            string launchBoxPlatformName,
+            PlatformInstallerRegistry registry,
+            Services.Logging.LoggingService logger,
+            string fileExtension = "")
         {
-            if (!string.IsNullOrWhiteSpace(result?.ExecutablePath))
+            if (registry == null)
             {
-                var directory = Path.GetDirectoryName(result.ExecutablePath);
-                if (!string.IsNullOrWhiteSpace(directory))
-                {
-                    if (!string.IsNullOrWhiteSpace(installDirectory))
-                    {
-                        var normalizedRoot = installDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)
-                            + Path.DirectorySeparatorChar;
-                        if (directory.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase))
-                        {
-                            var remainder = directory.Substring(normalizedRoot.Length);
-                            var segments = remainder.Split(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
-                            var firstSegment = segments.FirstOrDefault(segment => !string.IsNullOrWhiteSpace(segment));
-                            if (!string.IsNullOrWhiteSpace(firstSegment))
-                            {
-                                return Path.Combine(installDirectory, firstSegment);
-                            }
-                        }
-                    }
+                return platformKey ?? string.Empty;
+            }
 
-                    return directory;
+            logger?.Info($"Installer resolution candidates: RomMId='{platformKey ?? string.Empty}', RomMName='{platformDisplayName ?? string.Empty}', LaunchBox='{launchBoxPlatformName ?? string.Empty}'.");
+
+            var resolution = PlatformIdentityResolver.Resolve(
+                registry,
+                new PlatformResolutionEvidence
+                {
+                    PlatformKey = platformKey ?? string.Empty,
+                    PlatformDisplayName = platformDisplayName ?? string.Empty,
+                    LaunchBoxPlatformName = launchBoxPlatformName ?? string.Empty,
+                    FileExtension = fileExtension ?? string.Empty
+                });
+
+            if (resolution.CandidateDiagnostics.Count > 0)
+            {
+                logger?.Info($"Platform classifier evidence: Extension='{fileExtension ?? string.Empty}', Candidates=[{string.Join(" | ", resolution.CandidateDiagnostics)}].");
+            }
+
+            if (!string.IsNullOrWhiteSpace(resolution.ResolvedPlatformKey))
+            {
+                logger?.Info($"Resolved platform installer: '{resolution.ResolvedPlatformKey}'. Reason='{resolution.ResolutionReason}'.");
+                return resolution.ResolvedPlatformKey;
+            }
+
+            if (resolution.IsAmbiguous)
+            {
+                logger?.Warning($"Platform classification ambiguous. Reason='{resolution.ResolutionReason}'. Conservative fallback will be used.");
+            }
+
+            logger?.Warning($"No dedicated platform installer match found. RomMId='{platformKey ?? string.Empty}', RomMName='{platformDisplayName ?? string.Empty}', LaunchBox='{launchBoxPlatformName ?? string.Empty}'. Registered keys=[{string.Join(",", registry.GetAll().Keys.OrderBy(key => key, StringComparer.OrdinalIgnoreCase))}].");
+            return string.Empty;
+        }
+
+        private static string NormalizePlatformToken(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return string.Empty;
+            }
+
+            var normalized = new string(value.ToLowerInvariant().Where(char.IsLetterOrDigit).ToArray());
+            return normalized;
+        }
+
+        private static IEnumerable<string> ExpandNormalizedPlatformCandidates(string value)
+        {
+            var normalized = NormalizePlatformToken(value);
+            if (string.IsNullOrWhiteSpace(normalized))
+            {
+                yield break;
+            }
+
+            yield return normalized;
+
+            foreach (var prefix in new[] { "sony", "nintendo", "microsoft" })
+            {
+                if (normalized.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+                    && normalized.Length > prefix.Length)
+                {
+                    yield return normalized.Substring(prefix.Length);
                 }
             }
-
-            return installDirectory;
         }
+
+        private static string ResolveInputExtension(InstallContext context)
+        {
+            var candidatePath = context?.ExtractedPath;
+            if (string.IsNullOrWhiteSpace(candidatePath))
+            {
+                candidatePath = context?.ArchivePath;
+            }
+
+            return string.IsNullOrWhiteSpace(candidatePath)
+                ? string.Empty
+                : Path.GetExtension(candidatePath) ?? string.Empty;
+        }
+
+        internal static bool ShouldWarnOnResolvedKeyDifference(
+            string providedKey,
+            string resolvedKey,
+            PlatformInstallerRegistry registry)
+        {
+            if (registry == null
+                || string.IsNullOrWhiteSpace(providedKey)
+                || string.IsNullOrWhiteSpace(resolvedKey)
+                || string.Equals(providedKey, resolvedKey, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            // Warn only when the provided key already maps to a concrete installer.
+            // If it does not, this is likely a foreign RomM identifier (for example numeric ids)
+            // that was intentionally mapped via aliases/name matching.
+            return registry.TryGetInstaller(providedKey, out _);
+        }
+
     }
 }

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using RomM.Platforms.Abstractions.Install;
 using RomMbox.Services.Logging;
 using RomMbox.Services.Settings;
 
@@ -81,10 +82,7 @@ namespace RomMbox.Services.Install.Pipeline
                 {
                     try
                     {
-                        if (Directory.Exists(context.TempRoot))
-                        {
-                            Directory.Delete(context.TempRoot, recursive: true);
-                        }
+                        InstallStagingPathHelper.TryDeleteOperationRootAndEmptyParents(context.TempRoot);
                     }
                     catch
                     {

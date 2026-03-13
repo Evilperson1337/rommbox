@@ -241,6 +241,26 @@ namespace RomMbox.Services.Settings
                     mapping.AssociatedEmulatorId = string.Empty;
                 }
 
+                if (mapping.EmulatorCoreId == null)
+                {
+                    mapping.EmulatorCoreId = string.Empty;
+                }
+
+                if (mapping.EmulatorCoreName == null)
+                {
+                    mapping.EmulatorCoreName = string.Empty;
+                }
+
+                if (mapping.EmulatorCorePath == null)
+                {
+                    mapping.EmulatorCorePath = string.Empty;
+                }
+
+                if (mapping.EmulatorLaunchArgs == null)
+                {
+                    mapping.EmulatorLaunchArgs = string.Empty;
+                }
+
                 if (!Enum.IsDefined(typeof(InstallerMode), mapping.InstallerMode))
                 {
                     mapping.InstallerMode = InstallerMode.Manual;
@@ -264,6 +284,121 @@ namespace RomMbox.Services.Settings
                 if (mapping.CustomInstallDirectory == null)
                 {
                     mapping.CustomInstallDirectory = string.Empty;
+                }
+
+                if (mapping.RomInstallRoot == null)
+                {
+                    mapping.RomInstallRoot = string.Empty;
+                }
+
+                if (mapping.RomArchivePolicy == null)
+                {
+                    mapping.RomArchivePolicy = string.Empty;
+                }
+
+                if (mapping.SupportedFileTypes == null)
+                {
+                    mapping.SupportedFileTypes = string.Empty;
+                }
+
+                if (mapping.PreferredLaunchExtensions == null)
+                {
+                    mapping.PreferredLaunchExtensions = string.Empty;
+                }
+
+                if (!mapping.UseGameSubdirectory)
+                {
+                    mapping.UseGameSubdirectory = true;
+                }
+
+                if (!mapping.InstallAllMatchingFiles)
+                {
+                    mapping.InstallAllMatchingFiles = true;
+                }
+
+                if (mapping.Ps3GameDirectory == null)
+                {
+                    mapping.Ps3GameDirectory = string.Empty;
+                }
+
+                if (mapping.Rpcs3ExecutablePath == null)
+                {
+                    mapping.Rpcs3ExecutablePath = string.Empty;
+                }
+
+                if (mapping.Rpcs3LicenseDirectory == null)
+                {
+                    mapping.Rpcs3LicenseDirectory = string.Empty;
+                }
+
+                if (mapping.Ps4GamesDirectory == null)
+                {
+                    mapping.Ps4GamesDirectory = string.Empty;
+                }
+
+                if (mapping.ShadPs4ExecutablePath == null)
+                {
+                    mapping.ShadPs4ExecutablePath = string.Empty;
+                }
+
+                if (mapping.Ps4ExternalPkgExtractorPath == null)
+                {
+                    mapping.Ps4ExternalPkgExtractorPath = string.Empty;
+                }
+
+                if (mapping.Pcsx2ExecutablePath == null)
+                {
+                    mapping.Pcsx2ExecutablePath = string.Empty;
+                }
+
+                if (mapping.PspEmulatorMode == null)
+                {
+                    mapping.PspEmulatorMode = string.Empty;
+                }
+
+                if (mapping.PpssppExecutablePath == null)
+                {
+                    mapping.PpssppExecutablePath = string.Empty;
+                }
+
+                if (mapping.RetroArchExecutablePath == null)
+                {
+                    mapping.RetroArchExecutablePath = string.Empty;
+                }
+
+                if (mapping.RetroArchPpssppCorePath == null)
+                {
+                    mapping.RetroArchPpssppCorePath = string.Empty;
+                }
+
+                if (mapping.Vita3kExecutablePath == null)
+                {
+                    mapping.Vita3kExecutablePath = string.Empty;
+                }
+
+                if (mapping.SwitchEdenExecutablePath == null)
+                {
+                    mapping.SwitchEdenExecutablePath = string.Empty;
+                }
+
+                if (mapping.AzaharExecutablePath == null)
+                {
+                    mapping.AzaharExecutablePath = string.Empty;
+                }
+
+                if (mapping.AzaharPlusExecutablePath == null)
+                {
+                    mapping.AzaharPlusExecutablePath = string.Empty;
+                }
+
+                if (mapping.DolphinExecutablePath == null)
+                {
+                    mapping.DolphinExecutablePath = string.Empty;
+                }
+
+                if (mapping.CemuExecutablePath == null)
+                {
+                    mapping.CemuExecutablePath = string.Empty;
                 }
             }
         }

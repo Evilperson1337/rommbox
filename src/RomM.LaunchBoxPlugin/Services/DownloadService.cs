@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using RomM.Platforms.Abstractions.Install;
 using RomMbox.Models.Download;
 using RomMbox.Models.Install;
 using RomMbox.Models.PlatformMapping;
@@ -44,6 +45,7 @@ namespace RomMbox.Services
         public async Task<DownloadResult> DownloadRomAsync(
             RommRom rom,
             string downloadDirectory,
+            string stagingRoot,
             string serverUrl,
             ExtractionBehavior behavior,
             bool extractAfterDownload,
@@ -73,6 +75,10 @@ namespace RomMbox.Services
             {
                 _logger?.Info($"Download requested for RomM rom {rom.Id} ({rom.Name}).");
                 Directory.CreateDirectory(downloadDirectory);
+                if (string.IsNullOrWhiteSpace(stagingRoot))
+                {
+                    throw new InvalidOperationException("Platform-scoped staging operation root is required for downloads.");
+                }
 
                 // Prefer explicit filename from payload, then filesystem name, then fallback.
                 var payload = rom.Payload;
@@ -90,7 +96,7 @@ namespace RomMbox.Services
 
                 // Create a unique temp root for this download to avoid collisions.
                 fileName = SanitizeFileName(fileName);
-                tempRoot = Path.Combine(Paths.PluginPaths.GetPluginRootDirectory(), "temp", "downloads", Guid.NewGuid().ToString("N"));
+                tempRoot = Path.Combine(stagingRoot, "download");
                 var tempDownloadDir = Path.Combine(tempRoot, "downloads");
                 var tempExtractDir = Path.Combine(tempRoot, "extracted");
                 Directory.CreateDirectory(tempDownloadDir);
@@ -144,7 +150,7 @@ namespace RomMbox.Services
                 result.Success = true;
                 if (extractedArchive)
                 {
-                    result.ArchivePath = null;
+                    result.ArchivePath = archivePath;
                 }
                 result.TempRoot = tempRoot;
                 return result;

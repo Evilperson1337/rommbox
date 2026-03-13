@@ -25,6 +25,25 @@
 
   <ItemGroup>
     <ProjectReference Include="..\RomM.LaunchBoxPlugin\RomMbox.csproj" />
+    <ProjectReference Include="..\RomM.Platforms.Windows\RomM.Platforms.Windows.csproj" />
+    <ProjectReference Include="..\RomM.Platforms.PS2\RomM.Platforms.PS2.csproj" />
+    <ProjectReference Include="..\RomM.Platforms.PS3\RomM.Platforms.PS3.csproj" />
+    <ProjectReference Include="..\RomM.Platforms.PSP\RomM.Platforms.PSP.csproj" />
+    <ProjectReference Include="..\RomM.Platforms.Vita\RomM.Platforms.Vita.csproj" />
+    <ProjectReference Include="..\RomM.Platforms.Snes\RomM.Platforms.Snes.csproj" />
+    <ProjectReference Include="..\RomM.Platforms.N64\RomM.Platforms.N64.csproj" />
+    <ProjectReference Include="..\RomM.Platforms.N3DS\RomM.Platforms.N3DS.csproj" />
+    <ProjectReference Include="..\RomM.Platforms.Wii\RomM.Platforms.Wii.csproj" />
+    <ProjectReference Include="..\RomM.Platforms.GameCube\RomM.Platforms.GameCube.csproj" />
+    <ProjectReference Include="..\RomM.Platforms.DolphinInternal\RomM.Platforms.DolphinInternal.csproj" />
+    <ProjectReference Include="..\RomM.Platforms.PS1\RomM.Platforms.PS1.csproj" />
+    <ProjectReference Include="..\RomM.Platforms.Arcade\RomM.Platforms.Arcade.csproj" />
+    <ProjectReference Include="..\RomM.Platforms.General\RomM.Platforms.General.csproj" />
+    <ProjectReference Include="..\RomM.Platforms.Switch\RomM.Platforms.Switch.csproj" />
+    <ProjectReference Include="..\RomM.Platforms.WiiU\RomM.Platforms.WiiU.csproj" />
+    <ProjectReference Include="..\RomM.Platforms.Xbox\RomM.Platforms.Xbox.csproj" />
+    <ProjectReference Include="..\RomM.Platforms.Xbox360\RomM.Platforms.Xbox360.csproj" />
+    <ProjectReference Include="..\RomM.Platforms.PS4\RomM.Platforms.PS4.csproj" />
     <Reference Include="Unbroken.LaunchBox.Plugins">
       <HintPath>..\..\deps\launchbox\Unbroken.LaunchBox.Plugins.dll</HintPath>
       <Private>True</Private>

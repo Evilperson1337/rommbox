@@ -20,6 +20,7 @@ using RomMbox.Services.Settings;
 using RomMbox.Services.Install;
 using RomMbox.Services.Install.Pipeline;
 using RomMbox.Services.Install.Pipeline.Steps;
+using RomMbox.Services.PlatformInstallers;
 using RomMbox.Services.Paths;
 using RomMbox.UI;
 using Unbroken.LaunchBox.Plugins;
@@ -234,14 +235,19 @@ namespace RomMbox.Plugin.Adapters.GameMenu
                     var mappingStore = new PlatformMappingStore(logger);
                     var archiveService = new ArchiveService(logger, settingsManager);
                     var downloadService = new DownloadService(logger, client, archiveService, settingsManager);
-                    var windowsSubsystem = new WindowsInstallSubsystem(logger, archiveService);
+                    var platformInstallers = PluginEntry.PlatformInstallers;
+                    var platformLogger = new PlatformLoggerAdapter(logger);
+                    if (platformInstallers == null)
+                    {
+                        platformInstallers = new PlatformInstallerLoader(logger).Load();
+                    }
 
                     var steps = new List<IInstallStep>
                     {
                         new ResolveMetadataStep(client),
                         new ResolveDestinationStep(destinationService, mappingStore),
-                        new DownloadStep(downloadService),
-                        new InstallContentStep(windowsSubsystem),
+                        new DownloadStep(downloadService, platformInstallers),
+                        new InstallContentStep(platformInstallers, platformLogger, archiveService),
                         new PostProcessStep(),
                         new PersistStateStep()
                     };

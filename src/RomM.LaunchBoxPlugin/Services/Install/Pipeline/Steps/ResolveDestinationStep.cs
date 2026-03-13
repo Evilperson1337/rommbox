@@ -50,9 +50,13 @@ namespace RomMbox.Services.Install.Pipeline.Steps
             }
 
             context.InstallDirectory = location.InstallDirectory;
-            context.DownloadDirectory = InstallDestinationService.IsWindowsPlatform(platform.Name)
-                ? location.InstallDirectory
-                : EnsureGameSubfolder(location.InstallDirectory, context.Game.Title);
+            if (!GameInstallPathPolicy.ShouldUseGameSubfolder(platform.Name, context.RommDetails?.PlatformId))
+            {
+                context.DownloadDirectory = location.InstallDirectory;
+                return InstallResult.Successful();
+            }
+
+            context.DownloadDirectory = EnsureGameSubfolder(location.InstallDirectory, context.Game.Title);
             return InstallResult.Successful();
         }
 
@@ -80,5 +84,6 @@ namespace RomMbox.Services.Install.Pipeline.Steps
             var cleaned = new string(value.ToCharArray().Select(ch => invalid.Contains(ch) ? '_' : ch).ToArray());
             return string.IsNullOrWhiteSpace(cleaned) ? "Unknown" : cleaned.Trim();
         }
+
     }
 }

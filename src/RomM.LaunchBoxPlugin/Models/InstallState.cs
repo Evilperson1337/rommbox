@@ -78,6 +78,11 @@ namespace RomMbox.Models
         public string RommLaunchPath { get; set; }
 
         /// <summary>
+        /// Platform-specific content identifier, such as an Xbox 360 Title ID.
+        /// </summary>
+        public string PlatformContentId { get; set; }
+
+        /// <summary>
         /// Launch arguments to use for the RomM merged additional application.
         /// </summary>
         public string RommLaunchArgs { get; set; }

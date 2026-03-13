@@ -1,18 +1,25 @@
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using RomM.Platforms.Abstractions.Install;
+using RomM.Platforms.Abstractions.Models.Metadata;
 using RomMbox.Models.Download;
 using RomMbox.Models.Install;
+using RomMbox.Services.Install;
+using RomMbox.Services.PlatformInstallers;
 
 namespace RomMbox.Services.Install.Pipeline.Steps
 {
     internal sealed class DownloadStep : IInstallStep
     {
         private readonly DownloadService _downloadService;
+        private readonly PlatformInstallerRegistry _platformInstallers;
 
-        public DownloadStep(DownloadService downloadService)
+        public DownloadStep(DownloadService downloadService, PlatformInstallerRegistry platformInstallers)
         {
             _downloadService = downloadService;
+            _platformInstallers = platformInstallers;
         }
 
         public InstallPhase Phase => InstallPhase.Downloading;
@@ -35,6 +42,39 @@ namespace RomMbox.Services.Install.Pipeline.Steps
             var installScenario = mapping?.InstallScenario ?? InstallScenario.Basic;
             var detectInstallType = installScenario != InstallScenario.Basic;
             var serverUrl = context.SettingsManager.Load().ServerUrl;
+            var isWindowsPlatform = InstallDestinationService.IsWindowsPlatform(context.Game?.Platform);
+            var platformId = context.RommDetails?.PlatformId ?? string.Empty;
+            var platformDisplayName = context.RommDetails?.PlatformDisplayName ?? string.Empty;
+            var launchBoxPlatformName = context.Game?.Platform ?? string.Empty;
+
+            var capabilities = ResolveCapabilities(context);
+            if (capabilities.RequiresStagingInspection)
+            {
+                extractAfterDownload = true;
+                context.Logger?.Info("Extraction required by plugin capabilities (RequiresStagingInspection=true).");
+            }
+            else if (isWindowsPlatform && !extractAfterDownload)
+            {
+                context.Logger?.Info("Extraction forced for Windows install pipeline.");
+                extractAfterDownload = true;
+            }
+            else if (!isWindowsPlatform && string.Equals(mapping?.RomArchivePolicy, "Preserve", StringComparison.OrdinalIgnoreCase))
+            {
+                context.Logger?.Info("Extraction disabled for ROM platform policy (Preserve)." );
+                extractAfterDownload = false;
+            }
+
+            if (IsArchivePreservePlatform(platformId, platformDisplayName, launchBoxPlatformName))
+            {
+                context.Logger?.Info("Extraction disabled for ROM platform (archives must be preserved)." );
+                extractAfterDownload = false;
+            }
+
+            context.Logger?.Info($"ExtractionDecision | ExtractAfterDownload={extractAfterDownload}, Behavior={extractionBehavior}, IsWindows={isWindowsPlatform}, InstallScenario={installScenario}.");
+            context.Logger?.Info($"Archive download requested. RomId={context.RommDetails.Id ?? string.Empty}, PlatformId={context.RommDetails.PlatformId ?? string.Empty}.");
+            var platformInstallRoot = ResolvePlatformInstallRoot(context);
+            var operationStagingRoot = InstallStagingPathHelper.ResolveOperationRoot(platformInstallRoot, context.OperationId);
+            context.Logger?.Info($"Resolved platform-scoped staging root: '{operationStagingRoot}'.");
             var shouldReportExtraction = extractAfterDownload;
 
             var downloadProgress = new Progress<DownloadProgress>(update =>
@@ -82,6 +122,7 @@ namespace RomMbox.Services.Install.Pipeline.Steps
             var result = await _downloadService.DownloadRomAsync(
                     context.RommDetails,
                     context.DownloadDirectory,
+                    operationStagingRoot,
                     serverUrl,
                     extractionBehavior,
                     extractAfterDownload,
@@ -112,10 +153,12 @@ namespace RomMbox.Services.Install.Pipeline.Steps
                 if (!string.IsNullOrWhiteSpace(result.ExtractedPath))
                 {
                     result.ExtractedPath = InstallContentRelocator.RelocateExtractedContent(result.ExtractedPath, context.DownloadDirectory, context.Logger);
+                    context.Logger?.Info($"Archive extracted to: '{result.ExtractedPath}'.");
                 }
                 else if (!string.IsNullOrWhiteSpace(result.ArchivePath))
                 {
                     result.ArchivePath = InstallContentRelocator.RelocateArchive(result.ArchivePath, context.DownloadDirectory, context.Logger);
+                    context.Logger?.Info($"Archive downloaded: '{result.ArchivePath}'.");
                 }
             }
 
@@ -127,6 +170,23 @@ namespace RomMbox.Services.Install.Pipeline.Steps
                 context.ArchivePath = result.ArchivePath ?? context.ArchivePath;
             }
             return InstallResult.Successful();
+        }
+
+        private PlatformInstallerCapabilities ResolveCapabilities(InstallContext context)
+        {
+            if (_platformInstallers == null || context?.RommDetails == null)
+            {
+                return new PlatformInstallerCapabilities();
+            }
+
+            var platformKey = context.RommDetails.PlatformId ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(platformKey)
+                && InstallDestinationService.IsWindowsPlatform(context?.Game?.Platform))
+            {
+                platformKey = "windows";
+            }
+
+            return _platformInstallers.GetCapabilities(platformKey);
         }
 
         private static string FormatBytes(long bytes)
@@ -146,6 +206,48 @@ namespace RomMbox.Services.Install.Pipeline.Steps
                 return (bytes / scale).ToString("0.0") + " KB";
             }
             return bytes + " B";
+        }
+
+        private static bool IsArchivePreservePlatform(string platformId, string platformDisplayName, string launchBoxPlatformName)
+        {
+            if (string.Equals(platformId, "snes", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(platformId, "n64", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            var normalizedDisplay = NormalizePlatformToken(platformDisplayName);
+            var normalizedLaunchBox = NormalizePlatformToken(launchBoxPlatformName);
+
+            return normalizedDisplay.Contains("supernintendo", StringComparison.OrdinalIgnoreCase)
+                   || normalizedDisplay.Contains("nintendo64", StringComparison.OrdinalIgnoreCase)
+                   || normalizedLaunchBox.Contains("supernintendo", StringComparison.OrdinalIgnoreCase)
+                   || normalizedLaunchBox.Contains("nintendo64", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string NormalizePlatformToken(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return string.Empty;
+            }
+
+            return new string(value.ToLowerInvariant().Where(char.IsLetterOrDigit).ToArray());
+        }
+
+        private static string ResolvePlatformInstallRoot(InstallContext context)
+        {
+            if (!string.IsNullOrWhiteSpace(context?.InstallDirectory))
+            {
+                return context.InstallDirectory;
+            }
+
+            if (!string.IsNullOrWhiteSpace(context?.DownloadDirectory))
+            {
+                return System.IO.Path.GetFullPath(context.DownloadDirectory);
+            }
+
+            return string.Empty;
         }
     }
 }

@@ -104,8 +104,18 @@ namespace RomMbox.Services
             }
 
             _logger?.Info($"Starting 7-Zip extraction: {LoggingService.SanitizePath(archivePath)} -> {LoggingService.SanitizePath(destination)}");
-            await Task.Run(() => ExtractWithSevenZip(sevenZipPath, archivePath, destination, cancellationToken, progress), cancellationToken)
-                .ConfigureAwait(false);
+            try
+            {
+                await Task.Run(() => ExtractWithSevenZip(sevenZipPath, archivePath, destination, cancellationToken, progress), cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                _logger?.Error(
+                    $"7-Zip extraction failed using '{LoggingService.SanitizePath(sevenZipPath)}' for '{LoggingService.SanitizePath(archivePath)}' -> '{LoggingService.SanitizePath(destination)}'.",
+                    ex);
+                throw;
+            }
             _logger?.Info("7-Zip extraction completed successfully.");
             return destination;
         }
@@ -197,6 +207,8 @@ namespace RomMbox.Services
                 RedirectStandardError = true,
                 RedirectStandardOutput = true
             };
+
+            _logger?.Debug($"7-Zip command: '{sevenZipPath}' {startInfo.Arguments}");
 
             progress?.Report(new RomMbox.Models.Download.DownloadProgress(0, 100));
             using (var process = Process.Start(startInfo))

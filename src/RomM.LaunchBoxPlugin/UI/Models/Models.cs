@@ -64,6 +64,108 @@ public sealed class PlatformMapping : ObservableObject
     /// </summary>
     public string AssociatedEmulatorId { get => _associatedEmulatorId; set => SetProperty(ref _associatedEmulatorId, value); }
 
+    private string _emulatorCoreId = "";
+    /// <summary>
+    /// Gets or sets the emulator core id.
+    /// </summary>
+    public string EmulatorCoreId { get => _emulatorCoreId; set => SetProperty(ref _emulatorCoreId, value); }
+
+    private string _emulatorCoreName = "";
+    /// <summary>
+    /// Gets or sets the emulator core display name.
+    /// </summary>
+    public string EmulatorCoreName { get => _emulatorCoreName; set => SetProperty(ref _emulatorCoreName, value); }
+
+    private string _emulatorCorePath = "";
+    /// <summary>
+    /// Gets or sets the emulator core path.
+    /// </summary>
+    public string EmulatorCorePath { get => _emulatorCorePath; set => SetProperty(ref _emulatorCorePath, value); }
+
+    private string _emulatorLaunchArgs = "";
+    /// <summary>
+    /// Gets or sets the emulator launch arguments.
+    /// </summary>
+    public string EmulatorLaunchArgs { get => _emulatorLaunchArgs; set => SetProperty(ref _emulatorLaunchArgs, value); }
+
+    private string _romInstallRoot = "";
+    /// <summary>
+    /// Gets or sets the ROM install root override.
+    /// </summary>
+    public string RomInstallRoot { get => _romInstallRoot; set => SetProperty(ref _romInstallRoot, value); }
+
+    private string _romArchivePolicy = "";
+    /// <summary>
+    /// Gets or sets the ROM archive policy.
+    /// </summary>
+    public string RomArchivePolicy { get => _romArchivePolicy; set => SetProperty(ref _romArchivePolicy, value); }
+
+    private string _pluginKey = "";
+    /// <summary>
+    /// Gets or sets the resolved plugin key for this platform.
+    /// </summary>
+    public string PluginKey { get => _pluginKey; set => SetProperty(ref _pluginKey, value); }
+
+    private string _pluginSettings = "";
+    /// <summary>
+    /// Gets or sets the serialized plugin settings payload.
+    /// </summary>
+    public string PluginSettings { get => _pluginSettings; set => SetProperty(ref _pluginSettings, value); }
+
+    private string _supportedFileTypes = "";
+    /// <summary>
+    /// Gets or sets supported file types for the general fallback installer.
+    /// </summary>
+    public string SupportedFileTypes { get => _supportedFileTypes; set => SetProperty(ref _supportedFileTypes, value); }
+
+    private string _preferredLaunchExtensions = "";
+    /// <summary>
+    /// Gets or sets preferred launch extension order for fallback installer selection.
+    /// </summary>
+    public string PreferredLaunchExtensions { get => _preferredLaunchExtensions; set => SetProperty(ref _preferredLaunchExtensions, value); }
+
+    private string _archiveHandlingMode = "";
+    /// <summary>
+    /// Gets or sets archive handling mode for general ROM installs.
+    /// </summary>
+    public string ArchiveHandlingMode { get => _archiveHandlingMode; set => SetProperty(ref _archiveHandlingMode, value); }
+
+    private bool _useGameSubdirectory = true;
+    /// <summary>
+    /// Gets or sets whether fallback installs use a per-game subdirectory.
+    /// </summary>
+    public bool UseGameSubdirectory { get => _useGameSubdirectory; set => SetProperty(ref _useGameSubdirectory, value); }
+
+    private bool _installAllMatchingFiles = true;
+    /// <summary>
+    /// Gets or sets whether fallback installs include all discovered matching files.
+    /// </summary>
+    public bool InstallAllMatchingFiles { get => _installAllMatchingFiles; set => SetProperty(ref _installAllMatchingFiles, value); }
+
+    private bool _installFromArchiveDirectly;
+    /// <summary>
+    /// Gets or sets whether fallback installer may launch directly from supported archives.
+    /// </summary>
+    public bool InstallFromArchiveDirectly { get => _installFromArchiveDirectly; set => SetProperty(ref _installFromArchiveDirectly, value); }
+
+    private string _installLayoutMode = "";
+    /// <summary>
+    /// Gets or sets install layout mode for general ROM installs.
+    /// </summary>
+    public string InstallLayoutMode { get => _installLayoutMode; set => SetProperty(ref _installLayoutMode, value); }
+
+    private string _artifactSelectionMode = "";
+    /// <summary>
+    /// Gets or sets artifact selection mode when multiple candidates are available.
+    /// </summary>
+    public string ArtifactSelectionMode { get => _artifactSelectionMode; set => SetProperty(ref _artifactSelectionMode, value); }
+
+    private bool _useGeneralFallbackInstaller;
+    /// <summary>
+    /// Gets or sets whether this mapping should use the general fallback installer.
+    /// </summary>
+    public bool UseGeneralFallbackInstaller { get => _useGeneralFallbackInstaller; set => SetProperty(ref _useGeneralFallbackInstaller, value); }
+
     private string _installerSilentArgs = "";
     /// <summary>
     /// Gets or sets installer silent arguments when using installer-based packages.
@@ -141,6 +243,141 @@ public sealed class PlatformMapping : ObservableObject
     /// Gets or sets a custom install directory override.
     /// </summary>
     public string CustomInstallDirectory { get => _customInstallDirectory; set => SetProperty(ref _customInstallDirectory, value); }
+
+    private string _ps3GameDirectory = "";
+    /// <summary>
+    /// Gets or sets the PS3 games directory override.
+    /// </summary>
+    public string Ps3GameDirectory { get => _ps3GameDirectory; set => SetProperty(ref _ps3GameDirectory, value); }
+
+    private string _rpcs3ExecutablePath = "";
+    /// <summary>
+    /// Gets or sets the RPCS3 executable path.
+    /// </summary>
+    public string Rpcs3ExecutablePath { get => _rpcs3ExecutablePath; set => SetProperty(ref _rpcs3ExecutablePath, value); }
+
+    private bool _installDlcAutomatically;
+    /// <summary>
+    /// Gets or sets whether DLC should be installed automatically.
+    /// </summary>
+    public bool InstallDlcAutomatically { get => _installDlcAutomatically; set => SetProperty(ref _installDlcAutomatically, value); }
+
+    private bool _installUpdatesAutomatically;
+    /// <summary>
+    /// Gets or sets whether updates should be installed automatically.
+    /// </summary>
+    public bool InstallUpdatesAutomatically { get => _installUpdatesAutomatically; set => SetProperty(ref _installUpdatesAutomatically, value); }
+
+    private string _rpcs3LicenseDirectory = "";
+    /// <summary>
+    /// Gets or sets the RPCS3 license directory override.
+    /// </summary>
+    public string Rpcs3LicenseDirectory { get => _rpcs3LicenseDirectory; set => SetProperty(ref _rpcs3LicenseDirectory, value); }
+
+    private bool _skipRegionMismatchedDlc;
+    /// <summary>
+    /// Gets or sets whether region-mismatched DLC should be skipped.
+    /// </summary>
+    public bool SkipRegionMismatchedDlc { get => _skipRegionMismatchedDlc; set => SetProperty(ref _skipRegionMismatchedDlc, value); }
+
+    private bool _skipUnmatchedRapFiles;
+    /// <summary>
+    /// Gets or sets whether unmatched RAP files should be skipped.
+    /// </summary>
+    public bool SkipUnmatchedRapFiles { get => _skipUnmatchedRapFiles; set => SetProperty(ref _skipUnmatchedRapFiles, value); }
+
+    private bool _preferMetadataBasedPackageMatching;
+    /// <summary>
+    /// Gets or sets whether metadata-based package matching is preferred.
+    /// </summary>
+    public bool PreferMetadataBasedPackageMatching { get => _preferMetadataBasedPackageMatching; set => SetProperty(ref _preferMetadataBasedPackageMatching, value); }
+
+    private string _ps4GamesDirectory = "";
+    /// <summary>
+    /// Gets or sets the PS4 games directory override.
+    /// </summary>
+    public string Ps4GamesDirectory { get => _ps4GamesDirectory; set => SetProperty(ref _ps4GamesDirectory, value); }
+
+    private string _shadPs4ExecutablePath = "";
+    /// <summary>
+    /// Gets or sets the ShadPS4 executable path.
+    /// </summary>
+    public string ShadPs4ExecutablePath { get => _shadPs4ExecutablePath; set => SetProperty(ref _shadPs4ExecutablePath, value); }
+
+    private string _ps4ExternalPkgExtractorPath = "";
+    /// <summary>
+    /// Gets or sets the optional PS4 external PKG extractor path.
+    /// </summary>
+    public string Ps4ExternalPkgExtractorPath { get => _ps4ExternalPkgExtractorPath; set => SetProperty(ref _ps4ExternalPkgExtractorPath, value); }
+
+    private bool _ps4FailIfDirectPkgExtractorMissing;
+    /// <summary>
+    /// Gets or sets whether direct PKG install should fail if extractor configuration is missing.
+    /// </summary>
+    public bool Ps4FailIfDirectPkgExtractorMissing { get => _ps4FailIfDirectPkgExtractorMissing; set => SetProperty(ref _ps4FailIfDirectPkgExtractorMissing, value); }
+
+    private string _pcsx2ExecutablePath = "";
+    public string Pcsx2ExecutablePath { get => _pcsx2ExecutablePath; set => SetProperty(ref _pcsx2ExecutablePath, value); }
+
+    private string _pspEmulatorMode = "";
+    public string PspEmulatorMode { get => _pspEmulatorMode; set => SetProperty(ref _pspEmulatorMode, value); }
+
+    private string _ppssppExecutablePath = "";
+    public string PpssppExecutablePath { get => _ppssppExecutablePath; set => SetProperty(ref _ppssppExecutablePath, value); }
+
+    private string _retroArchExecutablePath = "";
+    public string RetroArchExecutablePath { get => _retroArchExecutablePath; set => SetProperty(ref _retroArchExecutablePath, value); }
+
+    private string _retroArchPpssppCorePath = "";
+    public string RetroArchPpssppCorePath { get => _retroArchPpssppCorePath; set => SetProperty(ref _retroArchPpssppCorePath, value); }
+
+    private bool _validateRetroArchPpssppAssets = true;
+    public bool ValidateRetroArchPpssppAssets { get => _validateRetroArchPpssppAssets; set => SetProperty(ref _validateRetroArchPpssppAssets, value); }
+
+    private bool _failInstallIfEmulatorNotReady;
+    public bool FailInstallIfEmulatorNotReady { get => _failInstallIfEmulatorNotReady; set => SetProperty(ref _failInstallIfEmulatorNotReady, value); }
+
+    private string _vita3kExecutablePath = "";
+    public string Vita3kExecutablePath { get => _vita3kExecutablePath; set => SetProperty(ref _vita3kExecutablePath, value); }
+
+    private bool _vitaFailIfEmulatorNotReady;
+    public bool VitaFailIfEmulatorNotReady { get => _vitaFailIfEmulatorNotReady; set => SetProperty(ref _vitaFailIfEmulatorNotReady, value); }
+
+    private bool _vitaInstallUpdatesAutomatically;
+    public bool VitaInstallUpdatesAutomatically { get => _vitaInstallUpdatesAutomatically; set => SetProperty(ref _vitaInstallUpdatesAutomatically, value); }
+
+    private bool _vitaInstallDlcAutomatically;
+    public bool VitaInstallDlcAutomatically { get => _vitaInstallDlcAutomatically; set => SetProperty(ref _vitaInstallDlcAutomatically, value); }
+
+    private bool _vitaConsolidateGameInstalls;
+    public bool VitaConsolidateGameInstalls { get => _vitaConsolidateGameInstalls; set => SetProperty(ref _vitaConsolidateGameInstalls, value); }
+
+    private string _switchEdenExecutablePath = "";
+    public string SwitchEdenExecutablePath { get => _switchEdenExecutablePath; set => SetProperty(ref _switchEdenExecutablePath, value); }
+
+    private string _azaharExecutablePath = "";
+    public string AzaharExecutablePath { get => _azaharExecutablePath; set => SetProperty(ref _azaharExecutablePath, value); }
+
+    private string _azaharPlusExecutablePath = "";
+    public string AzaharPlusExecutablePath { get => _azaharPlusExecutablePath; set => SetProperty(ref _azaharPlusExecutablePath, value); }
+
+    private string _dolphinExecutablePath = "";
+    public string DolphinExecutablePath { get => _dolphinExecutablePath; set => SetProperty(ref _dolphinExecutablePath, value); }
+
+    private string _cemuExecutablePath = "";
+    public string CemuExecutablePath { get => _cemuExecutablePath; set => SetProperty(ref _cemuExecutablePath, value); }
+
+    private string _readinessStatus = string.Empty;
+    /// <summary>
+    /// Gets or sets the platform readiness status.
+    /// </summary>
+    public string ReadinessStatus { get => _readinessStatus; set => SetProperty(ref _readinessStatus, value); }
+
+    private string _readinessMessage = string.Empty;
+    /// <summary>
+    /// Gets or sets the platform readiness details.
+    /// </summary>
+    public string ReadinessMessage { get => _readinessMessage; set => SetProperty(ref _readinessMessage, value); }
 }
 
 /// <summary>

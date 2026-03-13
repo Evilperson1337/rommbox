@@ -84,6 +84,7 @@ CREATE TABLE IF NOT EXISTS InstallState (
     RommAdditionalAppId TEXT,
     RommMergedBaseGameId TEXT,
     RommLaunchPath TEXT,
+    PlatformContentId TEXT,
     RommLaunchArgs TEXT,
     RommAdditionalAppSyncedUtc TEXT
 );
@@ -115,7 +116,53 @@ CREATE TABLE IF NOT EXISTS InstallStateMetadata (
      SelfContained INTEGER NOT NULL,
      AssociatedEmulatorId TEXT,
      OstInstallLocation TEXT,
-     BonusInstallLocation TEXT
+     BonusInstallLocation TEXT,
+     EmulatorCoreId TEXT,
+     EmulatorCoreName TEXT,
+     EmulatorCorePath TEXT,
+     EmulatorLaunchArgs TEXT,
+     RomInstallRoot TEXT,
+     RomArchivePolicy TEXT,
+     Ps3GameDirectory TEXT,
+     Rpcs3ExecutablePath TEXT,
+     InstallDlcAutomatically INTEGER NOT NULL DEFAULT 0,
+     InstallUpdatesAutomatically INTEGER NOT NULL DEFAULT 0,
+     Rpcs3LicenseDirectory TEXT,
+     SkipRegionMismatchedDlc INTEGER NOT NULL DEFAULT 0,
+     SkipUnmatchedRapFiles INTEGER NOT NULL DEFAULT 0,
+     PreferMetadataBasedPackageMatching INTEGER NOT NULL DEFAULT 0,
+     SupportedFileTypes TEXT,
+     PreferredLaunchExtensions TEXT,
+     UseGameSubdirectory INTEGER NOT NULL DEFAULT 0,
+     InstallAllMatchingFiles INTEGER NOT NULL DEFAULT 0,
+     InstallFromArchiveDirectly INTEGER NOT NULL DEFAULT 0,
+     UseGeneralFallbackInstaller INTEGER NOT NULL DEFAULT 0,
+     PluginKey TEXT,
+     PluginSettings TEXT,
+     ArchiveHandlingMode TEXT,
+     InstallLayoutMode TEXT,
+     ArtifactSelectionMode TEXT,
+     Ps4GamesDirectory TEXT,
+     ShadPs4ExecutablePath TEXT,
+     Ps4ExternalPkgExtractorPath TEXT,
+     Ps4FailIfDirectPkgExtractorMissing INTEGER NOT NULL DEFAULT 0,
+     Pcsx2ExecutablePath TEXT,
+     PspEmulatorMode TEXT,
+     PpssppExecutablePath TEXT,
+     RetroArchExecutablePath TEXT,
+     RetroArchPpssppCorePath TEXT,
+     ValidateRetroArchPpssppAssets INTEGER NOT NULL DEFAULT 1,
+     FailInstallIfEmulatorNotReady INTEGER NOT NULL DEFAULT 0,
+     Vita3kExecutablePath TEXT,
+     VitaFailIfEmulatorNotReady INTEGER NOT NULL DEFAULT 0,
+     VitaInstallUpdatesAutomatically INTEGER NOT NULL DEFAULT 0,
+     VitaInstallDlcAutomatically INTEGER NOT NULL DEFAULT 0,
+     VitaConsolidateGameInstalls INTEGER NOT NULL DEFAULT 0,
+     SwitchEdenExecutablePath TEXT,
+     AzaharExecutablePath TEXT,
+     AzaharPlusExecutablePath TEXT,
+     DolphinExecutablePath TEXT,
+     CemuExecutablePath TEXT
  );
 CREATE TABLE IF NOT EXISTS PlatformMappingAliases (
     AliasId TEXT PRIMARY KEY,
@@ -144,6 +191,7 @@ CREATE TABLE IF NOT EXISTS ExcludedRommPlatforms (
                 var hasRommAdditionalAppId = false;
                 var hasRommMergedBaseGameId = false;
                 var hasRommLaunchPath = false;
+                var hasPlatformContentId = false;
                 var hasRommLaunchArgs = false;
                 var hasRommAdditionalAppSyncedUtc = false;
                 using (var reader = await migrateCommand.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false))
@@ -220,6 +268,11 @@ CREATE TABLE IF NOT EXISTS ExcludedRommPlatforms (
                         if (string.Equals(columnName, "RommLaunchPath", StringComparison.OrdinalIgnoreCase))
                         {
                             hasRommLaunchPath = true;
+                        }
+
+                        if (string.Equals(columnName, "PlatformContentId", StringComparison.OrdinalIgnoreCase))
+                        {
+                            hasPlatformContentId = true;
                         }
 
                         if (string.Equals(columnName, "RommLaunchArgs", StringComparison.OrdinalIgnoreCase))
@@ -329,6 +382,13 @@ CREATE TABLE IF NOT EXISTS ExcludedRommPlatforms (
                 {
                     var alter = connection.CreateCommand();
                     alter.CommandText = "ALTER TABLE InstallState ADD COLUMN RommLaunchPath TEXT";
+                    await alter.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+                }
+
+                if (!hasPlatformContentId)
+                {
+                    var alter = connection.CreateCommand();
+                    alter.CommandText = "ALTER TABLE InstallState ADD COLUMN PlatformContentId TEXT";
                     await alter.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
                 }
 
@@ -495,7 +555,7 @@ WHERE LaunchBoxGameId = $id;
                 command.CommandText = @"
 SELECT LaunchBoxGameId, RommRomId, RommPlatformId, ServerUrl, RemoteMd5, LocalMd5, WindowsInstallType, InstalledPath, ArchivePath, InstallRootPath, IsInstalled, InstalledUtc, LastValidatedUtc,
        InstallStatus, InstallPhase, LastError, LastAttemptUtc, LastCompletedUtc, LastOperationId,
-       RommAdditionalAppId, RommMergedBaseGameId, RommLaunchPath, RommLaunchArgs, RommAdditionalAppSyncedUtc
+       RommAdditionalAppId, RommMergedBaseGameId, RommLaunchPath, PlatformContentId, RommLaunchArgs, RommAdditionalAppSyncedUtc
 FROM InstallState
 WHERE LaunchBoxGameId = $id;
 ";
@@ -554,7 +614,7 @@ WHERE LaunchBoxGameId = $id;
                 command.CommandText = @"
 SELECT LaunchBoxGameId, RommRomId, RommPlatformId, ServerUrl, RemoteMd5, LocalMd5, WindowsInstallType, InstalledPath, ArchivePath, InstallRootPath, IsInstalled, InstalledUtc, LastValidatedUtc,
        InstallStatus, InstallPhase, LastError, LastAttemptUtc, LastCompletedUtc, LastOperationId,
-       RommAdditionalAppId, RommMergedBaseGameId, RommLaunchPath, RommLaunchArgs, RommAdditionalAppSyncedUtc
+       RommAdditionalAppId, RommMergedBaseGameId, RommLaunchPath, PlatformContentId, RommLaunchArgs, RommAdditionalAppSyncedUtc
 FROM InstallState
 WHERE RommPlatformId = $platform;
 ";
@@ -662,11 +722,11 @@ WHERE RommPlatformId = $platform;
 INSERT INTO InstallState (
     LaunchBoxGameId, RommRomId, RommPlatformId, ServerUrl, RemoteMd5, LocalMd5, WindowsInstallType, InstalledPath, ArchivePath, InstallRootPath, IsInstalled, InstalledUtc, LastValidatedUtc,
     InstallStatus, InstallPhase, LastError, LastAttemptUtc, LastCompletedUtc, LastOperationId,
-    RommAdditionalAppId, RommMergedBaseGameId, RommLaunchPath, RommLaunchArgs, RommAdditionalAppSyncedUtc
+    RommAdditionalAppId, RommMergedBaseGameId, RommLaunchPath, PlatformContentId, RommLaunchArgs, RommAdditionalAppSyncedUtc
 ) VALUES (
     $gameId, $romId, $platformId, $serverUrl, $remoteMd5, $localMd5, $windowsInstallType, $installedPath, $archivePath, $installRootPath, $isInstalled, $installedUtc, $lastValidatedUtc,
     $installStatus, $installPhase, $lastError, $lastAttemptUtc, $lastCompletedUtc, $lastOperationId,
-    $rommAdditionalAppId, $rommMergedBaseGameId, $rommLaunchPath, $rommLaunchArgs, $rommAdditionalAppSyncedUtc
+    $rommAdditionalAppId, $rommMergedBaseGameId, $rommLaunchPath, $platformContentId, $rommLaunchArgs, $rommAdditionalAppSyncedUtc
 )
 ON CONFLICT(LaunchBoxGameId) DO UPDATE SET
     RommRomId = excluded.RommRomId,
@@ -690,6 +750,7 @@ ON CONFLICT(LaunchBoxGameId) DO UPDATE SET
     RommAdditionalAppId = excluded.RommAdditionalAppId,
     RommMergedBaseGameId = excluded.RommMergedBaseGameId,
     RommLaunchPath = excluded.RommLaunchPath,
+    PlatformContentId = excluded.PlatformContentId,
     RommLaunchArgs = excluded.RommLaunchArgs,
     RommAdditionalAppSyncedUtc = excluded.RommAdditionalAppSyncedUtc;
 ";
@@ -715,6 +776,7 @@ ON CONFLICT(LaunchBoxGameId) DO UPDATE SET
                 command.Parameters.AddWithValue("$rommAdditionalAppId", state.RommAdditionalAppId ?? string.Empty);
                 command.Parameters.AddWithValue("$rommMergedBaseGameId", state.RommMergedBaseGameId ?? string.Empty);
                 command.Parameters.AddWithValue("$rommLaunchPath", state.RommLaunchPath ?? string.Empty);
+                command.Parameters.AddWithValue("$platformContentId", state.PlatformContentId ?? string.Empty);
                 command.Parameters.AddWithValue("$rommLaunchArgs", state.RommLaunchArgs ?? string.Empty);
                 command.Parameters.AddWithValue("$rommAdditionalAppSyncedUtc", ToDbTimestamp(state.RommAdditionalAppSyncedUtc));
                 await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
@@ -1231,7 +1293,7 @@ WHERE LaunchBoxGameId = $gameId;
                 command.CommandText = @"
 SELECT LaunchBoxGameId, RommRomId, RommPlatformId, ServerUrl, RemoteMd5, LocalMd5, WindowsInstallType, InstalledPath, ArchivePath, InstallRootPath, IsInstalled, InstalledUtc, LastValidatedUtc,
        InstallStatus, InstallPhase, LastError, LastAttemptUtc, LastCompletedUtc, LastOperationId,
-       RommAdditionalAppId, RommMergedBaseGameId, RommLaunchPath, RommLaunchArgs, RommAdditionalAppSyncedUtc
+       RommAdditionalAppId, RommMergedBaseGameId, RommLaunchPath, PlatformContentId, RommLaunchArgs, RommAdditionalAppSyncedUtc
 FROM InstallState
 WHERE RommMergedBaseGameId = $id
 LIMIT 1;
@@ -1561,8 +1623,9 @@ ON CONFLICT(Key) DO UPDATE SET Value = excluded.Value;
                 RommAdditionalAppId = reader.IsDBNull(19) ? null : reader.GetString(19),
                 RommMergedBaseGameId = reader.IsDBNull(20) ? null : reader.GetString(20),
                 RommLaunchPath = reader.IsDBNull(21) ? null : reader.GetString(21),
-                RommLaunchArgs = reader.IsDBNull(22) ? null : reader.GetString(22),
-                RommAdditionalAppSyncedUtc = reader.IsDBNull(23) ? null : FromDbTimestamp(reader.GetValue(23))
+                PlatformContentId = reader.IsDBNull(22) ? null : reader.GetString(22),
+                RommLaunchArgs = reader.IsDBNull(23) ? null : reader.GetString(23),
+                RommAdditionalAppSyncedUtc = reader.IsDBNull(24) ? null : FromDbTimestamp(reader.GetValue(24))
             };
         }
 
@@ -1591,6 +1654,52 @@ ON CONFLICT(Key) DO UPDATE SET Value = excluded.Value;
             await AddColumnIfMissingAsync(connection, columns, "AssociatedEmulatorId", "TEXT", cancellationToken).ConfigureAwait(false);
             await AddColumnIfMissingAsync(connection, columns, "OstInstallLocation", "TEXT", cancellationToken).ConfigureAwait(false);
             await AddColumnIfMissingAsync(connection, columns, "BonusInstallLocation", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "EmulatorCoreId", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "EmulatorCoreName", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "EmulatorCorePath", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "EmulatorLaunchArgs", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "RomInstallRoot", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "RomArchivePolicy", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "SupportedFileTypes", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "PreferredLaunchExtensions", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "UseGameSubdirectory", "INTEGER NOT NULL DEFAULT 0", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "InstallAllMatchingFiles", "INTEGER NOT NULL DEFAULT 0", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "InstallFromArchiveDirectly", "INTEGER NOT NULL DEFAULT 0", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "UseGeneralFallbackInstaller", "INTEGER NOT NULL DEFAULT 0", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "PluginKey", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "PluginSettings", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "ArchiveHandlingMode", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "InstallLayoutMode", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "ArtifactSelectionMode", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "Ps3GameDirectory", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "Rpcs3ExecutablePath", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "InstallDlcAutomatically", "INTEGER NOT NULL DEFAULT 0", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "InstallUpdatesAutomatically", "INTEGER NOT NULL DEFAULT 0", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "Rpcs3LicenseDirectory", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "SkipRegionMismatchedDlc", "INTEGER NOT NULL DEFAULT 0", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "SkipUnmatchedRapFiles", "INTEGER NOT NULL DEFAULT 0", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "PreferMetadataBasedPackageMatching", "INTEGER NOT NULL DEFAULT 0", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "Ps4GamesDirectory", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "ShadPs4ExecutablePath", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "Ps4ExternalPkgExtractorPath", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "Ps4FailIfDirectPkgExtractorMissing", "INTEGER NOT NULL DEFAULT 0", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "Pcsx2ExecutablePath", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "PspEmulatorMode", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "PpssppExecutablePath", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "RetroArchExecutablePath", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "RetroArchPpssppCorePath", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "ValidateRetroArchPpssppAssets", "INTEGER NOT NULL DEFAULT 1", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "FailInstallIfEmulatorNotReady", "INTEGER NOT NULL DEFAULT 0", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "Vita3kExecutablePath", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "VitaFailIfEmulatorNotReady", "INTEGER NOT NULL DEFAULT 0", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "VitaInstallUpdatesAutomatically", "INTEGER NOT NULL DEFAULT 0", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "VitaInstallDlcAutomatically", "INTEGER NOT NULL DEFAULT 0", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "VitaConsolidateGameInstalls", "INTEGER NOT NULL DEFAULT 0", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "SwitchEdenExecutablePath", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "AzaharExecutablePath", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "AzaharPlusExecutablePath", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "DolphinExecutablePath", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "CemuExecutablePath", "TEXT", cancellationToken).ConfigureAwait(false);
         }
 
         private static async Task AddColumnIfMissingAsync(SqliteConnection connection, HashSet<string> columns, string columnName, string columnDefinition, CancellationToken cancellationToken)

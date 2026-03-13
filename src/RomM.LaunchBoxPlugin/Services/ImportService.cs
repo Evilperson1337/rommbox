@@ -9,6 +9,7 @@ using System.Diagnostics;
 using System.Text;
 using System.Xml;
 using System.Xml.Linq;
+using RomM.Platforms.Abstractions.Install;
 using RomMbox.Models;
 using RomMbox.Models.Import;
 using RomMbox.Models.Install;
@@ -17,6 +18,8 @@ using RomMbox.Models.Romm;
 using RomMbox.Services.Logging;
 using RomMbox.Services.Paths;
 using RomMbox.Services.Install;
+using RomMbox.Plugin;
+using RomMbox.Services.PlatformInstallers;
 using RomMbox.Services.Settings;
 using Unbroken.LaunchBox.Plugins;
 using Unbroken.LaunchBox.Plugins.Data;
@@ -41,6 +44,8 @@ namespace RomMbox.Services
         private readonly DownloadService _downloadService;
         private readonly MatchIgnoreStore _ignoreStore;
         private readonly InstallStateService _installStateService;
+        private readonly PlatformInstallerRegistry _platformInstallers;
+        private readonly PlatformLoggerAdapter _platformLogger;
         private readonly HashSet<string> _loggedPlatforms = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
@@ -63,6 +68,8 @@ namespace RomMbox.Services
             _downloadService = new DownloadService(logger, client, archiveService, settingsManager);
             _ignoreStore = new MatchIgnoreStore(logger);
             _installStateService = new InstallStateService(logger, settingsManager);
+            _platformInstallers = PluginEntry.PlatformInstallers ?? new PlatformInstallerLoader(logger).Load();
+            _platformLogger = new PlatformLoggerAdapter(logger);
         }
 
         /// <summary>
@@ -1450,17 +1457,18 @@ namespace RomMbox.Services
                     return (false, false, message);
                 }
 
-                var downloadDirectory = InstallDestinationService.IsWindowsPlatform(launchBoxPlatform.Name)
-                    ? installLocation.InstallDirectory
-                    : EnsureGameSubfolder(installLocation.InstallDirectory, game.Title);
+                var downloadDirectory = GameInstallPathPolicy.ShouldUseGameSubfolder(launchBoxPlatform.Name, rom.PlatformId)
+                    ? EnsureGameSubfolder(installLocation.InstallDirectory, game.Title)
+                    : installLocation.InstallDirectory;
                 _logger?.Info($"Downloading ROM for '{game.Title}' to '{downloadDirectory}'. Scenario={installScenario}, Extract={extractAfterDownload}, Behavior={extractionBehavior}.");
                 var serverUrl = _settingsManager.Load().ServerUrl;
                 RomMbox.Models.Download.DownloadResult result = null;
                 try
                 {
                     var detectInstallType = installScenario != InstallScenario.Basic;
+                    var stagingRoot = InstallStagingPathHelper.ResolveOperationRoot(installLocation.InstallDirectory, Guid.NewGuid().ToString("N"));
                     result = await _downloadService
-                        .DownloadRomAsync(rom, downloadDirectory, serverUrl, extractionBehavior, extractAfterDownload, cancellationToken, null, null, detectInstallType)
+                        .DownloadRomAsync(rom, downloadDirectory, stagingRoot, serverUrl, extractionBehavior, extractAfterDownload, cancellationToken, null, null, detectInstallType)
                         .ConfigureAwait(false);
                 }
                 finally
@@ -1480,9 +1488,25 @@ namespace RomMbox.Services
                     : result.ArchivePath;
                 if (InstallDestinationService.IsWindowsPlatform(launchBoxPlatform.Name))
                 {
-                    var installSubsystem = new WindowsInstallSubsystem(_logger, new ArchiveService(_logger, _settingsManager));
-                    var installResult = await installSubsystem
-                        .InstallAsync(result.ArchivePath, result.ExtractedPath, downloadDirectory, mapping, game.Title, cancellationToken)
+                    if (_platformInstallers == null || !_platformInstallers.TryGetInstaller("windows", out var installer))
+                    {
+                        return (false, false, "Windows platform installer not available.");
+                    }
+
+                    var installContext = new RomM.Platforms.Abstractions.Models.Install.InstallContext
+                    {
+                        GameName = game.Title,
+                        InstallDirectory = downloadDirectory,
+                        ArchivePath = result.ArchivePath,
+                        ExtractedPath = result.ExtractedPath,
+                        Settings = PlatformInstallSettingsMapper.Map(mapping),
+                        SelectExecutableAsync = PlatformInstallerUi.SelectExecutableAsync,
+                        ConfirmAsync = PlatformInstallerUi.ConfirmAsync,
+                        Logger = _platformLogger
+                    };
+
+                    var installResult = await installer
+                        .InstallAsync(installContext, null, cancellationToken)
                         .ConfigureAwait(false);
                     if (!installResult.Success)
                     {
@@ -1523,7 +1547,7 @@ namespace RomMbox.Services
                         WindowsInstallType = installResult.InstallType?.ToString(),
                         InstalledPath = installResult.ExecutablePath ?? finalPath,
                         ArchivePath = result.ArchivePath,
-                        InstallRootPath = Path.Combine(installLocation.InstallDirectory, NormalizePathSegment(game.Title)),
+                        InstallRootPath = installResult.InstallRootPath ?? Path.Combine(installLocation.InstallDirectory, NormalizePathSegment(game.Title)),
                         IsInstalled = true,
                         InstalledUtc = DateTimeOffset.UtcNow,
                         LastValidatedUtc = DateTimeOffset.UtcNow

@@ -335,6 +335,29 @@
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
 
+                <!-- Readiness -->
+                <DataGridTemplateColumn Header="Readiness" Width="150">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding ReadinessStatus}"
+                                       VerticalAlignment="Center"
+                                       Foreground="#E6EBF5"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
+                <!-- Readiness Details -->
+                <DataGridTemplateColumn Header="Details" Width="220">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding ReadinessMessage}"
+                                       VerticalAlignment="Center"
+                                       Foreground="#AAB4C8"
+                                       TextWrapping="Wrap"/>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+
                 <!-- Configure -->
                 <DataGridTemplateColumn Header="Configure" Width="120">
                     <DataGridTemplateColumn.CellTemplate>

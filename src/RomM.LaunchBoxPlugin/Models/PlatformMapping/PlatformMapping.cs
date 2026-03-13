@@ -83,6 +83,108 @@ namespace RomMbox.Models.PlatformMapping
         public string AssociatedEmulatorId { get; set; } = string.Empty;
 
         /// <summary>
+        /// Gets or sets the emulator core identifier for ROM platforms.
+        /// </summary>
+        [DataMember(Name = "emulatorCoreId", EmitDefaultValue = false)]
+        public string EmulatorCoreId { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the emulator core display name.
+        /// </summary>
+        [DataMember(Name = "emulatorCoreName", EmitDefaultValue = false)]
+        public string EmulatorCoreName { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the emulator core path.
+        /// </summary>
+        [DataMember(Name = "emulatorCorePath", EmitDefaultValue = false)]
+        public string EmulatorCorePath { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the emulator launch arguments template.
+        /// </summary>
+        [DataMember(Name = "emulatorLaunchArgs", EmitDefaultValue = false)]
+        public string EmulatorLaunchArgs { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the install root override for ROM platforms.
+        /// </summary>
+        [DataMember(Name = "romInstallRoot", EmitDefaultValue = false)]
+        public string RomInstallRoot { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the archive policy for ROM platforms.
+        /// </summary>
+        [DataMember(Name = "romArchivePolicy", EmitDefaultValue = false)]
+        public string RomArchivePolicy { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the selected plugin key for this platform mapping.
+        /// </summary>
+        [DataMember(Name = "pluginKey", EmitDefaultValue = false)]
+        public string PluginKey { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets serialized plugin settings payload for dynamic plugin configuration.
+        /// </summary>
+        [DataMember(Name = "pluginSettings", EmitDefaultValue = false)]
+        public string PluginSettings { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets archive handling mode for general ROM installs.
+        /// </summary>
+        [DataMember(Name = "archiveHandlingMode", EmitDefaultValue = false)]
+        public string ArchiveHandlingMode { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets supported file extensions for the general fallback installer.
+        /// </summary>
+        [DataMember(Name = "supportedFileTypes", EmitDefaultValue = false)]
+        public string SupportedFileTypes { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets preferred launch-extension ordering for the general fallback installer.
+        /// </summary>
+        [DataMember(Name = "preferredLaunchExtensions", EmitDefaultValue = false)]
+        public string PreferredLaunchExtensions { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets whether installs should be placed in a per-game subdirectory.
+        /// </summary>
+        [DataMember(Name = "useGameSubdirectory", EmitDefaultValue = false)]
+        public bool UseGameSubdirectory { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets whether all discovered matching files should be installed.
+        /// </summary>
+        [DataMember(Name = "installAllMatchingFiles", EmitDefaultValue = false)]
+        public bool InstallAllMatchingFiles { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets whether supported archives can be installed/launched directly.
+        /// </summary>
+        [DataMember(Name = "installFromArchiveDirectly", EmitDefaultValue = false)]
+        public bool InstallFromArchiveDirectly { get; set; }
+
+        /// <summary>
+        /// Gets or sets install layout behavior for general ROM installs.
+        /// </summary>
+        [DataMember(Name = "installLayoutMode", EmitDefaultValue = false)]
+        public string InstallLayoutMode { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets artifact selection strategy when multiple candidates exist.
+        /// </summary>
+        [DataMember(Name = "artifactSelectionMode", EmitDefaultValue = false)]
+        public string ArtifactSelectionMode { get; set; } = string.Empty;
+
+        /// <summary>
+        /// True when this mapping should use the general fallback installer.
+        /// </summary>
+        [DataMember(Name = "useGeneralFallbackInstaller", EmitDefaultValue = false)]
+        public bool UseGeneralFallbackInstaller { get; set; }
+
+        /// <summary>
         /// Determines whether installers run manually or silently.
         /// </summary>
         [DataMember(Name = "installerMode", EmitDefaultValue = false)]
@@ -141,5 +243,179 @@ namespace RomMbox.Models.PlatformMapping
         /// </summary>
         [DataMember(Name = "customInstallDirectory", EmitDefaultValue = false)]
         public string CustomInstallDirectory { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the PS3 game directory override.
+        /// </summary>
+        [DataMember(Name = "ps3GameDirectory", EmitDefaultValue = false)]
+        public string Ps3GameDirectory { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the RPCS3 executable path for PS3 installs.
+        /// </summary>
+        [DataMember(Name = "rpcs3ExecutablePath", EmitDefaultValue = false)]
+        public string Rpcs3ExecutablePath { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets whether DLC packages should be installed automatically.
+        /// </summary>
+        [DataMember(Name = "installDlcAutomatically", EmitDefaultValue = false)]
+        public bool InstallDlcAutomatically { get; set; }
+
+        /// <summary>
+        /// Gets or sets whether update packages should be installed automatically.
+        /// </summary>
+        [DataMember(Name = "installUpdatesAutomatically", EmitDefaultValue = false)]
+        public bool InstallUpdatesAutomatically { get; set; }
+
+        /// <summary>
+        /// Gets or sets the RPCS3 license directory override.
+        /// </summary>
+        [DataMember(Name = "rpcs3LicenseDirectory", EmitDefaultValue = false)]
+        public string Rpcs3LicenseDirectory { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets whether region-mismatched DLC should be skipped.
+        /// </summary>
+        [DataMember(Name = "skipRegionMismatchedDlc", EmitDefaultValue = false)]
+        public bool SkipRegionMismatchedDlc { get; set; }
+
+        /// <summary>
+        /// Gets or sets whether unmatched RAP files should be skipped.
+        /// </summary>
+        [DataMember(Name = "skipUnmatchedRapFiles", EmitDefaultValue = false)]
+        public bool SkipUnmatchedRapFiles { get; set; }
+
+        /// <summary>
+        /// Gets or sets whether metadata-based package matching should be preferred.
+        /// </summary>
+        [DataMember(Name = "preferMetadataBasedPackageMatching", EmitDefaultValue = false)]
+        public bool PreferMetadataBasedPackageMatching { get; set; }
+
+        /// <summary>
+        /// Gets or sets the PS4 games directory override.
+        /// </summary>
+        [DataMember(Name = "ps4GamesDirectory", EmitDefaultValue = false)]
+        public string Ps4GamesDirectory { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the ShadPS4 executable path.
+        /// </summary>
+        [DataMember(Name = "shadPs4ExecutablePath", EmitDefaultValue = false)]
+        public string ShadPs4ExecutablePath { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets optional external PKG extractor path for PS4 direct PKG workflows.
+        /// </summary>
+        [DataMember(Name = "ps4ExternalPkgExtractorPath", EmitDefaultValue = false)]
+        public string Ps4ExternalPkgExtractorPath { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets whether direct PKG downloads should fail when extractor is missing.
+        /// </summary>
+        [DataMember(Name = "ps4FailIfDirectPkgExtractorMissing", EmitDefaultValue = false)]
+        public bool Ps4FailIfDirectPkgExtractorMissing { get; set; }
+
+        /// <summary>
+        /// Gets or sets the PCSX2 executable path override.
+        /// </summary>
+        [DataMember(Name = "pcsx2ExecutablePath", EmitDefaultValue = false)]
+        public string Pcsx2ExecutablePath { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the PSP emulator mode.
+        /// </summary>
+        [DataMember(Name = "pspEmulatorMode", EmitDefaultValue = false)]
+        public string PspEmulatorMode { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the PPSSPP executable path override.
+        /// </summary>
+        [DataMember(Name = "ppssppExecutablePath", EmitDefaultValue = false)]
+        public string PpssppExecutablePath { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the RetroArch executable path override.
+        /// </summary>
+        [DataMember(Name = "retroArchExecutablePath", EmitDefaultValue = false)]
+        public string RetroArchExecutablePath { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the RetroArch PPSSPP core path or identifier.
+        /// </summary>
+        [DataMember(Name = "retroArchPpssppCorePath", EmitDefaultValue = false)]
+        public string RetroArchPpssppCorePath { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets whether RetroArch PPSSPP assets should be validated.
+        /// </summary>
+        [DataMember(Name = "validateRetroArchPpssppAssets", EmitDefaultValue = false)]
+        public bool ValidateRetroArchPpssppAssets { get; set; } = true;
+
+        /// <summary>
+        /// Gets or sets whether installs should fail when emulator readiness checks fail.
+        /// </summary>
+        [DataMember(Name = "failInstallIfEmulatorNotReady", EmitDefaultValue = false)]
+        public bool FailInstallIfEmulatorNotReady { get; set; }
+
+        /// <summary>
+        /// Gets or sets the Vita3K executable path override.
+        /// </summary>
+        [DataMember(Name = "vita3kExecutablePath", EmitDefaultValue = false)]
+        public string Vita3kExecutablePath { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets whether Vita installs should fail when emulator readiness checks fail.
+        /// </summary>
+        [DataMember(Name = "vitaFailIfEmulatorNotReady", EmitDefaultValue = false)]
+        public bool VitaFailIfEmulatorNotReady { get; set; }
+
+        /// <summary>
+        /// Gets or sets whether Vita updates should be installed automatically.
+        /// </summary>
+        [DataMember(Name = "vitaInstallUpdatesAutomatically", EmitDefaultValue = false)]
+        public bool VitaInstallUpdatesAutomatically { get; set; }
+
+        /// <summary>
+        /// Gets or sets whether Vita DLC should be installed automatically.
+        /// </summary>
+        [DataMember(Name = "vitaInstallDlcAutomatically", EmitDefaultValue = false)]
+        public bool VitaInstallDlcAutomatically { get; set; }
+
+        /// <summary>
+        /// Gets or sets whether Vita installs should be consolidated into the configured game storage location and exposed to Vita3K via a title-scoped link.
+        /// </summary>
+        [DataMember(Name = "vitaConsolidateGameInstalls", EmitDefaultValue = false)]
+        public bool VitaConsolidateGameInstalls { get; set; }
+
+        /// <summary>
+        /// Gets or sets the Eden executable path override for Switch.
+        /// </summary>
+        [DataMember(Name = "switchEdenExecutablePath", EmitDefaultValue = false)]
+        public string SwitchEdenExecutablePath { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the Azahar executable path override.
+        /// </summary>
+        [DataMember(Name = "azaharExecutablePath", EmitDefaultValue = false)]
+        public string AzaharExecutablePath { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the AzaharPlus executable path override.
+        /// </summary>
+        [DataMember(Name = "azaharPlusExecutablePath", EmitDefaultValue = false)]
+        public string AzaharPlusExecutablePath { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the Dolphin executable path override.
+        /// </summary>
+        [DataMember(Name = "dolphinExecutablePath", EmitDefaultValue = false)]
+        public string DolphinExecutablePath { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the Cemu executable path override.
+        /// </summary>
+        [DataMember(Name = "cemuExecutablePath", EmitDefaultValue = false)]
+        public string CemuExecutablePath { get; set; } = string.Empty;
     }
 }
