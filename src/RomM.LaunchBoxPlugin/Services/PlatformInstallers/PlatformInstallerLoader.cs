@@ -20,6 +20,8 @@ namespace RomMbox.Services.PlatformInstallers
 
         public PlatformInstallerRegistry Load()
         {
+            PlatformAssemblyResolver.EnsureInitialized();
+
             var installers = new Dictionary<string, IPlatformInstaller>(StringComparer.OrdinalIgnoreCase);
             var platformsRoot = ResolvePlatformRoot();
             if (string.IsNullOrWhiteSpace(platformsRoot) || !Directory.Exists(platformsRoot))

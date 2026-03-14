@@ -145,11 +145,11 @@ New-Item -ItemType Directory -Path $platformsTargetDir -Force | Out-Null
 # Copy the plugin assembly and required dependencies
 Copy-RequiredFile -Source $assemblyPath -Destination (Join-Path $outputRoot "RomMbox.dll") -Label "RomMbox.dll"
 $abstractionsPath = Join-Path $buildRoot "RomM.Platforms.Abstractions.dll"
-Copy-RequiredFile -Source $abstractionsPath -Destination (Join-Path $outputRoot "RomM.Platforms.Abstractions.dll") -Label "RomM.Platforms.Abstractions.dll"
+Copy-RequiredFile -Source $abstractionsPath -Destination (Join-Path $platformsTargetDir "RomM.Platforms.Abstractions.dll") -Label "RomM.Platforms.Abstractions.dll"
 $romBasePath = Join-Path $buildRoot "RomM.Platforms.RomBase.dll"
-Copy-RequiredFile -Source $romBasePath -Destination (Join-Path $outputRoot "RomM.Platforms.RomBase.dll") -Label "RomM.Platforms.RomBase.dll"
+Copy-RequiredFile -Source $romBasePath -Destination (Join-Path $platformsTargetDir "RomM.Platforms.RomBase.dll") -Label "RomM.Platforms.RomBase.dll"
 $dolphinInternalPath = Join-Path $buildRoot "RomM.Platforms.DolphinInternal.dll"
-Copy-RequiredFile -Source $dolphinInternalPath -Destination (Join-Path $outputRoot "RomM.Platforms.DolphinInternal.dll") -Label "RomM.Platforms.DolphinInternal.dll"
+Copy-RequiredFile -Source $dolphinInternalPath -Destination (Join-Path $platformsTargetDir "RomM.Platforms.DolphinInternal.dll") -Label "RomM.Platforms.DolphinInternal.dll"
 
 # Copy platform installer assemblies
 foreach ($platformProject in $platformProjects) {
@@ -178,7 +178,7 @@ Write-Host "  - system/settings.json (plugin settings)"
 Write-Host "  - system/assets/romm.png (Plugin badge)"
 Write-Host "  - system/assets/upload.png (Upload Save icon)"
 Write-Host "  - system/assets/gaming.png (Play on RomM icon)"
-Write-Host "  - system/platforms/*.dll (Platform installer assemblies)"
+Write-Host "  - system/platforms/*.dll (Platform installer assemblies and shared platform support libraries)"
 
 # Cleanup staging directory
 if (Test-Path -LiteralPath $buildRoot) {
