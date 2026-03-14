@@ -144,7 +144,7 @@ namespace RomMbox.Tests.Services
                 Path.Combine(programFilesX86, "7-Zip", "7z.exe")
             };
 
-            return candidates.FirstOrDefault(File.Exists);
+            return candidates.FirstOrDefault(File.Exists) ?? string.Empty;
         }
     }
 }

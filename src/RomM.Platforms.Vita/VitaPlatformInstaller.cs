@@ -305,7 +305,7 @@ namespace RomM.Platforms.Vita
                     continue;
                 }
 
-                var stagedArtifact = StageCandidate(candidate, cacheRoot, ctx.Logger);
+                var stagedArtifact = StageCandidate(candidate, cacheRoot, ctx.Logger ?? new NullPlatformLogger());
                 if (string.IsNullOrWhiteSpace(stagedArtifact))
                 {
                     continue;
@@ -489,6 +489,13 @@ namespace RomM.Platforms.Vita
             }
 
             return string.Empty;
+        }
+
+        private sealed class NullPlatformLogger : IPlatformLogger
+        {
+            public void Write(PlatformLogLevel level, string message, Exception? exception = null, IReadOnlyDictionary<string, object?>? properties = null)
+            {
+            }
         }
 
         private static void ImportIntoVita3k(string stagedPath, string executable, IPlatformLogger? logger)

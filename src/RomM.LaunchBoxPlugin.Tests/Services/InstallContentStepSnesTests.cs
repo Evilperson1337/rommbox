@@ -92,24 +92,29 @@ namespace RomMbox.Tests.Services
 
             result.Success.Should().BeTrue();
             installer.CapturedContext.Should().NotBeNull();
-            installer.CapturedContext.ExtractedPath.Should().BeNullOrEmpty("SNES should not be extracted even when RomM platform id is numeric and resolved by name");
-            installer.CapturedContext.ArchivePath.Should().Be(archivePath);
+            var captured = installer.CapturedContext!;
+            captured.ExtractedPath.Should().BeNullOrEmpty("SNES should not be extracted even when RomM platform id is numeric and resolved by name");
+            captured.ArchivePath.Should().Be(archivePath);
         }
 
-        private sealed class TrackingInstaller : IPlatformInstaller, IPlatformInstallerMetadata
+        private sealed class TrackingInstaller : IPlatformInstaller, IPlatformInstallerMetadata, IPlatformInstallerIdentityMetadata
         {
             public TrackingInstaller(string platformKey, string displayName)
             {
                 PlatformKey = platformKey;
                 DisplayName = displayName;
+                SupportedPlatformIds = new[] { platformKey, "23" };
+                SupportedPlatformAliases = new[] { displayName, "Super Nintendo Entertainment System" };
             }
 
             public string PlatformKey { get; }
             public string DisplayName { get; }
             public PlatformInstallerCapabilities Capabilities { get; } = new PlatformInstallerCapabilities();
-            public RomM.Platforms.Abstractions.Models.Install.InstallContext CapturedContext { get; private set; }
+            public IReadOnlyCollection<string>? SupportedPlatformIds { get; }
+            public IReadOnlyCollection<string>? SupportedPlatformAliases { get; }
+            public RomM.Platforms.Abstractions.Models.Install.InstallContext? CapturedContext { get; private set; }
 
-            public PlatformConfigDescriptor GetConfigDescriptor() => null;
+            public PlatformConfigDescriptor? GetConfigDescriptor() => null;
 
             public Task<DetectionResult> DetectAsync(RomM.Platforms.Abstractions.Models.PlatformContext ctx, CancellationToken ct)
             {

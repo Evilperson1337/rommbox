@@ -1059,8 +1059,6 @@ namespace RomM.Platforms.Windows.Install
             {
                 return null;
             }
-
-            return null;
         }
 
         private static void CopyDirectory(string source, string destination)

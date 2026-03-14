@@ -73,8 +73,10 @@ namespace RomMbox.Tests.Services
             result.Success.Should().BeTrue();
             result.ExecutablePath.Should().EndWith("Final Fantasy VII.m3u");
             File.Exists(result.ExecutablePath).Should().BeTrue();
-            File.ReadAllText(result.ExecutablePath).Should().Contain("Disc 1");
-            File.ReadAllText(result.ExecutablePath).Should().Contain("Disc 2");
+            result.ExecutablePath.Should().NotBeNullOrWhiteSpace();
+            var playlistPath = result.ExecutablePath!;
+            File.ReadAllText(playlistPath).Should().Contain("Disc 1");
+            File.ReadAllText(playlistPath).Should().Contain("Disc 2");
         }
 
         [Fact]

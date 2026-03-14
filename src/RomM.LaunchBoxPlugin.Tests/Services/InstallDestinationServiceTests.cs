@@ -157,7 +157,7 @@ namespace RomMbox.Tests.Services
             var launchBoxRoot = CreateLaunchBoxRoot(temp);
             var dataManager = new Mock<IDataManager>();
             dataManager.Setup(manager => manager.GetPlatformByName("Missing"))
-                .Returns((IPlatform)null);
+                .Returns(() => default!);
             using var dataManagerScope = new PluginDataManagerScope(dataManager.Object);
             using var launchBoxScope = new LaunchBoxRootScope(launchBoxRoot);
 

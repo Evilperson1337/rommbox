@@ -328,13 +328,25 @@ namespace RomM.Platforms.Windows.Install
                     return null;
                 }
 
+                object? shortcut = null;
                 try
                 {
-                    dynamic shortcut = shellType.InvokeMember("CreateShortcut", System.Reflection.BindingFlags.InvokeMethod, null, shell, new object[] { shortcutPath });
-                    return shortcut?.TargetPath as string;
+                    shortcut = shellType.InvokeMember("CreateShortcut", System.Reflection.BindingFlags.InvokeMethod, null, shell, new object[] { shortcutPath });
+                    if (shortcut == null)
+                    {
+                        return null;
+                    }
+
+                    var targetPathProperty = shortcut.GetType().GetProperty("TargetPath");
+                    return targetPathProperty?.GetValue(shortcut) as string;
                 }
                 finally
                 {
+                    if (shortcut != null && System.Runtime.InteropServices.Marshal.IsComObject(shortcut))
+                    {
+                        System.Runtime.InteropServices.Marshal.FinalReleaseComObject(shortcut);
+                    }
+
                     if (System.Runtime.InteropServices.Marshal.IsComObject(shell))
                     {
                         System.Runtime.InteropServices.Marshal.FinalReleaseComObject(shell);

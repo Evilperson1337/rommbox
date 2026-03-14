@@ -93,8 +93,9 @@ namespace RomMbox.Tests.Services
 
             result.Success.Should().BeTrue();
             installer.CapturedContext.Should().NotBeNull();
-            installer.CapturedContext.ExtractedPath.Should().BeNullOrEmpty("Arcade ROM sets must remain archived");
-            installer.CapturedContext.ArchivePath.Should().Be(archivePath);
+            var captured = installer.CapturedContext!;
+            captured.ExtractedPath.Should().BeNullOrEmpty("Arcade ROM sets must remain archived");
+            captured.ArchivePath.Should().Be(archivePath);
         }
 
         [Fact]
@@ -178,9 +179,9 @@ namespace RomMbox.Tests.Services
             public string PlatformKey { get; }
             public string DisplayName { get; }
             public PlatformInstallerCapabilities Capabilities { get; } = new PlatformInstallerCapabilities();
-            public RomM.Platforms.Abstractions.Models.Install.InstallContext CapturedContext { get; private set; }
+            public RomM.Platforms.Abstractions.Models.Install.InstallContext? CapturedContext { get; private set; }
 
-            public PlatformConfigDescriptor GetConfigDescriptor() => null;
+            public PlatformConfigDescriptor? GetConfigDescriptor() => null;
 
             public Task<DetectionResult> DetectAsync(RomM.Platforms.Abstractions.Models.PlatformContext ctx, CancellationToken ct)
             {

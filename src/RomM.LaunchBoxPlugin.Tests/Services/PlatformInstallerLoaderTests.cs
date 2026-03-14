@@ -49,7 +49,8 @@ namespace RomMbox.Tests.Services
                 var registry = loader.Load();
 
                 registry.TryGetInstaller("windows", out var installer).Should().BeTrue();
-                installer.PlatformKey.Should().Be("windows");
+                installer.Should().NotBeNull();
+                installer!.PlatformKey.Should().Be("windows");
             }
             finally
             {

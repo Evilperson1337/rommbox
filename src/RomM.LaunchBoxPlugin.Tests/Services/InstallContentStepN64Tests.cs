@@ -94,8 +94,9 @@ namespace RomMbox.Tests.Services
 
             result.Success.Should().BeTrue();
             installer.CapturedContext.Should().NotBeNull();
-            installer.CapturedContext.ExtractedPath.Should().BeNullOrEmpty("N64 should not be extracted when preserving archives");
-            installer.CapturedContext.ArchivePath.Should().Be(archivePath);
+            var captured = installer.CapturedContext!;
+            captured.ExtractedPath.Should().BeNullOrEmpty("N64 should not be extracted when preserving archives");
+            captured.ArchivePath.Should().Be(archivePath);
         }
 
         [Fact]
@@ -271,10 +272,10 @@ namespace RomMbox.Tests.Services
             public string PlatformKey { get; }
             public string DisplayName { get; }
             public PlatformInstallerCapabilities Capabilities { get; } = new PlatformInstallerCapabilities();
-            public RomM.Platforms.Abstractions.Models.Install.InstallContext CapturedContext { get; private set; }
-            public Func<RomM.Platforms.Abstractions.Models.Install.InstallContext, PlatformInstallResult> ResultFactory { get; set; }
+            public RomM.Platforms.Abstractions.Models.Install.InstallContext? CapturedContext { get; private set; }
+            public Func<RomM.Platforms.Abstractions.Models.Install.InstallContext, PlatformInstallResult>? ResultFactory { get; set; }
 
-            public PlatformConfigDescriptor GetConfigDescriptor() => null;
+            public PlatformConfigDescriptor? GetConfigDescriptor() => null;
 
             public Task<DetectionResult> DetectAsync(RomM.Platforms.Abstractions.Models.PlatformContext ctx, CancellationToken ct)
             {

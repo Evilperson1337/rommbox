@@ -273,19 +273,20 @@ namespace RomM.Platforms.PS4
             {
                 var gameRoot = ResolveGameRootForUninstall(basePath, ctx.InstallRootPath, ctx.GameName);
                 var platformRoot = Path.GetDirectoryName(gameRoot ?? string.Empty) ?? ctx.InstallRootPath ?? string.Empty;
+                var safeGameRoot = gameRoot ?? string.Empty;
                 var targets = new[]
                 {
-                    Path.Combine(gameRoot, titleId),
-                    Path.Combine(gameRoot, titleId + "-patch"),
-                    Path.Combine(gameRoot, titleId + "-dlc"),
-                    Path.Combine(gameRoot, titleId + "-bonus")
+                    Path.Combine(safeGameRoot, titleId),
+                    Path.Combine(safeGameRoot, titleId + "-patch"),
+                    Path.Combine(safeGameRoot, titleId + "-dlc"),
+                    Path.Combine(safeGameRoot, titleId + "-bonus")
                 };
 
-                var bonusTargets = Directory.Exists(gameRoot)
-                    ? Directory.EnumerateDirectories(gameRoot)
+                var bonusTargets = Directory.Exists(safeGameRoot)
+                    ? Directory.EnumerateDirectories(safeGameRoot)
                         .Where(path => !string.IsNullOrWhiteSpace(ExtractTitleId(Path.GetFileName(path) ?? string.Empty))
-                            && !string.Equals(path, Path.Combine(gameRoot, titleId), StringComparison.OrdinalIgnoreCase)
-                            && !string.Equals(path, Path.Combine(gameRoot, titleId + "-patch"), StringComparison.OrdinalIgnoreCase))
+                            && !string.Equals(path, Path.Combine(safeGameRoot, titleId), StringComparison.OrdinalIgnoreCase)
+                            && !string.Equals(path, Path.Combine(safeGameRoot, titleId + "-patch"), StringComparison.OrdinalIgnoreCase))
                     : Enumerable.Empty<string>();
 
                 foreach (var target in targets.Concat(bonusTargets).Distinct(StringComparer.OrdinalIgnoreCase))
@@ -309,8 +310,9 @@ namespace RomM.Platforms.PS4
                     }
                 }
 
-                TryDeleteDirectoryIfEmpty(gameRoot, ctx.Logger);
-                TryDeleteDirectoryIfEmpty(Path.Combine(gameRoot, ".staging"), ctx.Logger);
+                var cleanupRoot = gameRoot ?? string.Empty;
+                TryDeleteDirectoryIfEmpty(cleanupRoot, ctx.Logger);
+                TryDeleteDirectoryIfEmpty(Path.Combine(cleanupRoot, ".staging"), ctx.Logger);
             }
 
             progress?.Report(new InstallProgress("Uninstall", "Uninstall completed.", 100, false));

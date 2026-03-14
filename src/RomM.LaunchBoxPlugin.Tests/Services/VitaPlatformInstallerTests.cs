@@ -200,7 +200,9 @@ namespace RomMbox.Tests.Services
 
             result.Success.Should().BeTrue();
             File.Exists(result.ExecutablePath).Should().BeTrue();
-            var tokenText = await File.ReadAllTextAsync(result.ExecutablePath);
+            result.ExecutablePath.Should().NotBeNullOrWhiteSpace();
+            var launchPath = result.ExecutablePath!;
+            var tokenText = await File.ReadAllTextAsync(launchPath);
             tokenText.Should().Contain("\"updatesImported\": 1");
             tokenText.Should().Contain("\"dlcImported\": 1");
             tokenText.Should().Contain("\"launchMode\": \"title-id\"");

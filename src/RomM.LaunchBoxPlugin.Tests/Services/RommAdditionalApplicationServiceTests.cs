@@ -90,27 +90,25 @@ namespace RomMbox.Tests.Services
         }
 
         [Fact]
-        public void InstallStateService_UsesDatabaseAdditionalAppId()
+        public async Task InstallStateService_UsesDatabaseAdditionalAppId()
         {
             using var temp = new TempDirectory();
             using var scope = new TestEnvironmentScope("ROMMBOX_TEST_SETTINGS", temp.Path);
             var logger = new LoggingService(LogLevel.Debug, new StubLogSink());
             var settings = new SettingsManager(logger);
             var service = new InstallStateService(logger, settings);
-            service.InitializeAsync(default).GetAwaiter().GetResult();
+            await service.InitializeAsync(default);
 
             var gameId = Guid.NewGuid().ToString();
             var expected = Guid.NewGuid().ToString();
-            service.UpsertStateAsync(new InstallState
+            await service.UpsertStateAsync(new InstallState
             {
                 LaunchBoxGameId = gameId,
                 RommAdditionalAppId = expected,
                 IsInstalled = false
-            }, default).GetAwaiter().GetResult();
+            }, default);
 
-            var actual = service.GetRommAdditionalAppIdAsync(gameId, default)
-                .GetAwaiter()
-                .GetResult();
+            var actual = await service.GetRommAdditionalAppIdAsync(gameId, default);
 
             actual.Should().Be(expected);
         }
