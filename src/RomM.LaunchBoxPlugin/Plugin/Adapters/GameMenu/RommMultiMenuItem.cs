@@ -133,7 +133,7 @@ namespace RomMbox.Plugin.Adapters.GameMenu
                     children.Add(new RommGameMenuItem("Link to Local Game", true, ResolveBadge("Installed.png"), () => LinkLocalGame(game)));
                 }
 
-            if (CanPlayOnRomMFast(game))
+            if (CanPlayOnRomM(game, service))
             {
                 children.Add(new RommGameMenuItem("Play on RomM", true, ResolvePluginAssetImage("gaming.png"), () => PlayOnRomM(game)));
             }
@@ -176,7 +176,7 @@ namespace RomMbox.Plugin.Adapters.GameMenu
         /// Installs the selected game locally by downloading from RomM.
         /// UI status is shown in an install progress dialog.
         /// </summary>
-        private static void InstallGame(IGame game)
+        internal static void InstallGame(IGame game)
         {
             PluginEntry.EnsureInitialized();
             PluginEntry.Logger?.Info($"RomM Install selected for '{game?.Title}'. ApplicationPath='{game?.ApplicationPath}', Installed={game?.Installed == true}.");
@@ -862,7 +862,8 @@ namespace RomMbox.Plugin.Adapters.GameMenu
 
                     var details = installStateService.GetRomMDetails(game);
                     var urlService = new RomMPlayUrlService(PluginEntry.Logger);
-                    var playUrl = urlService.BuildPlayUrl(details.ServerUrl, details.RommRomId);
+                    var settingsManager = PluginEntry.SettingsManager ?? new SettingsManager(PluginEntry.Logger);
+                    var playUrl = urlService.BuildPlayUrl(details.ServerUrl, details.RommRomId, details.RommPlatformId, game?.Platform, settingsManager, PluginEntry.PlatformInstallers);
                     if (string.IsNullOrWhiteSpace(playUrl))
                     {
                         PluginEntry.Logger?.Warning("Play URL could not be built for selected game.");
@@ -1037,7 +1038,7 @@ namespace RomMbox.Plugin.Adapters.GameMenu
             });
         }
 
-        private static void ShowInfoDialog(string title, string message)
+        internal static void ShowInfoDialog(string title, string message)
         {
             var dispatcher = Application.Current?.Dispatcher;
             if (dispatcher == null || dispatcher.HasShutdownStarted)
@@ -1180,7 +1181,7 @@ namespace RomMbox.Plugin.Adapters.GameMenu
 
             var details = service.GetRomMDetails(game);
             var settingsManager = PluginEntry.SettingsManager ?? new SettingsManager(PluginEntry.Logger);
-            var playable = RommPlayability.IsPlayablePlatform(details.RommPlatformId, game.Platform, settingsManager);
+            var playable = RommPlayability.IsPlayablePlatform(details.RommPlatformId, game.Platform, settingsManager, PluginEntry.PlatformInstallers);
             stopwatch.Stop();
             if (stopwatch.ElapsedMilliseconds > 50)
             {

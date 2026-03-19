@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using RomMbox.Services.Logging;
+using RomMbox.Services.Settings;
 
 namespace RomMbox.Services.Auth
 {
@@ -103,21 +104,77 @@ namespace RomMbox.Services.Auth
         }
 
         /// <summary>
-        /// Masks a password value for logging output.
+        /// Tests connectivity using saved OIDC bearer tokens.
         /// </summary>
-        /// <param name="password">The password to mask.</param>
-        /// <returns>A masked string with length and tail information.</returns>
-        private static string MaskPassword(string password)
+        public async Task<ConnectionTestResult> TestOidcConnectionAsync(string serverUrl, SettingsManager settingsManager, TimeSpan timeout, bool allowInvalidTls, CancellationToken cancellationToken)
         {
-            if (string.IsNullOrEmpty(password))
+            if (settingsManager == null)
             {
-                return "<empty>";
+                throw new ArgumentNullException(nameof(settingsManager));
             }
 
-            var length = password.Length;
-            var tailLength = Math.Min(2, length);
-            var tail = password.Substring(length - tailLength, tailLength);
-            return $"<masked len={length} tail=\"{tail}\">";
+            if (serverUrl == null)
+            {
+                throw new ArgumentNullException(nameof(serverUrl));
+            }
+
+            if (!Uri.TryCreate(serverUrl, UriKind.Absolute, out var baseUri))
+            {
+                throw new ArgumentException("Server URL must be a valid absolute URL.", nameof(serverUrl));
+            }
+
+            var handler = new HttpClientHandler();
+            if (allowInvalidTls)
+            {
+                handler.ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true;
+            }
+
+            using var httpClient = new HttpClient(handler) { Timeout = timeout };
+            using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            cts.CancelAfter(timeout);
+
+            try
+            {
+                var provider = new OidcRommAuthProvider(_logger, settingsManager, () =>
+                {
+                    var tokenHandler = new HttpClientHandler();
+                    if (allowInvalidTls)
+                    {
+                        tokenHandler.ServerCertificateCustomValidationCallback = (message, cert, chain, errors) => true;
+                    }
+
+                    return new HttpClient(tokenHandler) { Timeout = timeout };
+                });
+
+                await provider.PrepareAsync(httpClient, serverUrl, cts.Token).ConfigureAwait(false);
+                var response = await httpClient.GetAsync(new Uri(baseUri, "/api/heartbeat"), cts.Token).ConfigureAwait(false);
+                var responseBody = await SafeReadBodyAsync(response).ConfigureAwait(false);
+                _logger?.Debug($"OIDC connection test response {(int)response.StatusCode} {response.ReasonPhrase}. Body={responseBody}.");
+                if (response.StatusCode == HttpStatusCode.OK)
+                {
+                    return new ConnectionTestResult(ConnectionTestStatus.Success, "Connection successful.");
+                }
+
+                if (response.StatusCode == HttpStatusCode.Unauthorized || response.StatusCode == HttpStatusCode.Forbidden)
+                {
+                    return new ConnectionTestResult(ConnectionTestStatus.AuthenticationFailed, "Authentication failed.");
+                }
+
+                return new ConnectionTestResult(ConnectionTestStatus.ConnectionFailed, "Connection failed.");
+            }
+            catch (OperationCanceledException)
+            {
+                return new ConnectionTestResult(ConnectionTestStatus.ConnectionFailed, "Connection timed out.");
+            }
+            catch (RommApiException ex) when (ex.ErrorType == RommApiErrorType.AuthExpired)
+            {
+                return new ConnectionTestResult(ConnectionTestStatus.AuthenticationFailed, "Authentication failed.");
+            }
+            catch (Exception ex)
+            {
+                _logger?.Error($"OIDC connection test failed. {ex.GetType().Name}: {ex.Message}", ex);
+                return new ConnectionTestResult(ConnectionTestStatus.ConnectionFailed, "Connection failed.");
+            }
         }
 
         /// <summary>

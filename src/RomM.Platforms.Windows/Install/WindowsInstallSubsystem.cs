@@ -110,7 +110,12 @@ namespace RomM.Platforms.Windows.Install
                 await InstallOptionalContentAsync(contentRoots.Bonus, resolvedInstallDir, mapping, mapping?.BonusRootPath, mapping?.InstallBonus == true, gameName, "Bonus", cancellationToken).ConfigureAwait(false);
                 await InstallOptionalContentAsync(contentRoots.PreReqs, resolvedInstallDir, mapping, mapping?.PreReqsRootPath, mapping?.InstallPreReqs == true, gameName, "Pre-Reqs", cancellationToken, deleteSource: true, perGame: false).ConfigureAwait(false);
 
-                cleanupTempRoot = true;
+                cleanupTempRoot = ShouldCleanupTempRoot(tempRoot, baseResult.InstallRootPath);
+                if (!cleanupTempRoot && Directory.Exists(tempRoot))
+                {
+                    _logger?.Write(PlatformLogLevel.Info, $"Preserving temp install root '{tempRoot}' because installed content remains staged for downstream finalization.");
+                }
+
                 return baseResult;
             }
             catch (Exception ex)
@@ -350,7 +355,7 @@ namespace RomM.Platforms.Windows.Install
                 resolution = resolution.WithExecutable(selection.SelectedPath);
             }
 
-            return WindowsInstallResult.CreateSuccess(resolution.ExecutablePath ?? string.Empty, resolution.Arguments, installType);
+            return WindowsInstallResult.CreateSuccess(resolution.ExecutablePath ?? string.Empty, resolution.Arguments, installType, baseRoot);
         }
 
         private async Task<WindowsInstallResult> RunInstallerAsync(
@@ -431,7 +436,7 @@ namespace RomM.Platforms.Windows.Install
                 resolution = resolution.WithExecutable(selection.SelectedPath);
             }
 
-            return WindowsInstallResult.CreateSuccess(resolution.ExecutablePath ?? string.Empty, resolution.Arguments, InstallType.Installer);
+            return WindowsInstallResult.CreateSuccess(resolution.ExecutablePath ?? string.Empty, resolution.Arguments, InstallType.Installer, targetInstallDir);
         }
 
         private async Task<WindowsInstallResult> TryRunCombinedInstallerBatchAsync(
@@ -536,7 +541,7 @@ namespace RomM.Platforms.Windows.Install
                 resolution = resolution.WithExecutable(selection.SelectedPath);
             }
 
-            return WindowsInstallResult.CreateSuccess(resolution.ExecutablePath ?? string.Empty, resolution.Arguments, InstallType.Installer);
+            return WindowsInstallResult.CreateSuccess(resolution.ExecutablePath ?? string.Empty, resolution.Arguments, InstallType.Installer, installDir);
         }
 
         private string? ResolveInstallerSetupPath(string extractedPath)
@@ -1061,6 +1066,34 @@ namespace RomM.Platforms.Windows.Install
             }
         }
 
+        private static bool ShouldCleanupTempRoot(string tempRoot, string? installRootPath)
+        {
+            if (string.IsNullOrWhiteSpace(tempRoot) || !Directory.Exists(tempRoot))
+            {
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(installRootPath))
+            {
+                return true;
+            }
+
+            try
+            {
+                var normalizedTempRoot = Path.GetFullPath(tempRoot)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                var normalizedInstallRoot = Path.GetFullPath(installRootPath)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+                return !normalizedInstallRoot.Equals(normalizedTempRoot, StringComparison.OrdinalIgnoreCase)
+                    && !normalizedInstallRoot.StartsWith(normalizedTempRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return true;
+            }
+        }
+
         private static void CopyDirectory(string source, string destination)
         {
             Directory.CreateDirectory(destination);
@@ -1456,7 +1489,7 @@ namespace RomM.Platforms.Windows.Install
             }
 
             _logger?.Write(PlatformLogLevel.Warning, "Installer confirmation failed, but executable resolution succeeded. Proceeding with resolved executable.");
-            return WindowsInstallResult.CreateSuccess(resolution.ExecutablePath, resolution.Arguments, InstallType.Installer);
+            return WindowsInstallResult.CreateSuccess(resolution.ExecutablePath, resolution.Arguments, InstallType.Installer, installDir);
         }
 
         private void ValidateTargetInstallDir(string installDir, string targetInstallDir, string gameName)

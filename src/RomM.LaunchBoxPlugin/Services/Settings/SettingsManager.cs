@@ -3,6 +3,8 @@ using System.IO;
 using System.Runtime.Serialization.Json;
 using System.Text;
 using System.Linq;
+using System.Text.Json;
+using RomMbox.Services.Auth;
 using RomMbox.Storage;
 using RomMbox.Services.Logging;
 using RomMbox.Services.Paths;
@@ -20,6 +22,8 @@ namespace RomMbox.Services.Settings
         private static readonly object CredentialCacheSync = new object();
         private static string _cachedCredentialsServerUrl;
         private static CredentialResult _cachedCredentials;
+        private static string _cachedOidcServerUrl;
+        private static OidcTokenInfo _cachedOidcTokens;
         private readonly LoggingService _logger;
         private readonly object _sync = new object();
         private readonly CredentialStore _credentialStore;
@@ -205,6 +209,98 @@ namespace RomMbox.Services.Settings
                 catch (Exception ex)
                 {
                     _logger.Error("Failed to delete credentials.", ex);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Saves OIDC token state for the specified server URL.
+        /// </summary>
+        public void SaveOidcTokens(string serverUrl, OidcTokenInfo tokens)
+        {
+            Guard.NotNull(serverUrl, nameof(serverUrl));
+            Guard.NotNull(tokens, nameof(tokens));
+
+            lock (CredentialCacheSync)
+            {
+                try
+                {
+                    var payload = JsonSerializer.Serialize(tokens);
+                    _credentialStore.SaveOidcTokenPayload(serverUrl, payload);
+                    _cachedOidcServerUrl = serverUrl;
+                    _cachedOidcTokens = tokens;
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error("Failed to save OIDC tokens.", ex);
+                    throw;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Gets saved OIDC token state for the specified server URL.
+        /// </summary>
+        public OidcTokenInfo GetSavedOidcTokens(string serverUrl)
+        {
+            Guard.NotNull(serverUrl, nameof(serverUrl));
+
+            lock (CredentialCacheSync)
+            {
+                if (!string.IsNullOrWhiteSpace(_cachedOidcServerUrl)
+                    && _cachedOidcTokens != null
+                    && string.Equals(_cachedOidcServerUrl, serverUrl, StringComparison.OrdinalIgnoreCase))
+                {
+                    return _cachedOidcTokens;
+                }
+
+                try
+                {
+                    var payload = _credentialStore.GetOidcTokenPayload(serverUrl);
+                    if (string.IsNullOrWhiteSpace(payload))
+                    {
+                        _cachedOidcServerUrl = null;
+                        _cachedOidcTokens = null;
+                        return null;
+                    }
+
+                    var tokens = JsonSerializer.Deserialize<OidcTokenInfo>(payload, new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                    _cachedOidcServerUrl = serverUrl;
+                    _cachedOidcTokens = tokens;
+                    return tokens;
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error("Failed to read OIDC tokens.", ex);
+                    _cachedOidcServerUrl = null;
+                    _cachedOidcTokens = null;
+                    return null;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Deletes saved OIDC token state for the specified server URL.
+        /// </summary>
+        public void DeleteSavedOidcTokens(string serverUrl)
+        {
+            Guard.NotNull(serverUrl, nameof(serverUrl));
+
+            lock (CredentialCacheSync)
+            {
+                try
+                {
+                    _credentialStore.DeleteOidcTokenPayload(serverUrl);
+                    if (!string.IsNullOrWhiteSpace(_cachedOidcServerUrl)
+                        && string.Equals(_cachedOidcServerUrl, serverUrl, StringComparison.OrdinalIgnoreCase))
+                    {
+                        _cachedOidcServerUrl = null;
+                        _cachedOidcTokens = null;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.Error("Failed to delete OIDC tokens.", ex);
                 }
             }
         }

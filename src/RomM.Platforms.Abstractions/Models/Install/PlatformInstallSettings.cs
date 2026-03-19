@@ -36,6 +36,7 @@ namespace RomM.Platforms.Abstractions.Models.Install
         public string? AzaharPlusExecutablePath { get; set; }
         public string? DolphinExecutablePath { get; set; }
         public string? CemuExecutablePath { get; set; }
+        public string? RuffleExecutablePath { get; set; }
         public string? Vita3kExecutablePath { get; set; }
         public bool VitaFailIfEmulatorNotReady { get; set; }
         public bool VitaInstallUpdatesAutomatically { get; set; }

@@ -14,6 +14,8 @@ namespace RomMbox.Storage
         private readonly LoggingService _logger;
         private const int CredentialTypeGeneric = 1;
         private const int CredentialPersistLocalMachine = 2;
+        private const string BasicCredentialPrefix = "RomM_LaunchBoxPlugin_";
+        private const string OidcCredentialPrefix = "RomM_LaunchBoxPlugin_OIDC_";
 
         /// <summary>
         /// Creates a credential store with an optional logger.
@@ -142,7 +144,7 @@ namespace RomMbox.Storage
 
             try
             {
-                var prefix = "RomM_LaunchBoxPlugin_";
+                var prefix = BasicCredentialPrefix;
                 if (!CredEnumerate(prefix + "*", 0, out var count, out var credentialArrayPtr) || count <= 0)
                 {
                     return false;
@@ -212,13 +214,129 @@ namespace RomMbox.Storage
         }
 
         /// <summary>
+        /// Saves serialized OIDC token payload for the specified server URL.
+        /// </summary>
+        public void SaveOidcTokenPayload(string serverUrl, string payload)
+        {
+            if (serverUrl == null)
+            {
+                throw new ArgumentNullException(nameof(serverUrl));
+            }
+
+            if (string.IsNullOrWhiteSpace(serverUrl))
+            {
+                throw new ArgumentException("Server URL must not be empty.", nameof(serverUrl));
+            }
+
+            SaveSecret(BuildOidcTargetName(serverUrl), "oidc", payload ?? string.Empty);
+        }
+
+        /// <summary>
+        /// Gets serialized OIDC token payload for the specified server URL.
+        /// </summary>
+        public string GetOidcTokenPayload(string serverUrl)
+        {
+            if (serverUrl == null)
+            {
+                throw new ArgumentNullException(nameof(serverUrl));
+            }
+
+            if (string.IsNullOrWhiteSpace(serverUrl))
+            {
+                throw new ArgumentException("Server URL must not be empty.", nameof(serverUrl));
+            }
+
+            return GetSecret(BuildOidcTargetName(serverUrl));
+        }
+
+        /// <summary>
+        /// Deletes serialized OIDC token payload for the specified server URL.
+        /// </summary>
+        public void DeleteOidcTokenPayload(string serverUrl)
+        {
+            if (serverUrl == null)
+            {
+                throw new ArgumentNullException(nameof(serverUrl));
+            }
+
+            if (string.IsNullOrWhiteSpace(serverUrl))
+            {
+                throw new ArgumentException("Server URL must not be empty.", nameof(serverUrl));
+            }
+
+            CredDelete(BuildOidcTargetName(serverUrl), CredentialTypeGeneric, 0);
+        }
+
+        /// <summary>
         /// Builds the target name used by the Windows credential store.
         /// </summary>
         /// <param name="serverUrl">The server URL.</param>
         /// <returns>The composed target name.</returns>
         private static string BuildTargetName(string serverUrl)
         {
-            return "RomM_LaunchBoxPlugin_" + serverUrl.Trim();
+            return BasicCredentialPrefix + serverUrl.Trim();
+        }
+
+        private static string BuildOidcTargetName(string serverUrl)
+        {
+            return OidcCredentialPrefix + serverUrl.Trim();
+        }
+
+        private void SaveSecret(string targetName, string userName, string secret)
+        {
+            var secretText = secret ?? string.Empty;
+            var secretBytes = Encoding.Unicode.GetBytes(secretText);
+            var credential = new NativeCredential
+            {
+                AttributeCount = 0,
+                Attributes = IntPtr.Zero,
+                Comment = null,
+                TargetAlias = null,
+                Type = CredentialTypeGeneric,
+                Persist = CredentialPersistLocalMachine,
+                TargetName = targetName,
+                UserName = userName ?? string.Empty,
+                CredentialBlobSize = (uint)secretBytes.Length,
+                CredentialBlob = Marshal.StringToCoTaskMemUni(secretText)
+            };
+
+            try
+            {
+                if (!CredWrite(ref credential, 0))
+                {
+                    throw new Win32Exception(Marshal.GetLastWin32Error());
+                }
+            }
+            finally
+            {
+                if (credential.CredentialBlob != IntPtr.Zero)
+                {
+                    Marshal.FreeCoTaskMem(credential.CredentialBlob);
+                }
+            }
+        }
+
+        private string GetSecret(string targetName)
+        {
+            if (!CredRead(targetName, CredentialTypeGeneric, 0, out var credentialPtr))
+            {
+                return null;
+            }
+
+            try
+            {
+                var credential = Marshal.PtrToStructure<NativeCredential>(credentialPtr);
+                if (credential.CredentialBlob != IntPtr.Zero && credential.CredentialBlobSize > 0)
+                {
+                    return Marshal.PtrToStringUni(credential.CredentialBlob, (int)credential.CredentialBlobSize / 2) ?? string.Empty;
+                }
+
+                return string.Empty;
+            }
+            finally
+            {
+                CredFree(credentialPtr);
+            }
         }
 
         /// <summary>

@@ -15,6 +15,8 @@ namespace RomM.Platforms.Abstractions.Models.Metadata
         public bool SupportsUpdates { get; set; }
         public bool SupportsRaps { get; set; }
         public bool RequiresEmulatorPath { get; set; }
+        public bool SupportsRomMWebPlay { get; set; }
+        public string RomMWebPlayPathSuffix { get; set; } = string.Empty;
     }
 }
 

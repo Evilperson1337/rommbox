@@ -367,6 +367,9 @@ public sealed class PlatformMapping : ObservableObject
     private string _cemuExecutablePath = "";
     public string CemuExecutablePath { get => _cemuExecutablePath; set => SetProperty(ref _cemuExecutablePath, value); }
 
+    private string _ruffleExecutablePath = "";
+    public string RuffleExecutablePath { get => _ruffleExecutablePath; set => SetProperty(ref _ruffleExecutablePath, value); }
+
     private string _readinessStatus = string.Empty;
     /// <summary>
     /// Gets or sets the platform readiness status.

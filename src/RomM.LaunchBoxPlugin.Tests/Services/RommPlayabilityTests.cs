@@ -21,6 +21,7 @@ namespace RomMbox.Tests.Services
         [Theory]
         [InlineData("Nintendo 64")]
         [InlineData("Sega Saturn")]
+        [InlineData("Flash Player")]
         public void IsPlayablePlatform_ShouldReturnTrue_ForKnownPlatforms(string platform)
         {
             RommPlayability.IsPlayablePlatform(platform).Should().BeTrue();
@@ -29,6 +30,7 @@ namespace RomMbox.Tests.Services
         [Theory]
         [InlineData("Sega Genesis/Megadrive", "Sega Mega Drive/Genesis")]
         [InlineData("Sony Playstation", "PlayStation")]
+        [InlineData("Adobe Flash Player", "Flash Player")]
         public void IsPlayablePlatform_ShouldResolveAliases(string input, string canonical)
         {
             RommPlayability.IsPlayablePlatform(input).Should().BeTrue();

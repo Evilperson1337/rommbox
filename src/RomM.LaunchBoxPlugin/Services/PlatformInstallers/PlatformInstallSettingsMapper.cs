@@ -55,6 +55,7 @@ namespace RomMbox.Services.PlatformInstallers
                 AzaharPlusExecutablePath = string.IsNullOrWhiteSpace(mapping.AzaharPlusExecutablePath) ? null : mapping.AzaharPlusExecutablePath,
                 DolphinExecutablePath = string.IsNullOrWhiteSpace(mapping.DolphinExecutablePath) ? null : mapping.DolphinExecutablePath,
                 CemuExecutablePath = string.IsNullOrWhiteSpace(mapping.CemuExecutablePath) ? null : mapping.CemuExecutablePath,
+                RuffleExecutablePath = string.IsNullOrWhiteSpace(mapping.RuffleExecutablePath) ? null : mapping.RuffleExecutablePath,
                 Vita3kExecutablePath = string.IsNullOrWhiteSpace(mapping.Vita3kExecutablePath) ? null : mapping.Vita3kExecutablePath,
                 VitaFailIfEmulatorNotReady = mapping.VitaFailIfEmulatorNotReady,
                 VitaInstallUpdatesAutomatically = mapping.VitaInstallUpdatesAutomatically,

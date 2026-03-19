@@ -83,7 +83,8 @@ namespace RomMbox.Tests.Services
                 AzaharExecutablePath = @"D:\Emulators\Azahar\azahar.exe",
                 AzaharPlusExecutablePath = @"D:\Emulators\AzaharPlus\azaharplus.exe",
                 DolphinExecutablePath = @"D:\Emulators\Dolphin\dolphin.exe",
-                CemuExecutablePath = @"D:\Emulators\Cemu\cemu.exe"
+                CemuExecutablePath = @"D:\Emulators\Cemu\cemu.exe",
+                RuffleExecutablePath = @"D:\Emulators\Ruffle\ruffle.exe"
             };
 
             var settings = PlatformInstallSettingsMapper.Map(mapping);
@@ -105,6 +106,7 @@ namespace RomMbox.Tests.Services
             settings.AzaharPlusExecutablePath.Should().Be(mapping.AzaharPlusExecutablePath);
             settings.DolphinExecutablePath.Should().Be(mapping.DolphinExecutablePath);
             settings.CemuExecutablePath.Should().Be(mapping.CemuExecutablePath);
+            settings.RuffleExecutablePath.Should().Be(mapping.RuffleExecutablePath);
         }
 
         [Fact]

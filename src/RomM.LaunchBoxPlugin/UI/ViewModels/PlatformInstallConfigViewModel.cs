@@ -109,6 +109,7 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
         AzaharPlusExecutablePath = mapping?.AzaharPlusExecutablePath ?? string.Empty;
         DolphinExecutablePath = mapping?.DolphinExecutablePath ?? string.Empty;
         CemuExecutablePath = mapping?.CemuExecutablePath ?? string.Empty;
+        RuffleExecutablePath = mapping?.RuffleExecutablePath ?? string.Empty;
 
         InstallScenario = InstallationType == InstallTypeChoice.Enhanced
             ? InstallScenario.Enhanced
@@ -652,7 +653,8 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
         || ShowAzaharExecutablePathField
         || ShowAzaharPlusExecutablePathField
         || ShowDolphinExecutablePathField
-        || ShowCemuExecutablePathField;
+        || ShowCemuExecutablePathField
+        || ShowRuffleExecutablePathField;
     public bool ShowExtraConfigurationSection =>
         ShowSkipRegionMismatchedDlcField
         || ShowSkipUnmatchedRapFilesField
@@ -705,6 +707,7 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
     public bool ShowAzaharPlusExecutablePathField => HasConfigField("AzaharPlusExecutablePath");
     public bool ShowDolphinExecutablePathField => HasConfigField("DolphinExecutablePath");
     public bool ShowCemuExecutablePathField => HasConfigField("CemuExecutablePath");
+    public bool ShowRuffleExecutablePathField => HasConfigField("RuffleExecutablePath");
     public bool IsRetroArchSelected => IsEmulatorFamilySelected("retroarch");
     public bool HasSelectedEmulatorSpecificConfiguration =>
         ShowShadPs4ExecutablePathField
@@ -721,6 +724,7 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
         || ShowAzaharPlusExecutablePathField
         || ShowDolphinExecutablePathField
         || ShowCemuExecutablePathField
+        || ShowRuffleExecutablePathField
         || ShowRetroArchCoreSelectionField
         || ShowPspEmulatorModeField;
     public bool IsPspRetroArchMode => string.Equals(PspEmulatorMode, "RetroArchPPSSPP", StringComparison.OrdinalIgnoreCase);
@@ -979,6 +983,19 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
         }
     }
 
+    private string _ruffleExecutablePath = string.Empty;
+    public string RuffleExecutablePath
+    {
+        get => _ruffleExecutablePath;
+        set
+        {
+            if (SetProperty(ref _ruffleExecutablePath, value))
+            {
+                NotifyBannerStateChanged();
+            }
+        }
+    }
+
     public Models.PlatformMapping BuildMappingForSave()
     {
         if (_mapping == null)
@@ -1049,6 +1066,7 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
         _mapping.AzaharPlusExecutablePath = AzaharPlusExecutablePath;
         _mapping.DolphinExecutablePath = DolphinExecutablePath;
         _mapping.CemuExecutablePath = CemuExecutablePath;
+        _mapping.RuffleExecutablePath = RuffleExecutablePath;
         return _mapping;
     }
 
@@ -1386,6 +1404,11 @@ public sealed class PlatformInstallConfigViewModel : ObservableObject
         if (ShowCemuExecutablePathField && !string.IsNullOrWhiteSpace(CemuExecutablePath))
         {
             return "Cemu Path Configured";
+        }
+
+        if (ShowRuffleExecutablePathField && !string.IsNullOrWhiteSpace(RuffleExecutablePath))
+        {
+            return "Ruffle Path Configured";
         }
 
         return string.Empty;

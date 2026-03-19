@@ -43,7 +43,7 @@ namespace RomMbox.Tests.Services
         {
             var service = new RomMPlayUrlService(TestLogger.Create());
 
-            var result = service.BuildPlayUrl("https://romm.local/", "rom1");
+            var result = service.BuildPlayUrl("https://romm.local/", "rom1", "Nintendo 64");
 
             result.Should().Be("https://romm.local/rom/rom1/ejs");
         }
@@ -53,9 +53,19 @@ namespace RomMbox.Tests.Services
         {
             var service = new RomMPlayUrlService(TestLogger.Create());
 
-            var result = service.BuildPlayUrl("https://romm.local", "rom123");
+            var result = service.BuildPlayUrl("https://romm.local", "rom123", "Nintendo 64");
 
             result.Should().Be("https://romm.local/rom/rom123/ejs");
+        }
+
+        [Fact]
+        public void BuildPlayUrl_ShouldUseFlashRuffleEndpoint()
+        {
+            var service = new RomMPlayUrlService(TestLogger.Create());
+
+            var result = service.BuildPlayUrl("https://romm.local", "flash123", "Flash Player");
+
+            result.Should().Be("https://romm.local/rom/flash123/ruffle");
         }
     }
 }

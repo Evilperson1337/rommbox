@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using RomMbox.Plugin;
 using RomMbox.Services;
+using RomMbox.Services.Settings;
 using Unbroken.LaunchBox.Plugins;
 using Unbroken.LaunchBox.Plugins.Data;
 
@@ -75,7 +76,8 @@ namespace RomMbox.Plugin.Adapters.GameMenu
                     // Use cached install metadata to construct the RomM play URL.
                     var details = installStateService.GetRomMDetails(selectedGame);
                     var urlService = new RomMPlayUrlService(PluginEntry.Logger);
-                    var playUrl = urlService.BuildPlayUrl(details.ServerUrl, details.RommRomId);
+                    var settingsManager = PluginEntry.SettingsManager ?? new SettingsManager(PluginEntry.Logger);
+                    var playUrl = urlService.BuildPlayUrl(details.ServerUrl, details.RommRomId, details.RommPlatformId, selectedGame?.Platform, settingsManager, PluginEntry.PlatformInstallers);
                     if (string.IsNullOrWhiteSpace(playUrl))
                     {
                         PluginEntry.Logger?.Warning("Play URL could not be built for selected game.");

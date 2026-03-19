@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using RomMbox.Plugin;
 using RomMbox.Services;
 using RomMbox.Services.Logging;
+using RomMbox.Services.PlatformInstallers;
 using RomMbox.Services.Settings;
 using Unbroken.LaunchBox.Plugins.Data;
 
@@ -46,8 +47,12 @@ namespace RomMbox.Services.GameActions
 
             var rommDetails = _installStateService.GetRomMDetails(game);
             var isInstalled = await _installStateService.IsGameInstalledAsync(game, cancellationToken).ConfigureAwait(false);
-            var playUrl = _playUrlService.BuildPlayUrl(rommDetails.ServerUrl, rommDetails.RommRomId);
-            var canPlay = ResolvePlayableAsync(game);
+            var settingsManager = PluginEntry.SettingsManager ?? new SettingsManager(_logger);
+            var playProfile = RommPlayEndpointResolver.Resolve(rommDetails.RommPlatformId, game.Platform, settingsManager, PluginEntry.PlatformInstallers, _logger);
+            var playUrl = playProfile.IsPlayableOnRomM
+                ? _playUrlService.BuildPlayUrl(rommDetails.ServerUrl, rommDetails.RommRomId, rommDetails.RommPlatformId, game.Platform, settingsManager, PluginEntry.PlatformInstallers)
+                : string.Empty;
+            var canPlay = playProfile.IsPlayableOnRomM;
             if (string.IsNullOrWhiteSpace(playUrl))
             {
                 _logger?.Warning($"Play URL unavailable for '{game.Title}'.");
@@ -82,7 +87,7 @@ namespace RomMbox.Services.GameActions
 
             var rommDetails = _installStateService.GetRomMDetails(game);
             var settingsManager = PluginEntry.SettingsManager ?? new SettingsManager(_logger);
-            if (!RommPlayability.IsPlayablePlatform(rommDetails.RommPlatformId, game.Platform, settingsManager))
+            if (!RommPlayability.IsPlayablePlatform(rommDetails.RommPlatformId, game.Platform, settingsManager, PluginEntry.PlatformInstallers))
             {
                 return false;
             }

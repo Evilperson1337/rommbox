@@ -176,6 +176,76 @@ namespace RomMbox.Tests.Services
         }
 
         [Fact]
+        public async Task ExecuteAsync_PrefersConfiguredAssociatedEmulator_OverPlatformDefault()
+        {
+            using var temp = new TempDirectory();
+            using var settingsScope = new TestEnvironmentScope("ROMMBOX_TEST_SETTINGS", temp.Path);
+
+            var logger = TestLogger.Create();
+            var settingsStore = new TestSettingsStore(temp.Path);
+            settingsStore.WriteSettings(TestSettingsStore.CreateSettings(new PlatformMapping()));
+            var settingsManager = new SettingsManager(logger);
+            var installStateService = new InstallStateService(logger, settingsManager);
+
+            var platform = new Moq.Mock<IPlatform>();
+            platform.SetupGet(p => p.Name).Returns("Arcade");
+
+            var emulatorPlatform = new Moq.Mock<IEmulatorPlatform>();
+            emulatorPlatform.SetupGet(p => p.Platform).Returns("Arcade");
+            emulatorPlatform.SetupGet(p => p.IsDefault).Returns(true);
+
+            var emulator = new Moq.Mock<IEmulator>();
+            emulator.SetupGet(e => e.Id).Returns("retroarch-default");
+            emulator.Setup(e => e.GetAllEmulatorPlatforms()).Returns(new[] { emulatorPlatform.Object });
+
+            var dataManager = new Moq.Mock<IDataManager>();
+            dataManager.Setup(dm => dm.GetPlatformByName("Arcade")).Returns(platform.Object);
+            dataManager.Setup(dm => dm.GetAllEmulators()).Returns(new[] { emulator.Object });
+
+            var game = new Moq.Mock<IGame>();
+            game.SetupGet(g => g.Platform).Returns("Arcade");
+            game.SetupGet(g => g.Title).Returns("TMNT");
+            game.SetupProperty(g => g.ApplicationPath, string.Empty);
+            game.SetupProperty(g => g.CommandLine, string.Empty);
+            game.SetupProperty(g => g.EmulatorId, string.Empty);
+            game.SetupProperty(g => g.Installed, false);
+            game.SetupProperty(g => g.Status, string.Empty);
+
+            var request = new InstallRequest(game.Object, dataManager.Object);
+            var context = new PipelineInstallContext(request, logger, settingsManager, installStateService)
+            {
+                RommDetails = new RommRom
+                {
+                    Id = "rom-arcade-1",
+                    PlatformId = "arcade",
+                    PlatformDisplayName = "Arcade"
+                },
+                PlatformMapping = new PlatformMapping
+                {
+                    AssociatedEmulatorId = "retroarch-fbneo"
+                },
+                InstallStateSnapshot = new InstallStateSnapshot(),
+                InstallDirectory = Path.Combine(temp.Path, "Games", "Arcade"),
+                DownloadDirectory = Path.Combine(temp.Path, "Games", "Arcade", "TMNT")
+            };
+
+            Directory.CreateDirectory(context.DownloadDirectory);
+            var installedPath = Path.Combine(context.DownloadDirectory, "tmnt.zip");
+            await File.WriteAllTextAsync(installedPath, "zip-data");
+            context.InstalledExecutablePath = installedPath;
+            context.InstallerArguments = new[] { "-L finalburnneo_libretro.dll \"D:\\LaunchBox\\Games\\Arcade\\TMNT\\tmnt.zip\"" };
+
+            var step = new PostProcessStep();
+
+            var result = await step.ExecuteAsync(context, new Progress<InstallProgressEvent>(), CancellationToken.None);
+
+            result.Success.Should().BeTrue();
+            game.Object.EmulatorId.Should().Be("retroarch-fbneo");
+            game.Object.CommandLine.Should().Contain("finalburnneo_libretro.dll");
+            context.InstallStateSnapshot.RommLaunchArgs.Should().Contain("finalburnneo_libretro.dll");
+        }
+
+        [Fact]
         public async Task FinalizeExtractedRomInstallArtifacts_DeletesArchiveAndCleansStaging()
         {
             using var temp = new TempDirectory();

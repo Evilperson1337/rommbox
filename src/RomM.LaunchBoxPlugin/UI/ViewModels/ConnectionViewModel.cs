@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -28,7 +29,10 @@ public sealed class ConnectionViewModel : ObservableObject
     private int _port = 443;
     private string _username = "";
     private string _password = "";
+    private string _accessToken = "";
+    private string _refreshToken = "";
     private bool _ignoreCertificate;
+    private AuthMode _selectedAuthMode = AuthMode.Basic;
 
     private bool _isConnected;
 
@@ -48,6 +52,7 @@ public sealed class ConnectionViewModel : ObservableObject
         TestConnectionCommand = new RelayCommand(async () => await TestConnectionAsync());
         SaveCommand = new RelayCommand(async () => await SaveAsync(showMessages: true), () => CanSaveConnection);
         OpenRommCommand = new RelayCommand(OpenRommInBrowser);
+        StartSsoCommand = new RelayCommand(StartSsoSignIn);
         PluginEntry.BackgroundConnectionCompleted += OnBackgroundConnectionCompleted;
         UpdateStatus();
         CanSaveConnection = false;
@@ -78,9 +83,42 @@ public sealed class ConnectionViewModel : ObservableObject
     /// </summary>
     public string Password { get => _password; set => SetProperty(ref _password, value); }
     /// <summary>
+    /// Gets or sets the pasted OIDC access token.
+    /// </summary>
+    public string AccessToken { get => _accessToken; set => SetProperty(ref _accessToken, value); }
+    /// <summary>
+    /// Gets or sets the pasted OIDC refresh token.
+    /// </summary>
+    public string RefreshToken { get => _refreshToken; set => SetProperty(ref _refreshToken, value); }
+    /// <summary>
     /// Gets or sets whether TLS certificate errors should be ignored.
     /// </summary>
     public bool IgnoreCertificate { get => _ignoreCertificate; set => SetProperty(ref _ignoreCertificate, value); }
+
+    /// <summary>
+    /// Gets the supported auth mode options.
+    /// </summary>
+    public IReadOnlyList<AuthMode> AuthModeOptions { get; } = Enum.GetValues(typeof(AuthMode)).Cast<AuthMode>().ToArray();
+
+    /// <summary>
+    /// Gets or sets the selected auth mode.
+    /// </summary>
+    public AuthMode SelectedAuthMode
+    {
+        get => _selectedAuthMode;
+        set
+        {
+            if (SetProperty(ref _selectedAuthMode, value))
+            {
+                RaisePropertyChanged(nameof(ShowBasicAuthFields));
+                RaisePropertyChanged(nameof(ShowOidcFields));
+            }
+        }
+    }
+
+    public bool ShowBasicAuthFields => SelectedAuthMode == AuthMode.Basic;
+
+    public bool ShowOidcFields => SelectedAuthMode == AuthMode.Oidc;
 
     /// <summary>
     /// Gets whether the connection is currently validated.
@@ -128,6 +166,10 @@ public sealed class ConnectionViewModel : ObservableObject
     /// Command that opens the RomM server in a browser.
     /// </summary>
     public RelayCommand OpenRommCommand { get; }
+    /// <summary>
+    /// Command that starts browser-based SSO against RomM.
+    /// </summary>
+    public RelayCommand StartSsoCommand { get; }
 
     private bool _canSaveConnection;
     public bool CanSaveConnection
@@ -155,7 +197,9 @@ public sealed class ConnectionViewModel : ObservableObject
         {
             var url = BuildServerUrl();
             var timeout = TimeSpan.FromSeconds(Math.Max(5, _settings.ConnectionTimeoutSeconds));
-            var result = await _authService.TestConnectionAsync(url, Username, Password, timeout, IgnoreCertificate, CancellationToken.None).ConfigureAwait(false);
+            var result = SelectedAuthMode == AuthMode.Oidc
+                ? await TestOidcConnectionInternalAsync(url, timeout).ConfigureAwait(false)
+                : await _authService.TestConnectionAsync(url, Username, Password, timeout, IgnoreCertificate, CancellationToken.None).ConfigureAwait(false);
             await Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 IsConnected = result.Status == ConnectionTestStatus.Success;
@@ -199,7 +243,9 @@ public sealed class ConnectionViewModel : ObservableObject
             }
 
             var timeout = TimeSpan.FromSeconds(Math.Max(5, _settings.ConnectionTimeoutSeconds));
-            var result = await _authService.TestConnectionAsync(url, Username, Password, timeout, IgnoreCertificate, CancellationToken.None).ConfigureAwait(false);
+            var result = SelectedAuthMode == AuthMode.Oidc
+                ? await TestOidcConnectionInternalAsync(url, timeout).ConfigureAwait(false)
+                : await _authService.TestConnectionAsync(url, Username, Password, timeout, IgnoreCertificate, CancellationToken.None).ConfigureAwait(false);
             await Application.Current.Dispatcher.InvokeAsync(() =>
             {
                 IsConnected = result.Status == ConnectionTestStatus.Success;
@@ -304,10 +350,27 @@ public sealed class ConnectionViewModel : ObservableObject
             var url = BuildServerUrl();
             _settings.ServerUrl = url;
             _settings.AllowInvalidTls = IgnoreCertificate;
-            _settings.HasSavedCredentials = true;
-            _settings.UseSavedCredentials = true;
+            _settings.AuthModeName = SelectedAuthMode.ToString();
+            _settings.HasSavedCredentials = SelectedAuthMode == AuthMode.Basic
+                ? !string.IsNullOrWhiteSpace(Username) || !string.IsNullOrWhiteSpace(Password)
+                : !string.IsNullOrWhiteSpace(AccessToken) || !string.IsNullOrWhiteSpace(RefreshToken);
+            _settings.UseSavedCredentials = _settings.HasSavedCredentials;
             _settingsManager.Save(_settings);
-            _settingsManager.SaveCredentials(url, Username, Password);
+            if (SelectedAuthMode == AuthMode.Oidc)
+            {
+                _settingsManager.DeleteSavedCredentials(url);
+                _settingsManager.SaveOidcTokens(url, new OidcTokenInfo
+                {
+                    AccessToken = AccessToken ?? string.Empty,
+                    RefreshToken = RefreshToken ?? string.Empty,
+                    TokenType = "Bearer"
+                });
+            }
+            else
+            {
+                _settingsManager.DeleteSavedOidcTokens(url);
+                _settingsManager.SaveCredentials(url, Username, Password);
+            }
             _logger.Info("Connection settings saved.");
             if (showMessages)
             {
@@ -361,8 +424,10 @@ public sealed class ConnectionViewModel : ObservableObject
     private void LoadSettings()
     {
         _settings = _settingsManager.Load();
+        SelectedAuthMode = _settings.GetAuthMode();
         var serverUrl = _settings.ServerUrl ?? string.Empty;
-        if (string.IsNullOrWhiteSpace(serverUrl)
+        if (SelectedAuthMode == AuthMode.Basic
+            && string.IsNullOrWhiteSpace(serverUrl)
             && _settingsManager.TryGetAnySavedCredentials(out var discoveredUrl, out var discoveredCredentials))
         {
             _settings.ServerUrl = discoveredUrl;
@@ -396,11 +461,66 @@ public sealed class ConnectionViewModel : ObservableObject
 
         if (!string.IsNullOrWhiteSpace(serverUrl))
         {
-            var credentials = _settingsManager.GetSavedCredentials(serverUrl);
-            if (credentials != null)
+            if (SelectedAuthMode == AuthMode.Oidc)
             {
-                Username = credentials.Username;
-                Password = credentials.Password;
+                var tokens = _settingsManager.GetSavedOidcTokens(serverUrl);
+                if (tokens != null)
+                {
+                    AccessToken = tokens.AccessToken;
+                    RefreshToken = tokens.RefreshToken;
+                }
+            }
+            else
+            {
+                var credentials = _settingsManager.GetSavedCredentials(serverUrl);
+                if (credentials != null)
+                {
+                    Username = credentials.Username;
+                    Password = credentials.Password;
+                }
+            }
+        }
+    }
+
+    private async Task<ConnectionTestResult> TestOidcConnectionInternalAsync(string serverUrl, TimeSpan timeout)
+    {
+        if (string.IsNullOrWhiteSpace(AccessToken) && string.IsNullOrWhiteSpace(RefreshToken))
+        {
+            return new ConnectionTestResult(ConnectionTestStatus.AuthenticationFailed, "Paste an access token or refresh token first.");
+        }
+
+        var existing = _settingsManager.GetSavedOidcTokens(serverUrl);
+        try
+        {
+            _settingsManager.SaveOidcTokens(serverUrl, new OidcTokenInfo
+            {
+                AccessToken = AccessToken ?? string.Empty,
+                RefreshToken = RefreshToken ?? string.Empty,
+                TokenType = "Bearer"
+            });
+
+            var result = await _authService.TestOidcConnectionAsync(serverUrl, _settingsManager, timeout, IgnoreCertificate, CancellationToken.None).ConfigureAwait(false);
+            var refreshed = _settingsManager.GetSavedOidcTokens(serverUrl);
+            if (refreshed != null)
+            {
+                AccessToken = refreshed.AccessToken;
+                RefreshToken = refreshed.RefreshToken;
+            }
+
+            return result;
+        }
+        finally
+        {
+            if (!IsConnected)
+            {
+                if (existing != null)
+                {
+                    _settingsManager.SaveOidcTokens(serverUrl, existing);
+                }
+                else
+                {
+                    _settingsManager.DeleteSavedOidcTokens(serverUrl);
+                }
             }
         }
     }
@@ -412,6 +532,16 @@ public sealed class ConnectionViewModel : ObservableObject
         if (!launcher.TryOpenUrl(serverUrl))
         {
             MessageBox.Show("Failed to open RomM server URL in browser.", "RomM", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private void StartSsoSignIn()
+    {
+        var loginUrl = BuildServerUrl().TrimEnd('/') + "/api/login/openid";
+        var launcher = new ExternalLauncherService(_logger);
+        if (!launcher.TryOpenUrl(loginUrl))
+        {
+            MessageBox.Show("Failed to open RomM OIDC sign-in in the browser.", "RomM", MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 

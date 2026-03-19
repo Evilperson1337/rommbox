@@ -26,6 +26,7 @@ namespace RomMbox.Services.PlatformInstallers
             ["psp"] = NewExtensions(".iso", ".cso", ".chd"),
             ["snes"] = NewExtensions(".zip", ".sfc", ".smc"),
             ["switch"] = NewExtensions(".xci", ".nsp", ".nsz"),
+            ["flashplayer"] = NewExtensions(".swf"),
             ["wii"] = NewExtensions(".iso", ".wbfs", ".gcz", ".ciso", ".wia", ".rvz"),
             ["wiiu"] = NewExtensions(".wud", ".wux", ".wua", ".rpx"),
             ["xbox"] = NewExtensions(".iso", ".xbe"),

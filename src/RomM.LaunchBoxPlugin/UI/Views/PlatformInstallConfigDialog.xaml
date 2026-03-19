@@ -590,6 +590,16 @@
                                 <Button Grid.Column="1" Content="Browse" Style="{StaticResource BrowseButton}" Click="BrowseCemuExecutable_Click"/>
                             </Grid>
 
+                            <TextBlock Text="Ruffle Executable" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowRuffleExecutablePathField, Converter={StaticResource BoolToVisibility}}"/>
+                            <Grid Margin="0,0,0,12" Visibility="{Binding ShowRuffleExecutablePathField, Converter={StaticResource BoolToVisibility}}">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBox Text="{Binding RuffleExecutablePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBox}"/>
+                                <Button Grid.Column="1" Content="Browse" Style="{StaticResource BrowseButton}" Click="BrowseRuffleExecutable_Click"/>
+                            </Grid>
+
                             <TextBlock Text="Supported File Formats" Style="{StaticResource FieldLabel}" Visibility="{Binding ShowSupportedFileTypesField, Converter={StaticResource BoolToVisibility}}"/>
                             <TextBox Text="{Binding SupportedFileTypes, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBox}" Visibility="{Binding ShowSupportedFileTypesField, Converter={StaticResource BoolToVisibility}}"/>
                             <TextBlock Text="Comma-separated extensions used for candidate discovery and emulator handoff." Style="{StaticResource InlineHelper}" Margin="0,6,0,12" Visibility="{Binding ShowSupportedFileTypesField, Converter={StaticResource BoolToVisibility}}"/>
@@ -727,6 +737,26 @@
                             </StackPanel>
 
                             <CheckBox Content="Install DLC Automatically" IsChecked="{Binding InstallDlcAutomatically, Mode=TwoWay}" Margin="0,0,0,8" Visibility="{Binding ShowSkipRegionMismatchedDlcField, Converter={StaticResource BoolToVisibility}}"/>
+                            <Border Style="{StaticResource CalloutBorder}" Visibility="{Binding ShowWindowsStorefrontDeduplicationSection, Converter={StaticResource BoolToVisibility}}">
+                                <StackPanel>
+                                    <TextBlock Text="Windows Storefront Deduplication" Style="{StaticResource SectionTitle}"/>
+                                    <TextBlock Text="Configure storefront priority, toggle dry-run mode, and run deduplication for the Windows platform. A report is always written to the plugin directory as 'de-duplication report'." Style="{StaticResource SectionDescription}"/>
+                                    <TextBlock Text="Storefront Priority Order" Style="{StaticResource FieldLabel}"/>
+                                    <TextBox Text="{Binding StorefrontPriorityOrder, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Style="{StaticResource DarkTextBox}"/>
+                                    <TextBlock Text="Enter storefronts in descending priority, separated by commas. Example: GOG,Steam,Epic" Style="{StaticResource InlineHelper}" Margin="0,6,0,0"/>
+                                    <TextBlock Text="{Binding StorefrontPrioritySummary}" Style="{StaticResource InlineHelper}" Margin="0,3,0,12"/>
+                                    <CheckBox Content="Dry Run" IsChecked="{Binding StorefrontDedupDryRun, Mode=TwoWay}" Margin="0,0,0,12"/>
+                                    <StackPanel Orientation="Horizontal">
+                                        <Button Content="Run Storefront De-duplication"
+                                                Width="220"
+                                                Height="36"
+                                                Command="{Binding RunStorefrontDeduplicationCommand}"
+                                                Style="{StaticResource SecondaryButton}"
+                                                IsEnabled="{Binding CanRunStorefrontDeduplication}"/>
+                                        <TextBlock Text="{Binding StorefrontDeduplicationStatus}" Style="{StaticResource InlineHelper}" Margin="12,8,0,0" TextWrapping="Wrap" Width="360"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
                             <CheckBox Content="Install Updates Automatically" IsChecked="{Binding InstallUpdatesAutomatically, Mode=TwoWay}" Margin="0,0,0,8" Visibility="{Binding ShowSkipRegionMismatchedDlcField, Converter={StaticResource BoolToVisibility}}"/>
                             <CheckBox Content="Skip Region-Mismatched DLC" IsChecked="{Binding SkipRegionMismatchedDlc, Mode=TwoWay}" Margin="0,0,0,8" Visibility="{Binding ShowSkipRegionMismatchedDlcField, Converter={StaticResource BoolToVisibility}}"/>
                             <CheckBox Content="Skip Unmatched RAP Files" IsChecked="{Binding SkipUnmatchedRapFiles, Mode=TwoWay}" Margin="0,0,0,8" Visibility="{Binding ShowSkipUnmatchedRapFilesField, Converter={StaticResource BoolToVisibility}}"/>

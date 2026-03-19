@@ -169,7 +169,6 @@ namespace RomM.Platforms.Arcade
             }
 
             progress?.Report(new InstallProgress("Installing", "Install completed.", 100));
-            var launchArgs = BuildLaunchArguments(ctx.RomSettings, targetPath);
             ctx.Logger?.Write(PlatformLogLevel.Info, $"Configured emulator: {ResolveEmulatorMode(ctx.RomSettings)}");
             ctx.Logger?.Write(PlatformLogLevel.Info, $"Launch artifact: {Path.GetFileName(targetPath)}");
             ctx.Logger?.Write(PlatformLogLevel.Info, $"Application path set to: {targetPath}");
@@ -180,7 +179,7 @@ namespace RomM.Platforms.Arcade
                 Success = true,
                 Message = "Arcade install completed.",
                 ExecutablePath = targetPath,
-                Arguments = string.IsNullOrWhiteSpace(launchArgs) ? Array.Empty<string>() : new[] { launchArgs },
+                Arguments = Array.Empty<string>(),
                 InstallType = InstallType.Portable,
                 InstallRootPath = installRoot
             });

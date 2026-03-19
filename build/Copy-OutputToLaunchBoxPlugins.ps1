@@ -61,6 +61,19 @@ if (-not (Test-Path -LiteralPath $pluginRoot)) {
     New-Item -ItemType Directory -Path $pluginRoot | Out-Null
 }
 
+$obsoleteFiles = @(
+    "WebView2Loader.dll",
+    "Microsoft.Web.WebView2.Core.dll",
+    "Microsoft.Web.WebView2.Wpf.dll"
+)
+
+foreach ($obsoleteFile in $obsoleteFiles) {
+    $obsoletePath = Join-Path -Path $pluginRoot -ChildPath $obsoleteFile
+    if (Test-Path -LiteralPath $obsoletePath) {
+        Remove-Item -LiteralPath $obsoletePath -Force -ErrorAction SilentlyContinue
+    }
+}
+
 foreach ($file in $preserveFiles) {
     $backupPath = Join-Path -Path $preserveBackupRoot -ChildPath $file
     if (Test-Path -LiteralPath $backupPath) {

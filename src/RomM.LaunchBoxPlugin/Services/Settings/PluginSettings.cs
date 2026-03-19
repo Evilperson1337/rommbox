@@ -1,5 +1,6 @@
 using System;
 using System.Runtime.Serialization;
+using RomMbox.Services.Auth;
 using RomMbox.Models.Install;
 using RomMbox.Models.PlatformMapping;
 using RomMbox.Services.Logging;
@@ -35,6 +36,12 @@ namespace RomMbox.Services.Settings
         /// Gets or sets whether saved credentials should be used automatically.
         /// </summary>
         public bool UseSavedCredentials { get; set; } = true;
+
+        [DataMember(Name = "authMode", EmitDefaultValue = false)]
+        /// <summary>
+        /// Gets or sets the selected authentication mode.
+        /// </summary>
+        public string AuthModeName { get; set; } = nameof(AuthMode.Basic);
 
         [DataMember(Name = "allowInvalidTls", EmitDefaultValue = false)]
         /// <summary>
@@ -136,6 +143,19 @@ namespace RomMbox.Services.Settings
         public string GetDefaultWindowsInstallDirectory() => DefaultWindowsInstallDirectory ?? string.Empty;
 
         /// <summary>
+        /// Parses the configured authentication mode.
+        /// </summary>
+        public AuthMode GetAuthMode()
+        {
+            if (Enum.TryParse(AuthModeName, true, out AuthMode parsed))
+            {
+                return parsed;
+            }
+
+            return AuthMode.Basic;
+        }
+
+        /// <summary>
         /// Ensures default values are applied to nullable or missing fields.
         /// </summary>
         public void ApplyDefaults()
@@ -148,6 +168,11 @@ namespace RomMbox.Services.Settings
             if (ConnectionTimeoutSeconds <= 0)
             {
                 ConnectionTimeoutSeconds = 10;
+            }
+
+            if (string.IsNullOrWhiteSpace(AuthModeName) || !Enum.TryParse(AuthModeName, true, out AuthMode _))
+            {
+                AuthModeName = nameof(AuthMode.Basic);
             }
 
             if (PlatformMappings == null)
@@ -399,6 +424,11 @@ namespace RomMbox.Services.Settings
                 if (mapping.CemuExecutablePath == null)
                 {
                     mapping.CemuExecutablePath = string.Empty;
+                }
+
+                if (mapping.RuffleExecutablePath == null)
+                {
+                    mapping.RuffleExecutablePath = string.Empty;
                 }
             }
         }

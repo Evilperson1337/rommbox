@@ -417,5 +417,11 @@ namespace RomMbox.Models.PlatformMapping
         /// </summary>
         [DataMember(Name = "cemuExecutablePath", EmitDefaultValue = false)]
         public string CemuExecutablePath { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the Ruffle executable path override.
+        /// </summary>
+        [DataMember(Name = "ruffleExecutablePath", EmitDefaultValue = false)]
+        public string RuffleExecutablePath { get; set; } = string.Empty;
     }
 }

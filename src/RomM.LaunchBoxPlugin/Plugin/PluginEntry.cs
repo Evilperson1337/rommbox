@@ -163,8 +163,17 @@ namespace RomMbox.Plugin
                 return;
             }
 
-            var credentials = settingsManager.GetSavedCredentials(serverUrl);
-            if (credentials == null || string.IsNullOrWhiteSpace(credentials.Username) || string.IsNullOrWhiteSpace(credentials.Password))
+            var authMode = settings.GetAuthMode();
+            var credentials = authMode == AuthMode.Basic ? settingsManager.GetSavedCredentials(serverUrl) : null;
+            var oidcTokens = authMode == AuthMode.Oidc ? settingsManager.GetSavedOidcTokens(serverUrl) : null;
+            if (authMode == AuthMode.Basic
+                && (credentials == null || string.IsNullOrWhiteSpace(credentials.Username) || string.IsNullOrWhiteSpace(credentials.Password)))
+            {
+                return;
+            }
+
+            if (authMode == AuthMode.Oidc
+                && (oidcTokens == null || (!oidcTokens.HasAccessToken && !oidcTokens.HasRefreshToken)))
             {
                 return;
             }
@@ -182,8 +191,9 @@ namespace RomMbox.Plugin
                     }
                     var timeout = TimeSpan.FromSeconds(Math.Max(5, settings.ConnectionTimeoutSeconds));
                     var authService = new AuthService(logger);
-                    result = await authService.TestConnectionAsync(serverUrl, credentials.Username, credentials.Password, timeout, settings.AllowInvalidTls, CancellationToken.None)
-                        .ConfigureAwait(false);
+                    result = authMode == AuthMode.Oidc
+                        ? await authService.TestOidcConnectionAsync(serverUrl, settingsManager, timeout, settings.AllowInvalidTls, CancellationToken.None).ConfigureAwait(false)
+                        : await authService.TestConnectionAsync(serverUrl, credentials.Username, credentials.Password, timeout, settings.AllowInvalidTls, CancellationToken.None).ConfigureAwait(false);
                 }
                 catch (Exception ex)
                 {
@@ -217,7 +227,8 @@ namespace RomMbox.Plugin
             var serverUrl = settings.ServerUrl?.Trim() ?? string.Empty;
             var hasValidServerUrl = !string.IsNullOrWhiteSpace(serverUrl)
                 && Uri.IsWellFormedUriString(serverUrl, UriKind.Absolute);
-            var needsDiscovery = !hasValidServerUrl || !settings.HasSavedCredentials || !settings.UseSavedCredentials;
+            var needsDiscovery = settings.GetAuthMode() == AuthMode.Basic
+                && (!hasValidServerUrl || !settings.HasSavedCredentials || !settings.UseSavedCredentials);
             if (!needsDiscovery)
             {
                 return;

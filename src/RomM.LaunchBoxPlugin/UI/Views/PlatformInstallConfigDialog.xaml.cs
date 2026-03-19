@@ -219,6 +219,8 @@ namespace RomMbox.UI.Views;
 
     private void BrowseCemuExecutable_Click(object sender, RoutedEventArgs e) => BrowseForExecutable("Select Cemu executable", vm => vm?.CemuExecutablePath ?? string.Empty, (vm, path) => vm.CemuExecutablePath = path);
 
+    private void BrowseRuffleExecutable_Click(object sender, RoutedEventArgs e) => BrowseForExecutable("Select Ruffle executable", vm => vm?.RuffleExecutablePath ?? string.Empty, (vm, path) => vm.RuffleExecutablePath = path);
+
     /// <summary>
     /// Displays a folder browser dialog and invokes the callback when a path is selected.
     /// </summary>

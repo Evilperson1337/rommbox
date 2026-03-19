@@ -58,7 +58,7 @@ namespace RomMbox.Tests.Services
 
             result.Changed.Should().BeTrue();
             result.Priority.Should().Be(3);
-            result.Xml.Should().Contain("Play RomM Version...");
+            result.Xml.Should().Contain("Install RomM Version...");
         }
 
         [Fact]
@@ -87,6 +87,30 @@ namespace RomMbox.Tests.Services
             result.Xml.Should().Contain("<ApplicationPath>Games\\Windows\\Game.exe</ApplicationPath>");
             result.Xml.Should().Contain("<CommandLine>-fullscreen</CommandLine>");
             result.Xml.Should().Contain("<Installed>true</Installed>");
+            result.Xml.Should().Contain("<Name>Play RomM Version...</Name>");
+        }
+
+        [Fact]
+        public void UpsertRommAdditionalApplicationXml_ReusesTaggedRomMEntryWithDifferentId()
+        {
+            var logger = new LoggingService(LogLevel.Debug, new StubLogSink());
+            var xml = WrapXml(BuildAdditionalAppXml("base-game", "legacy-romm-app", "Install RomM Version...", 2, version: "RomM", status: "Managed by RomMbox"));
+            var game = CreateGame("base-game", "Windows");
+            var state = new InstallState { IsInstalled = false };
+
+            var result = RommAdditionalApplicationService.UpsertRommAdditionalApplicationXml(
+                xml,
+                game,
+                state,
+                "new-romm-app",
+                updateExisting: false,
+                operationId: Guid.NewGuid().ToString("N"),
+                logger: logger);
+
+            result.Changed.Should().BeTrue();
+            result.Existed.Should().BeTrue();
+            result.Xml.Should().Contain("<Id>new-romm-app</Id>");
+            result.Xml.Should().Contain("Install RomM Version...");
         }
 
         [Fact]
@@ -125,7 +149,7 @@ namespace RomMbox.Tests.Services
             File.Exists(backupPath).Should().BeTrue();
         }
 
-        private static string BuildAdditionalAppXml(string gameId, string appId, string name, int priority)
+        private static string BuildAdditionalAppXml(string gameId, string appId, string name, int priority, string version = "Steam", string status = "Imported")
         {
             return $@"
   <AdditionalApplication>
@@ -148,8 +172,8 @@ namespace RomMbox.Tests.Services
     <Developer />
     <Publisher />
     <Region />
-    <Version>Steam</Version>
-    <Status>Imported</Status>
+    <Version>{version}</Version>
+    <Status>{status}</Status>
     <EmulatorId />
     <SideA>false</SideA>
     <SideB>false</SideB>

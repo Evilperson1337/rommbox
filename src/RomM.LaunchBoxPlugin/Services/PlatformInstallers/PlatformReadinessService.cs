@@ -19,7 +19,8 @@ namespace RomMbox.Services.PlatformInstallers
 
             var requiresEmulatorPath = capabilities.RequiresEmulatorPath;
             var hasEmulator = !string.IsNullOrWhiteSpace(mapping?.AssociatedEmulatorId)
-                || !string.IsNullOrWhiteSpace(mapping?.Rpcs3ExecutablePath);
+                || !string.IsNullOrWhiteSpace(mapping?.Rpcs3ExecutablePath)
+                || !string.IsNullOrWhiteSpace(mapping?.RuffleExecutablePath);
 
             if (requiresEmulatorPath && !hasEmulator)
             {

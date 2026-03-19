@@ -106,6 +106,29 @@ namespace RomMbox.Tests.Services
             result.Status.Should().Be("Ready");
         }
 
+        [Fact]
+        public void Readiness_ReturnsReady_WhenRuffleExecutablePathConfigured()
+        {
+            var registry = new PlatformInstallerRegistry(new Dictionary<string, IPlatformInstaller>
+            {
+                ["flashplayer"] = new MetadataStubInstaller(
+                    "flashplayer",
+                    new PlatformInstallerCapabilities { RequiresEmulatorPath = true },
+                    descriptor: null)
+            });
+            var service = new PlatformReadinessService(registry);
+
+            var mapping = new PlatformMapping
+            {
+                RuffleExecutablePath = @"C:\Emulators\Ruffle\ruffle.exe"
+            };
+
+            var result = service.Evaluate("flashplayer", mapping);
+
+            result.IsReady.Should().BeTrue();
+            result.Status.Should().Be("Ready");
+        }
+
         private sealed class MetadataStubInstaller : IPlatformInstaller, IPlatformInstallerMetadata
         {
             public MetadataStubInstaller(string platformKey, PlatformInstallerCapabilities capabilities, PlatformConfigDescriptor? descriptor)

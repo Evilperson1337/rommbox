@@ -131,17 +131,23 @@ namespace RomMbox.Services.Install.Pipeline.Steps
                 var usedStaging = result.InstallType.HasValue
                     && result.InstallType.Value != PlatformInstallType.Installer;
                 var finalInstallRoot = context.InstallDirectory;
+                var stagingCommitRoot = stagingRoot;
                 var stagingRewriteRoot = stagingRoot;
                 if (usedStaging)
                 {
-                    var safeGameName = NormalizeGameFolderName(context.Game.Title, "Game");
-                    var stagedGameRoot = Path.Combine(stagingRoot, safeGameName);
-                    if (Directory.Exists(stagedGameRoot))
+                    var reportedInstallRoot = result.InstallRootPath;
+                    if (!string.IsNullOrWhiteSpace(reportedInstallRoot)
+                        && IsPathWithinRoot(reportedInstallRoot, stagingRoot)
+                        && !string.Equals(
+                            Path.GetFullPath(reportedInstallRoot).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                            Path.GetFullPath(stagingRoot).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
+                            StringComparison.OrdinalIgnoreCase))
                     {
-                        stagingRewriteRoot = stagedGameRoot;
+                        stagingCommitRoot = reportedInstallRoot;
+                        stagingRewriteRoot = reportedInstallRoot;
                     }
 
-                    var swapResult = TryCommitStaging(stagingRoot, context.InstallDirectory, context.Game.Title, context.Logger);
+                    var swapResult = TryCommitStaging(stagingCommitRoot, context.InstallDirectory, context.Game.Title, context.Logger);
                     if (!swapResult.Success)
                     {
                         return InstallResult.Failed(Phase, swapResult.Message);
@@ -494,6 +500,38 @@ namespace RomMbox.Services.Install.Pipeline.Steps
             {
                 Directory.CreateDirectory(installDirectory);
 
+                if (LooksLikeWindowsPortableGameRoot(stagingRoot, gameName))
+                {
+                    var portableFinalRoot = Path.Combine(installDirectory, NormalizeGameFolderName(gameName, "Game"));
+                    if (Directory.Exists(portableFinalRoot))
+                    {
+                        return StagingCommitResult.Failed($"Install target '{portableFinalRoot}' already exists.");
+                    }
+
+                    Directory.CreateDirectory(portableFinalRoot);
+                    foreach (var entry in Directory.GetFileSystemEntries(stagingRoot))
+                    {
+                        var name = Path.GetFileName(entry);
+                        if (string.IsNullOrWhiteSpace(name))
+                        {
+                            continue;
+                        }
+
+                        var destination = Path.Combine(portableFinalRoot, name);
+                        if (Directory.Exists(entry))
+                        {
+                            Directory.Move(entry, destination);
+                        }
+                        else
+                        {
+                            File.Move(entry, destination, overwrite: true);
+                        }
+                    }
+
+                    TryCleanupStaging(stagingRoot, logger);
+                    return StagingCommitResult.FromSuccess(portableFinalRoot);
+                }
+
                 var entries = Directory.GetFileSystemEntries(stagingRoot);
                 if (entries.Length == 0)
                 {
@@ -597,6 +635,53 @@ namespace RomMbox.Services.Install.Pipeline.Steps
             catch (Exception ex)
             {
                 logger?.Warning($"Failed to clean staging root '{stagingRoot}': {ex.Message}");
+            }
+        }
+
+        private static bool LooksLikeWindowsPortableGameRoot(string candidateRoot, string gameName)
+        {
+            if (string.IsNullOrWhiteSpace(candidateRoot) || !Directory.Exists(candidateRoot))
+            {
+                return false;
+            }
+
+            var normalizedGameName = NormalizeGameFolderName(gameName, "Game");
+            if (!string.Equals(Path.GetFileName(candidateRoot), normalizedGameName, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            return Directory.EnumerateFileSystemEntries(candidateRoot)
+                .Any(path => !IsWindowsPortableTempFolderName(Path.GetFileName(path)));
+        }
+
+        private static bool IsWindowsPortableTempFolderName(string name)
+        {
+            return string.Equals(name, "downloads", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(name, "download", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(name, "extracted", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsPathWithinRoot(string path, string root)
+        {
+            if (string.IsNullOrWhiteSpace(path) || string.IsNullOrWhiteSpace(root))
+            {
+                return false;
+            }
+
+            try
+            {
+                var normalizedPath = Path.GetFullPath(path)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                var normalizedRoot = Path.GetFullPath(root)
+                    .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+
+                return normalizedPath.Equals(normalizedRoot, StringComparison.OrdinalIgnoreCase)
+                    || normalizedPath.StartsWith(normalizedRoot + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return false;
             }
         }
 

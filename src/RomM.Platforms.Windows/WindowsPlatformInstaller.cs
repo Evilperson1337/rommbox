@@ -233,6 +233,11 @@ namespace RomM.Platforms.Windows
 
         private static string? ResolveInstallRootPath(WindowsInstallResult result, string installDirectory)
         {
+            if (!string.IsNullOrWhiteSpace(result?.InstallRootPath))
+            {
+                return result.InstallRootPath;
+            }
+
             if (!string.IsNullOrWhiteSpace(result?.ExecutablePath))
             {
                 var directory = Path.GetDirectoryName(result.ExecutablePath);

@@ -16,6 +16,11 @@ namespace RomMbox.Services
 {
     internal sealed class RommAdditionalApplicationService
     {
+        internal const string RommVersion = "RomM";
+        internal const string ManagedStatus = "Managed by RomMbox";
+        internal const string InstallCaption = "Install RomM Version...";
+        internal const string PlayCaption = "Play RomM Version...";
+
         private readonly LoggingService _logger;
         private readonly InstallStateService _installStateService;
 
@@ -31,79 +36,8 @@ namespace RomMbox.Services
             string operationId,
             CancellationToken cancellationToken)
         {
-            if (baseGame == null || string.IsNullOrWhiteSpace(baseGame.Id))
-            {
-                return false;
-            }
-
-            var additionalAppId = await _installStateService
-                .EnsureRommAdditionalAppIdAsync(baseGame.Id, cancellationToken)
-                .ConfigureAwait(false);
-
-            using (_logger.BeginOperation(operationId))
-            {
-                _logger?.Write(LogLevel.Info, "RomMImportMergeDbLoaded", null,
-                    "BaseGameId", baseGame.Id ?? string.Empty,
-                    "HasRomMId", !string.IsNullOrWhiteSpace(state?.RommRomId),
-                    "HasAdditionalAppId", !string.IsNullOrWhiteSpace(additionalAppId));
-            }
-
-            if (string.IsNullOrWhiteSpace(additionalAppId))
-            {
-                throw new InvalidOperationException("Failed to resolve RomM AdditionalApplication id.");
-            }
-
-            var platformPath = ResolvePlatformXmlPath(baseGame.Platform);
-            if (string.IsNullOrWhiteSpace(platformPath) || !File.Exists(platformPath))
-            {
-                throw new FileNotFoundException($"Platform XML not found for '{baseGame.Platform}'.", platformPath);
-            }
-
-            var xml = await File.ReadAllTextAsync(platformPath, cancellationToken).ConfigureAwait(false);
-            var updateResult = UpsertRommAdditionalApplicationXml(xml, baseGame, state, additionalAppId, updateExisting: false, operationId: operationId, _logger);
-            if (updateResult.Changed)
-            {
-                var backupPath = CreatePlatformXmlBackup(platformPath);
-                using (_logger.BeginOperation(operationId))
-                {
-                    var props = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
-                    {
-                        ["PlatformXmlPath"] = LoggingService.SanitizePath(platformPath),
-                        ["BackupPath"] = LoggingService.SanitizePath(backupPath)
-                    };
-                    _logger?.Write(LogLevel.Info, "RomMImportMergeXmlBackupCreated", null, props);
-                }
-
-                var writeStart = DateTimeOffset.UtcNow;
-                WritePlatformXmlSafely(platformPath, updateResult.Xml, backupPath);
-                var duration = DateTimeOffset.UtcNow - writeStart;
-                using (_logger.BeginOperation(operationId))
-                {
-                _logger?.Write(LogLevel.Info, "RomMImportMergeXmlWriteCompleted", null,
-                    "DurationMs", (long)duration.TotalMilliseconds);
-                    _logger?.Write(LogLevel.Info, "RomMInstallMenuEntryAdded", null,
-                        "BaseGameId", baseGame.Id ?? string.Empty);
-                }
-            }
-            else
-            {
-                using (_logger.BeginOperation(operationId))
-                {
-                    _logger?.Write(LogLevel.Info, "RomMInstallMenuEntrySkippedAlreadyExists", null,
-                        "BaseGameId", baseGame.Id ?? string.Empty);
-                }
-            }
-
-            await _installStateService.UpdateRommAdditionalAppStateAsync(
-                    baseGame.Id,
-                    baseGame.Id,
-                    launchPath: state?.RommLaunchPath ?? state?.InstalledPath ?? string.Empty,
-                    launchArgs: state?.RommLaunchArgs ?? string.Empty,
-                    syncedUtc: DateTimeOffset.UtcNow,
-                    cancellationToken: cancellationToken)
-                .ConfigureAwait(false);
-
-            return true;
+            await Task.CompletedTask.ConfigureAwait(false);
+            return false;
         }
 
         public async Task<bool> SyncAdditionalApplicationAsync(
@@ -112,73 +46,8 @@ namespace RomMbox.Services
             string operationId,
             CancellationToken cancellationToken)
         {
-            if (baseGame == null || state == null)
-            {
-                return false;
-            }
-
-            if (string.IsNullOrWhiteSpace(state.RommMergedBaseGameId))
-            {
-                return false;
-            }
-
-            using (_logger.BeginOperation(operationId))
-            {
-                var props = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
-                {
-                    ["BaseGameId"] = state.RommMergedBaseGameId ?? string.Empty,
-                    ["AdditionalAppId"] = state.RommAdditionalAppId ?? string.Empty
-                };
-                _logger?.Write(LogLevel.Info, "RomMAdditionalAppSyncStarted", null, props);
-            }
-
-            var additionalAppId = state.RommAdditionalAppId;
-            if (string.IsNullOrWhiteSpace(additionalAppId))
-            {
-                additionalAppId = await _installStateService
-                    .EnsureRommAdditionalAppIdAsync(state.RommMergedBaseGameId, cancellationToken)
-                    .ConfigureAwait(false);
-            }
-
-            if (string.IsNullOrWhiteSpace(additionalAppId))
-            {
-                throw new InvalidOperationException("Failed to resolve RomM AdditionalApplication id.");
-            }
-
-            var platformPath = ResolvePlatformXmlPath(baseGame.Platform);
-            if (string.IsNullOrWhiteSpace(platformPath) || !File.Exists(platformPath))
-            {
-                throw new FileNotFoundException($"Platform XML not found for '{baseGame.Platform}'.", platformPath);
-            }
-
-            var xml = await File.ReadAllTextAsync(platformPath, cancellationToken).ConfigureAwait(false);
-            var updateResult = UpsertRommAdditionalApplicationXml(xml, baseGame, state, additionalAppId, updateExisting: true, operationId: operationId, _logger);
-            if (updateResult.Changed)
-            {
-                var backupPath = CreatePlatformXmlBackup(platformPath);
-                WritePlatformXmlSafely(platformPath, updateResult.Xml, backupPath);
-            }
-
-            await _installStateService.UpdateRommAdditionalAppStateAsync(
-                    state.LaunchBoxGameId,
-                    state.RommMergedBaseGameId,
-                    launchPath: state.RommLaunchPath ?? state.InstalledPath ?? string.Empty,
-                    launchArgs: state.RommLaunchArgs ?? string.Empty,
-                    syncedUtc: DateTimeOffset.UtcNow,
-                    cancellationToken: cancellationToken)
-                .ConfigureAwait(false);
-
-            using (_logger.BeginOperation(operationId))
-            {
-                var props = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
-                {
-                    ["BaseGameId"] = state.RommMergedBaseGameId ?? string.Empty,
-                    ["AdditionalAppId"] = additionalAppId ?? string.Empty
-                };
-                _logger?.Write(LogLevel.Info, "RomMAdditionalAppSyncCompleted", null, props);
-            }
-
-            return updateResult.Changed;
+            await Task.CompletedTask.ConfigureAwait(false);
+            return false;
         }
 
         internal static RommAdditionalAppUpdateResult UpsertRommAdditionalApplicationXml(
@@ -200,6 +69,7 @@ namespace RomMbox.Services
             var installed = state?.IsInstalled == true;
             var launchPath = installed ? (state?.RommLaunchPath ?? state?.InstalledPath ?? string.Empty) : string.Empty;
             var launchArgs = installed ? (state?.RommLaunchArgs ?? string.Empty) : string.Empty;
+            var displayName = GetDisplayName(installed);
 
             try
             {
@@ -213,8 +83,16 @@ namespace RomMbox.Services
                 var additionalApps = root.Elements("AdditionalApplication").ToList();
                 var existing = additionalApps.FirstOrDefault(app =>
                     string.Equals(app.Element("Id")?.Value ?? string.Empty, additionalAppId, StringComparison.OrdinalIgnoreCase));
+                if (existing == null)
+                {
+                    existing = additionalApps.FirstOrDefault(app => IsRommAdditionalApplicationElement(app, baseGameId));
+                }
+
                 if (existing != null)
                 {
+                    var changed = false;
+                    changed |= SetElementValue(existing, "Id", additionalAppId);
+
                     if (!updateExisting)
                     {
                         using (logger?.BeginOperation(operationId))
@@ -222,20 +100,33 @@ namespace RomMbox.Services
                             var props = new Dictionary<string, object>(StringComparer.OrdinalIgnoreCase)
                             {
                                 ["BaseGameId"] = baseGameId,
-                                ["AdditionalAppId"] = additionalAppId
+                                ["AdditionalAppId"] = additionalAppId,
+                                ["MatchedByTag"] = !string.Equals(existing.Element("Id")?.Value ?? string.Empty, additionalAppId, StringComparison.OrdinalIgnoreCase)
                             };
                             logger?.Write(LogLevel.Info, "RomMImportMergeAdditionalAppExists", null, props);
                         }
-                        return new RommAdditionalAppUpdateResult(xml, false, true, ParsePriority(existing.Element("Priority")?.Value));
+                        if (!changed)
+                        {
+                            return new RommAdditionalAppUpdateResult(xml, false, true, ParsePriority(existing.Element("Priority")?.Value));
+                        }
+
+                        doc.Declaration = new XDeclaration("1.0", "utf-8", "yes");
+                        using var existingIdStream = new MemoryStream();
+                        using (var streamWriter = new StreamWriter(existingIdStream, new UnicodeEncoding(false, false), 1024, true))
+                        {
+                            doc.Save(streamWriter, SaveOptions.DisableFormatting);
+                        }
+
+                        return new RommAdditionalAppUpdateResult(Encoding.Unicode.GetString(existingIdStream.ToArray()), true, true, ParsePriority(existing.Element("Priority")?.Value));
                     }
 
-                    var changed = false;
                     changed |= SetElementValue(existing, "ApplicationPath", launchPath ?? string.Empty);
                     changed |= SetElementValue(existing, "CommandLine", launchArgs ?? string.Empty);
                     changed |= SetElementValue(existing, "Installed", installed ? "true" : "false");
-                    changed |= EnsureElementValue(existing, "Name", "Play RomM Version...");
-                    changed |= EnsureElementValue(existing, "Version", "RomM");
-                    changed |= SetElementValue(existing, "Status", "Managed by RomMbox");
+                    changed |= SetElementValue(existing, "Name", displayName);
+                    changed |= SetElementValue(existing, "Version", RommVersion);
+                    changed |= SetElementValue(existing, "Status", ManagedStatus);
+                    changed |= SetElementValue(existing, "GameID", baseGameId);
                     if (!changed)
                     {
                         return new RommAdditionalAppUpdateResult(xml, false, true, ParsePriority(existing.Element("Priority")?.Value));
@@ -270,7 +161,7 @@ namespace RomMbox.Services
                     new XElement("AutoRunAfter", "false"),
                     new XElement("AutoRunBefore", "false"),
                     new XElement("CommandLine", launchArgs ?? string.Empty),
-                    new XElement("Name", "Play RomM Version..."),
+                    new XElement("Name", displayName),
                     new XElement("UseDosBox", "false"),
                     new XElement("UseEmulator", "false"),
                     new XElement("WaitForExit", "false"),
@@ -278,8 +169,8 @@ namespace RomMbox.Services
                     new XElement("Developer", baseGame?.Developer ?? string.Empty),
                     new XElement("Publisher", baseGame?.Publisher ?? string.Empty),
                     new XElement("Region", baseGame?.Region ?? string.Empty),
-                    new XElement("Version", "RomM"),
-                    new XElement("Status", "Managed by RomMbox"),
+                    new XElement("Version", RommVersion),
+                    new XElement("Status", ManagedStatus),
                     new XElement("EmulatorId", string.Empty),
                     new XElement("SideA", "false"),
                     new XElement("SideB", "false"),
@@ -319,6 +210,72 @@ namespace RomMbox.Services
                 logger?.Write(LogLevel.Error, "RomMImportMergeFailed", ex, props);
                 throw;
             }
+        }
+
+        internal static string GetDisplayName(bool installed)
+        {
+            return installed ? PlayCaption : InstallCaption;
+        }
+
+        internal static bool IsRommAdditionalApplication(IAdditionalApplication additionalApplication, string baseGameId = null, string additionalAppId = null)
+        {
+            if (additionalApplication == null)
+            {
+                return false;
+            }
+
+            if (!string.IsNullOrWhiteSpace(additionalAppId)
+                && string.Equals(additionalApplication.Id ?? string.Empty, additionalAppId, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (!string.IsNullOrWhiteSpace(baseGameId)
+                && !string.Equals(additionalApplication.GameId ?? string.Empty, baseGameId, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            if (string.Equals(additionalApplication.Version ?? string.Empty, RommVersion, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (string.Equals(additionalApplication.Status ?? string.Empty, ManagedStatus, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            return string.Equals(additionalApplication.Name ?? string.Empty, InstallCaption, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(additionalApplication.Name ?? string.Empty, PlayCaption, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsRommAdditionalApplicationElement(XElement element, string baseGameId)
+        {
+            if (element == null)
+            {
+                return false;
+            }
+
+            if (!string.IsNullOrWhiteSpace(baseGameId)
+                && !string.Equals(element.Element("GameID")?.Value ?? string.Empty, baseGameId, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            if (string.Equals(element.Element("Version")?.Value ?? string.Empty, RommVersion, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (string.Equals(element.Element("Status")?.Value ?? string.Empty, ManagedStatus, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            var name = element.Element("Name")?.Value ?? string.Empty;
+            return string.Equals(name, InstallCaption, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(name, PlayCaption, StringComparison.OrdinalIgnoreCase);
         }
 
         private static bool EnsureElementValue(XElement parent, string name, string value)

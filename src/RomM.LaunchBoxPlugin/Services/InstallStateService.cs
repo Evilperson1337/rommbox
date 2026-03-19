@@ -162,7 +162,8 @@ CREATE TABLE IF NOT EXISTS InstallStateMetadata (
      AzaharExecutablePath TEXT,
      AzaharPlusExecutablePath TEXT,
      DolphinExecutablePath TEXT,
-     CemuExecutablePath TEXT
+     CemuExecutablePath TEXT,
+     RuffleExecutablePath TEXT
  );
 CREATE TABLE IF NOT EXISTS PlatformMappingAliases (
     AliasId TEXT PRIMARY KEY,
@@ -1700,6 +1701,7 @@ ON CONFLICT(Key) DO UPDATE SET Value = excluded.Value;
             await AddColumnIfMissingAsync(connection, columns, "AzaharPlusExecutablePath", "TEXT", cancellationToken).ConfigureAwait(false);
             await AddColumnIfMissingAsync(connection, columns, "DolphinExecutablePath", "TEXT", cancellationToken).ConfigureAwait(false);
             await AddColumnIfMissingAsync(connection, columns, "CemuExecutablePath", "TEXT", cancellationToken).ConfigureAwait(false);
+            await AddColumnIfMissingAsync(connection, columns, "RuffleExecutablePath", "TEXT", cancellationToken).ConfigureAwait(false);
         }
 
         private static async Task AddColumnIfMissingAsync(SqliteConnection connection, HashSet<string> columns, string columnName, string columnDefinition, CancellationToken cancellationToken)

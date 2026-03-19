@@ -1,6 +1,7 @@
 using FluentAssertions;
 using RomM.Platforms.Abstractions;
 using RomM.Platforms.Abstractions.Models.Metadata;
+using RomM.Platforms.FlashPlayer;
 using RomM.Platforms.General;
 using RomM.Platforms.GameCube;
 using RomM.Platforms.N3DS;
@@ -302,6 +303,33 @@ namespace RomMbox.Tests.Services
             descriptor.Should().NotBeNull();
             descriptor!.Fields.Should().ContainSingle(field =>
                 string.Equals(field.Key, "CemuExecutablePath", StringComparison.Ordinal)
+                && field.Type == PlatformConfigFieldType.Path
+                && !field.Required);
+        }
+
+        [Fact]
+        public void FlashPlayerInstaller_ExposesExpectedCapabilities_AndConfigDescriptorFields()
+        {
+            var installer = new FlashPlayerPlatformInstaller();
+
+            installer.SupportedPlatformAliases.Should().Contain(new[]
+            {
+                "flash player",
+                "adobe flash player",
+                "swf"
+            });
+
+            var capabilities = installer.Capabilities;
+            capabilities.SupportsArchives.Should().BeTrue();
+            capabilities.SupportsDirectFiles.Should().BeTrue();
+            capabilities.SupportsUninstall.Should().BeTrue();
+            capabilities.SupportsApplicationPathDiscovery.Should().BeTrue();
+            capabilities.RequiresEmulatorPath.Should().BeTrue();
+
+            var descriptor = installer.GetConfigDescriptor();
+            descriptor.Should().NotBeNull();
+            descriptor!.Fields.Should().ContainSingle(field =>
+                string.Equals(field.Key, "RuffleExecutablePath", StringComparison.Ordinal)
                 && field.Type == PlatformConfigFieldType.Path
                 && !field.Required);
         }

@@ -41,14 +41,18 @@ namespace RomMbox.Services.Install.Pipeline.Steps
             context.Game.Installed = true;
             context.Game.Status = "Installed";
 
-            var emulatorId = ResolveEmulatorId(context.DataManager, context.Game.Platform);
-            if (!string.IsNullOrWhiteSpace(emulatorId))
+            var configuredEmulatorId = context.PlatformMapping?.AssociatedEmulatorId;
+            if (!string.IsNullOrWhiteSpace(configuredEmulatorId))
             {
-                context.Game.EmulatorId = emulatorId;
+                context.Game.EmulatorId = configuredEmulatorId;
             }
-            else if (!string.IsNullOrWhiteSpace(context.PlatformMapping?.AssociatedEmulatorId))
+            else
             {
-                context.Game.EmulatorId = context.PlatformMapping.AssociatedEmulatorId;
+                var emulatorId = ResolveEmulatorId(context.DataManager, context.Game.Platform);
+                if (!string.IsNullOrWhiteSpace(emulatorId))
+                {
+                    context.Game.EmulatorId = emulatorId;
+                }
             }
 
             context.InstallStateSnapshot.InstalledPath = finalPath;

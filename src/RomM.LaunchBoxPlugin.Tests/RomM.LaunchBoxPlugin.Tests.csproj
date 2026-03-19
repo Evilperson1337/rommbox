@@ -40,6 +40,7 @@
     <ProjectReference Include="..\RomM.Platforms.Arcade\RomM.Platforms.Arcade.csproj" />
     <ProjectReference Include="..\RomM.Platforms.General\RomM.Platforms.General.csproj" />
     <ProjectReference Include="..\RomM.Platforms.Switch\RomM.Platforms.Switch.csproj" />
+    <ProjectReference Include="..\RomM.Platforms.FlashPlayer\RomM.Platforms.FlashPlayer.csproj" />
     <ProjectReference Include="..\RomM.Platforms.WiiU\RomM.Platforms.WiiU.csproj" />
     <ProjectReference Include="..\RomM.Platforms.Xbox\RomM.Platforms.Xbox.csproj" />
     <ProjectReference Include="..\RomM.Platforms.Xbox360\RomM.Platforms.Xbox360.csproj" />

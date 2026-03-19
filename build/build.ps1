@@ -78,6 +78,7 @@ $platformProjects = @(
     "src\RomM.Platforms.PSP\RomM.Platforms.PSP.csproj",
     "src\RomM.Platforms.Vita\RomM.Platforms.Vita.csproj",
     "src\RomM.Platforms.Switch\RomM.Platforms.Switch.csproj",
+    "src\RomM.Platforms.FlashPlayer\RomM.Platforms.FlashPlayer.csproj",
     "src\RomM.Platforms.WiiU\RomM.Platforms.WiiU.csproj",
     "src\RomM.Platforms.Xbox\RomM.Platforms.Xbox.csproj",
     "src\RomM.Platforms.Xbox360\RomM.Platforms.Xbox360.csproj",
@@ -144,6 +145,7 @@ New-Item -ItemType Directory -Path $platformsTargetDir -Force | Out-Null
 
 # Copy the plugin assembly and required dependencies
 Copy-RequiredFile -Source $assemblyPath -Destination (Join-Path $outputRoot "RomMbox.dll") -Label "RomMbox.dll"
+
 $abstractionsPath = Join-Path $buildRoot "RomM.Platforms.Abstractions.dll"
 Copy-RequiredFile -Source $abstractionsPath -Destination (Join-Path $platformsTargetDir "RomM.Platforms.Abstractions.dll") -Label "RomM.Platforms.Abstractions.dll"
 $romBasePath = Join-Path $buildRoot "RomM.Platforms.RomBase.dll"

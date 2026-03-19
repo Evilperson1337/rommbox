@@ -4,6 +4,7 @@
              xmlns:behaviors="clr-namespace:RomMbox.UI.Behaviors">
 
     <UserControl.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
 
         <!-- Dark TextBox -->
         <Style x:Key="DarkTextBox" TargetType="TextBox">
@@ -100,70 +101,135 @@
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
                 <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
 
-            <!-- Server -->
             <TextBlock Grid.Row="0" Grid.Column="0"
+                       Text="Auth Method"
+                       Style="{StaticResource HelperText}"
+                       Margin="0,0,14,0"
+                       VerticalAlignment="Center"/>
+
+            <ComboBox Grid.Row="0" Grid.Column="1"
+                      Width="260"
+                      ItemsSource="{Binding AuthModeOptions}"
+                      SelectedItem="{Binding SelectedAuthMode}"/>
+
+            <!-- Server -->
+            <TextBlock Grid.Row="1" Grid.Column="0"
                        Text="Server Address"
                        Style="{StaticResource HelperText}"
                        Margin="0,0,14,0"
                        VerticalAlignment="Center"/>
 
-            <TextBox Grid.Row="0" Grid.Column="1"
-                     Style="{StaticResource DarkTextBox}"
-                     Width="260"
-                     Text="{Binding ServerAddress, UpdateSourceTrigger=PropertyChanged}"/>
+            <TextBox Grid.Row="1" Grid.Column="1"
+                      Style="{StaticResource DarkTextBox}"
+                      Width="260"
+                      Text="{Binding ServerAddress, UpdateSourceTrigger=PropertyChanged}"/>
 
             <!-- Port -->
-            <TextBlock Grid.Row="1" Grid.Column="0"
+            <TextBlock Grid.Row="2" Grid.Column="0"
                        Text="Port"
                        Style="{StaticResource HelperText}"
                        Margin="0,10,14,0"
                        VerticalAlignment="Center"/>
 
-            <TextBox Grid.Row="1" Grid.Column="1"
-                     Style="{StaticResource DarkTextBox}"
-                     Text="{Binding Port}"
-                     Width="120"
+            <TextBox Grid.Row="2" Grid.Column="1"
+                      Style="{StaticResource DarkTextBox}"
+                      Text="{Binding Port}"
+                      Width="120"
                      HorizontalAlignment="Left"
                      Margin="0,10,0,0"/>
 
             <!-- Username -->
-            <TextBlock Grid.Row="2" Grid.Column="0"
+            <TextBlock Grid.Row="3" Grid.Column="0"
                        Text="Username"
                        Style="{StaticResource HelperText}"
                        Margin="0,10,14,0"
-                       VerticalAlignment="Center"/>
+                       VerticalAlignment="Center"
+                       Visibility="{Binding ShowBasicAuthFields, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
-            <TextBox Grid.Row="2" Grid.Column="1"
-                     Style="{StaticResource DarkTextBox}"
-                     Width="260"
-                     Text="{Binding Username}"
-                     Margin="0,10,0,0"/>
+            <TextBox Grid.Row="3" Grid.Column="1"
+                      Style="{StaticResource DarkTextBox}"
+                      Width="260"
+                      Text="{Binding Username}"
+                      Margin="0,10,0,0"
+                      Visibility="{Binding ShowBasicAuthFields, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
             <!-- Password -->
-            <TextBlock Grid.Row="3" Grid.Column="0"
+            <TextBlock Grid.Row="4" Grid.Column="0"
                        Text="Password"
                        Style="{StaticResource HelperText}"
                        Margin="0,10,14,0"
-                       VerticalAlignment="Center"/>
+                       VerticalAlignment="Center"
+                       Visibility="{Binding ShowBasicAuthFields, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
-            <PasswordBox Grid.Row="3" Grid.Column="1"
-                         Style="{StaticResource DarkPasswordBox}"
-                         Width="260"
-                         Margin="0,10,0,0"
-                         behaviors:PasswordBoxBindingBehavior.BindPassword="True"
-                         behaviors:PasswordBoxBindingBehavior.Password="{Binding Password, Mode=TwoWay}"/>
+            <PasswordBox Grid.Row="4" Grid.Column="1"
+                          Style="{StaticResource DarkPasswordBox}"
+                          Width="260"
+                          Margin="0,10,0,0"
+                          behaviors:PasswordBoxBindingBehavior.BindPassword="True"
+                          behaviors:PasswordBoxBindingBehavior.Password="{Binding Password, Mode=TwoWay}"
+                          Visibility="{Binding ShowBasicAuthFields, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+            <TextBlock Grid.Row="5" Grid.Column="0"
+                       Text="Access Token"
+                       Style="{StaticResource HelperText}"
+                       Margin="0,10,14,0"
+                       VerticalAlignment="Top"
+                       Visibility="{Binding ShowOidcFields, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+            <TextBox Grid.Row="5" Grid.Column="1"
+                     Style="{StaticResource DarkTextBox}"
+                     Width="260"
+                     Height="72"
+                     AcceptsReturn="True"
+                     TextWrapping="Wrap"
+                     VerticalScrollBarVisibility="Auto"
+                     Text="{Binding AccessToken, UpdateSourceTrigger=PropertyChanged}"
+                     Margin="0,10,0,0"
+                     Visibility="{Binding ShowOidcFields, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+            <TextBlock Grid.Row="6" Grid.Column="0"
+                       Text="Refresh Token"
+                       Style="{StaticResource HelperText}"
+                       Margin="0,10,14,0"
+                       VerticalAlignment="Top"
+                       Visibility="{Binding ShowOidcFields, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+            <TextBox Grid.Row="6" Grid.Column="1"
+                     Style="{StaticResource DarkTextBox}"
+                     Width="260"
+                     Height="72"
+                     AcceptsReturn="True"
+                     TextWrapping="Wrap"
+                     VerticalScrollBarVisibility="Auto"
+                     Text="{Binding RefreshToken, UpdateSourceTrigger=PropertyChanged}"
+                     Margin="0,10,0,0"
+                     Visibility="{Binding ShowOidcFields, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+            <Button Grid.Row="7"
+                    Grid.Column="1"
+                    Content="Start SSO Sign-In"
+                    Command="{Binding StartSsoCommand}"
+                    Width="180"
+                    Margin="0,10,0,0"
+                    HorizontalAlignment="Left"
+                    Style="{StaticResource DarkSecondaryButton}"
+                    Visibility="{Binding ShowOidcFields, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
             <!-- Ignore Certificate -->
-            <CheckBox Grid.Row="4" Grid.Column="1"
+            <CheckBox Grid.Row="8" Grid.Column="1"
                       Content="Ignore Certificate"
                       IsChecked="{Binding IgnoreCertificate}"
                       Margin="0,12,0,0"
                       Foreground="#E6EBF5"/>
 
             <!-- Buttons -->
-            <Grid Grid.Row="5"
+            <Grid Grid.Row="9"
                   Grid.Column="1"
                   Margin="0,16,0,0">
                 <Grid.RowDefinitions>

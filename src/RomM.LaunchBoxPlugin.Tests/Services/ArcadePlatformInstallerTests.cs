@@ -212,7 +212,7 @@ namespace RomMbox.Tests.Services
         }
 
         [Fact]
-        public async Task InstallAsync_MameLaunchArguments_UseRomSetName()
+        public async Task InstallAsync_DoesNotSetPerGameCommandLine_ForMame()
         {
             using var temp = new TempDirectory();
             var root = Path.Combine(temp.Path, "Games", "Arcade");
@@ -233,13 +233,11 @@ namespace RomMbox.Tests.Services
             }, new Progress<InstallProgress>(), CancellationToken.None);
 
             result.Success.Should().BeTrue();
-            result.Arguments.Should().ContainSingle();
-            result.Arguments[0].Should().Contain("metal_slug");
-            result.Arguments[0].Should().NotContain(".zip");
+            result.Arguments.Should().BeEmpty();
         }
 
         [Fact]
-        public async Task InstallAsync_RetroArchLaunchArguments_UseCoreAndZipPath()
+        public async Task InstallAsync_DoesNotSetPerGameCommandLine_ForRetroArch()
         {
             using var temp = new TempDirectory();
             var root = Path.Combine(temp.Path, "Games", "Arcade");
@@ -261,10 +259,7 @@ namespace RomMbox.Tests.Services
             }, new Progress<InstallProgress>(), CancellationToken.None);
 
             result.Success.Should().BeTrue();
-            result.Arguments.Should().ContainSingle();
-            result.Arguments[0].Should().Contain("-L");
-            result.Arguments[0].Should().Contain("finalburnneo_libretro.dll");
-            result.Arguments[0].Should().Contain("tmnt.zip");
+            result.Arguments.Should().BeEmpty();
         }
     }
 }

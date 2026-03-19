@@ -49,7 +49,7 @@ namespace RomMbox.Services
         Pcsx2ExecutablePath, PspEmulatorMode, PpssppExecutablePath, RetroArchExecutablePath, RetroArchPpssppCorePath,
         ValidateRetroArchPpssppAssets, FailInstallIfEmulatorNotReady, Vita3kExecutablePath, VitaFailIfEmulatorNotReady,
         VitaInstallUpdatesAutomatically, VitaInstallDlcAutomatically, VitaConsolidateGameInstalls, SwitchEdenExecutablePath, AzaharExecutablePath,
-        AzaharPlusExecutablePath, DolphinExecutablePath, CemuExecutablePath
+        AzaharPlusExecutablePath, DolphinExecutablePath, CemuExecutablePath, RuffleExecutablePath
  FROM PlatformMappings
  WHERE RommPlatformId = $rommPlatformId;
  ";
@@ -94,7 +94,7 @@ namespace RomMbox.Services
         Pcsx2ExecutablePath, PspEmulatorMode, PpssppExecutablePath, RetroArchExecutablePath, RetroArchPpssppCorePath,
         ValidateRetroArchPpssppAssets, FailInstallIfEmulatorNotReady, Vita3kExecutablePath, VitaFailIfEmulatorNotReady,
         VitaInstallUpdatesAutomatically, VitaInstallDlcAutomatically, VitaConsolidateGameInstalls, SwitchEdenExecutablePath, AzaharExecutablePath,
-        AzaharPlusExecutablePath, DolphinExecutablePath, CemuExecutablePath
+        AzaharPlusExecutablePath, DolphinExecutablePath, CemuExecutablePath, RuffleExecutablePath
  FROM PlatformMappings;
  ";
                 using var reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
@@ -163,7 +163,7 @@ namespace RomMbox.Services
      Pcsx2ExecutablePath, PspEmulatorMode, PpssppExecutablePath, RetroArchExecutablePath, RetroArchPpssppCorePath,
      ValidateRetroArchPpssppAssets, FailInstallIfEmulatorNotReady, Vita3kExecutablePath, VitaFailIfEmulatorNotReady,
      VitaInstallUpdatesAutomatically, VitaInstallDlcAutomatically, VitaConsolidateGameInstalls, SwitchEdenExecutablePath, AzaharExecutablePath,
-     AzaharPlusExecutablePath, DolphinExecutablePath, CemuExecutablePath
+     AzaharPlusExecutablePath, DolphinExecutablePath, CemuExecutablePath, RuffleExecutablePath
   ) VALUES (
      $rommPlatformId, $rommPlatformName, $launchBoxPlatformName, $autoMapped, $disableAutoImport, $extractAfterDownload,
      $extractionBehavior, $installerMode, $musicRootPath, $installOst, $bonusRootPath, $installBonus, $preReqsRootPath, $installPreReqs,
@@ -177,7 +177,7 @@ namespace RomMbox.Services
      $pcsx2ExecutablePath, $pspEmulatorMode, $ppssppExecutablePath, $retroArchExecutablePath, $retroArchPpssppCorePath,
      $validateRetroArchPpssppAssets, $failInstallIfEmulatorNotReady, $vita3kExecutablePath, $vitaFailIfEmulatorNotReady,
      $vitaInstallUpdatesAutomatically, $vitaInstallDlcAutomatically, $vitaConsolidateGameInstalls, $switchEdenExecutablePath, $azaharExecutablePath,
-     $azaharPlusExecutablePath, $dolphinExecutablePath, $cemuExecutablePath
+     $azaharPlusExecutablePath, $dolphinExecutablePath, $cemuExecutablePath, $ruffleExecutablePath
   )
   ON CONFLICT(RommPlatformId) DO UPDATE SET
      RommPlatformName = excluded.RommPlatformName,
@@ -246,7 +246,8 @@ namespace RomMbox.Services
      AzaharExecutablePath = excluded.AzaharExecutablePath,
      AzaharPlusExecutablePath = excluded.AzaharPlusExecutablePath,
      DolphinExecutablePath = excluded.DolphinExecutablePath,
-     CemuExecutablePath = excluded.CemuExecutablePath;
+     CemuExecutablePath = excluded.CemuExecutablePath,
+     RuffleExecutablePath = excluded.RuffleExecutablePath;
   ";
                     command.Parameters.AddWithValue("$rommPlatformId", mapping.RommPlatformId ?? string.Empty);
                     command.Parameters.AddWithValue("$rommPlatformName", mapping.RommPlatformName ?? string.Empty);
@@ -316,6 +317,7 @@ namespace RomMbox.Services
                     command.Parameters.AddWithValue("$azaharPlusExecutablePath", mapping.AzaharPlusExecutablePath ?? string.Empty);
                     command.Parameters.AddWithValue("$dolphinExecutablePath", mapping.DolphinExecutablePath ?? string.Empty);
                     command.Parameters.AddWithValue("$cemuExecutablePath", mapping.CemuExecutablePath ?? string.Empty);
+                    command.Parameters.AddWithValue("$ruffleExecutablePath", mapping.RuffleExecutablePath ?? string.Empty);
                     await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
                 }
 
@@ -607,6 +609,11 @@ ON CONFLICT(AliasId) DO UPDATE SET
                 mapping.AzaharPlusExecutablePath = reader.IsDBNull(65) ? string.Empty : reader.GetString(65);
                 mapping.DolphinExecutablePath = reader.IsDBNull(66) ? string.Empty : reader.GetString(66);
                 mapping.CemuExecutablePath = reader.IsDBNull(67) ? string.Empty : reader.GetString(67);
+            }
+
+            if (reader.FieldCount > 68)
+            {
+                mapping.RuffleExecutablePath = reader.IsDBNull(68) ? string.Empty : reader.GetString(68);
             }
 
             var extractionBehaviorText = reader.IsDBNull(6) ? string.Empty : reader.GetString(6);

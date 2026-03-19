@@ -615,6 +615,40 @@ namespace RomMbox.Tests.Services
         }
 
         [Fact]
+        public void Resolves_FlashPlayer_By_RommName_LaunchBoxName_And_Swf_Extension()
+        {
+            var registry = new PlatformInstallerRegistry(new Dictionary<string, IPlatformInstaller>
+            {
+                ["flashplayer"] = new IdentityStubInstaller(
+                    platformKey: "flashplayer",
+                    displayName: "Flash Player",
+                    supportedIds: new[] { "4", "flashplayer", "flash", "swf" },
+                    supportedAliases: new[]
+                    {
+                        "flash",
+                        "flash player",
+                        "flashplayer",
+                        "browser (flash/html5)",
+                        "browser flash html5",
+                        "flash html5",
+                        "swf"
+                    }),
+                ["general"] = new StubInstaller("general", "General Platform")
+            });
+            var logger = TestLogger.Create();
+
+            var resolved = InstallContentStep.ResolveInstallerKey(
+                platformKey: "4",
+                platformDisplayName: "Browser (Flash/HTML5)",
+                launchBoxPlatformName: "Flash",
+                registry: registry,
+                logger: logger,
+                fileExtension: ".swf");
+
+            resolved.Should().Be("flashplayer");
+        }
+
+        [Fact]
         public void ShouldWarnOnResolvedKeyDifference_ReturnsFalse_For_UnmappedForeignIdentifier()
         {
             var registry = BuildRegistry(new StubInstaller("arcade", "Arcade"));

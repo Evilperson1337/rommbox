@@ -309,6 +309,7 @@ public sealed class PlatformsViewModel : ObservableObject
                         ShadPs4ExecutablePath = mapping.ShadPs4ExecutablePath,
                         Ps4ExternalPkgExtractorPath = mapping.Ps4ExternalPkgExtractorPath,
                         Ps4FailIfDirectPkgExtractorMissing = mapping.Ps4FailIfDirectPkgExtractorMissing,
+                        RuffleExecutablePath = mapping.RuffleExecutablePath,
                         ReadinessStatus = readiness.Status,
                         ReadinessMessage = readiness.Message
                     });
@@ -382,6 +383,7 @@ public sealed class PlatformsViewModel : ObservableObject
                         ShadPs4ExecutablePath = string.Empty,
                         Ps4ExternalPkgExtractorPath = string.Empty,
                         Ps4FailIfDirectPkgExtractorMissing = false,
+                        RuffleExecutablePath = string.Empty,
                         ReadinessStatus = "Needs Connection",
                         ReadinessMessage = "Configure and connect to RomM first."
                     });
@@ -537,7 +539,8 @@ public sealed class PlatformsViewModel : ObservableObject
                         Rpcs3LicenseDirectory = mapping.Rpcs3LicenseDirectory,
                         SkipRegionMismatchedDlc = mapping.SkipRegionMismatchedDlc,
                         SkipUnmatchedRapFiles = mapping.SkipUnmatchedRapFiles,
-                        PreferMetadataBasedPackageMatching = mapping.PreferMetadataBasedPackageMatching
+                        PreferMetadataBasedPackageMatching = mapping.PreferMetadataBasedPackageMatching,
+                        RuffleExecutablePath = mapping.RuffleExecutablePath
                     };
                 })
                 .ToArray();

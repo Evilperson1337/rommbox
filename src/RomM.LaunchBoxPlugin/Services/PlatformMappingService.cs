@@ -169,7 +169,8 @@ namespace RomMbox.Services
                         AzaharExecutablePath = saved?.AzaharExecutablePath ?? string.Empty,
                         AzaharPlusExecutablePath = saved?.AzaharPlusExecutablePath ?? string.Empty,
                         DolphinExecutablePath = saved?.DolphinExecutablePath ?? string.Empty,
-                        CemuExecutablePath = saved?.CemuExecutablePath ?? string.Empty
+                        CemuExecutablePath = saved?.CemuExecutablePath ?? string.Empty,
+                        RuffleExecutablePath = saved?.RuffleExecutablePath ?? string.Empty
                     });
                 }
                 return new PlatformMappingResult { Mappings = mappings };

@@ -10,15 +10,17 @@ namespace RomM.Platforms.Windows.Install
         public IReadOnlyList<string> Arguments { get; private set; } = new List<string>();
         public string? Message { get; private set; }
         public InstallType? InstallType { get; private set; }
+        public string? InstallRootPath { get; private set; }
 
-        public static WindowsInstallResult CreateSuccess(string executablePath, IReadOnlyList<string>? args, InstallType? installType = null)
+        public static WindowsInstallResult CreateSuccess(string executablePath, IReadOnlyList<string>? args, InstallType? installType = null, string? installRootPath = null)
         {
             return new WindowsInstallResult
             {
                 Success = true,
                 ExecutablePath = executablePath,
                 Arguments = args ?? new List<string>(),
-                InstallType = installType
+                InstallType = installType,
+                InstallRootPath = installRootPath
             };
         }
 

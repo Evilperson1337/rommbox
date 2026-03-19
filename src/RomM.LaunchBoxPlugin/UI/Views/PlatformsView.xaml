@@ -9,7 +9,8 @@
     xmlns:views="clr-namespace:RomMbox.UI.Views"
     xmlns:system="clr-namespace:System.Windows;assembly=PresentationFramework"
     mc:Ignorable="d"
-    Width="800">
+    HorizontalAlignment="Stretch"
+    HorizontalContentAlignment="Stretch">
 
     <UserControl.Resources>
         <converters:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibility"/>
@@ -184,14 +185,22 @@
     </UserControl.Resources>
 
     <Grid>
-        <StackPanel Visibility="{Binding IsConfiguring, Converter={StaticResource InverseBoolToVisibility}}">
+        <Grid Visibility="{Binding IsConfiguring, Converter={StaticResource InverseBoolToVisibility}}">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
 
-            <TextBlock Text="Platforms" Style="{StaticResource PageHeader}" Foreground="#FF7F7F7F" FontWeight="Bold"/>
+            <StackPanel Grid.Row="0">
+                <TextBlock Text="Platforms" Style="{StaticResource PageHeader}" Foreground="#FF7F7F7F" FontWeight="Bold"/>
             <TextBlock Text="Map platforms from the RomM server to LaunchBox platforms."
                        Style="{StaticResource HelperText}"
                        Margin="0,0,0,14"/>
+            </StackPanel>
 
-            <DockPanel Margin="0,0,0,14">
+            <DockPanel Grid.Row="1" Margin="0,0,0,14" LastChildFill="False">
                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
                     <Button Content="Audit &amp; Update"
                             Command="{Binding OpenAuditCommand}"
@@ -207,11 +216,14 @@
                 </StackPanel>
             </DockPanel>
 
-            <DataGrid ItemsSource="{Binding Mappings}"
+            <DataGrid Grid.Row="2"
+                      ItemsSource="{Binding Mappings}"
                       AutoGenerateColumns="False"
                       CanUserAddRows="False"
                       HeadersVisibility="Column"
-                      Height="420"
+                      HorizontalAlignment="Stretch"
+                      VerticalAlignment="Stretch"
+                      MinHeight="420"
                       EnableRowVirtualization="False"
                       EnableColumnVirtualization="False"
                       VirtualizingStackPanel.IsVirtualizing="False"
@@ -247,6 +259,7 @@
                     <Setter Property="BorderThickness" Value="0"/>
                     <Setter Property="BorderBrush" Value="Transparent"/>
                     <Setter Property="Padding" Value="10,6"/>
+                    <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
                     <Setter Property="VerticalContentAlignment" Value="Center"/>
                     <Setter Property="Foreground" Value="#E6EBF5"/>
                     <Style.Triggers>
@@ -283,7 +296,7 @@
             <DataGrid.Columns>
 
                 <!-- Exclude (TEMPLATE COLUMN for vertical centering) -->
-                <DataGridTemplateColumn Header="Exclude" Width="90">
+                <DataGridTemplateColumn Header="Exclude" Width="SizeToHeader" MinWidth="76">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <CheckBox IsChecked="{Binding Exclude, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
@@ -294,28 +307,31 @@
                 </DataGridTemplateColumn>
 
                 <!-- RomM Platform -->
-                <DataGridTemplateColumn Header="RomM Platform" Width="*">
+                <DataGridTemplateColumn Header="RomM Platform" Width="3*" MinWidth="180">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <TextBlock Text="{Binding RomMPlatform}"
-                                       VerticalAlignment="Center"
-                                       Foreground="#E6EBF5"/>
+                                        VerticalAlignment="Center"
+                                       Foreground="#E6EBF5"
+                                       TextTrimming="CharacterEllipsis"/>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
 
                 <!-- LaunchBox Platform -->
-                <DataGridTemplateColumn Header="LaunchBox Platform" Width="*">
+                <DataGridTemplateColumn Header="LaunchBox Platform" Width="5*" MinWidth="260">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <ComboBox ItemsSource="{Binding DataContext.LaunchBoxPlatforms, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                      SelectedItem="{Binding LaunchBoxPlatform, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                                      IsTextSearchEnabled="False"
-                                      StaysOpenOnEdit="True"
-                                      behaviors:ContainsFilterComboBoxBehavior.Enable="True"
-                                      behaviors:ComboBoxMouseWheelBehavior.EnableRedirect="True"
-                                      ItemContainerStyle="{StaticResource DarkComboBoxItem}"
-                                      VerticalContentAlignment="Center">
+                                       SelectedItem="{Binding LaunchBoxPlatform, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                       IsTextSearchEnabled="False"
+                                       StaysOpenOnEdit="True"
+                                       behaviors:ContainsFilterComboBoxBehavior.Enable="True"
+                                       behaviors:ComboBoxMouseWheelBehavior.EnableRedirect="True"
+                                       ItemContainerStyle="{StaticResource DarkComboBoxItem}"
+                                       HorizontalAlignment="Stretch"
+                                       MinWidth="200"
+                                       VerticalContentAlignment="Center">
                                 <ComboBox.Resources>
                                     <Style TargetType="TextBox" BasedOn="{StaticResource DarkComboBoxTextBox}" />
                                 </ComboBox.Resources>
@@ -335,35 +351,13 @@
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
 
-                <!-- Readiness -->
-                <DataGridTemplateColumn Header="Readiness" Width="150">
-                    <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding ReadinessStatus}"
-                                       VerticalAlignment="Center"
-                                       Foreground="#E6EBF5"/>
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
-
-                <!-- Readiness Details -->
-                <DataGridTemplateColumn Header="Details" Width="220">
-                    <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding ReadinessMessage}"
-                                       VerticalAlignment="Center"
-                                       Foreground="#AAB4C8"
-                                       TextWrapping="Wrap"/>
-                        </DataTemplate>
-                    </DataGridTemplateColumn.CellTemplate>
-                </DataGridTemplateColumn>
-
                 <!-- Configure -->
-                <DataGridTemplateColumn Header="Configure" Width="120">
+                <DataGridTemplateColumn Header="Configure" Width="2*" MinWidth="140">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
                             <Button Content="Configure"
                                     Style="{StaticResource DarkSecondaryButton}"
+                                    HorizontalAlignment="Stretch"
                                     Command="{Binding DataContext.ConfigureCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                     CommandParameter="{Binding}"/>
                         </DataTemplate>
@@ -373,7 +367,8 @@
             </DataGrid.Columns>
         </DataGrid>
 
-            <StackPanel Orientation="Horizontal"
+            <StackPanel Grid.Row="3"
+                        Orientation="Horizontal"
                         HorizontalAlignment="Right"
                         Margin="0,12,0,0">
                 <Button Content="Save"
@@ -381,7 +376,7 @@
                         Style="{StaticResource PrimaryButton}"/>
             </StackPanel>
 
-        </StackPanel>
+        </Grid>
 
         <ContentControl Visibility="{Binding IsConfiguring, Converter={StaticResource BoolToVisibility}}"
                         HorizontalAlignment="Stretch">

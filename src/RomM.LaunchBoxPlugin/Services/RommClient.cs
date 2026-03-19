@@ -10,6 +10,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using RomMbox.Models.Download;
 using RomMbox.Models.Romm;
+using RomMbox.Services.Auth;
 using RomMbox.Services.Logging;
 using RomMbox.Services.Settings;
 
@@ -29,7 +30,7 @@ namespace RomMbox.Services
         private readonly string _serverUrl;
         private readonly JsonSerializerOptions _jsonOptions;
         private readonly bool _requireServerUrl;
-        private string _lastAuthToken;
+        private readonly IRommAuthProvider _authProvider;
 
         /// <summary>
         /// Creates the RomM API client.
@@ -75,6 +76,8 @@ namespace RomMbox.Services
             {
                 PropertyNameCaseInsensitive = true
             };
+
+            _authProvider = RommAuthProviderFactory.Create(_logger, _settingsManager, settings);
         }
 
         /// <summary>
@@ -525,25 +528,7 @@ namespace RomMbox.Services
         /// </summary>
         private async Task EnsureAuthenticatedAsync()
         {
-            var settings = _settingsManager.Load();
-            if (!settings.UseSavedCredentials || !settings.HasSavedCredentials)
-            {
-                throw new RommApiException("Missing credentials.", RommApiErrorType.AuthExpired);
-            }
-
-            var credentials = _settingsManager.GetSavedCredentials(_serverUrl);
-            if (credentials == null)
-            {
-                throw new RommApiException("Missing credentials.", RommApiErrorType.AuthExpired);
-            }
-
-            var token = Convert.ToBase64String(Encoding.UTF8.GetBytes(credentials.Username + ":" + credentials.Password));
-            if (!string.Equals(_lastAuthToken, token, StringComparison.Ordinal))
-            {
-                _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", token);
-                _lastAuthToken = token;
-            }
-            await Task.CompletedTask.ConfigureAwait(false);
+            await _authProvider.PrepareAsync(_httpClient, _serverUrl, CancellationToken.None).ConfigureAwait(false);
         }
 
         /// <summary>
