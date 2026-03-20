@@ -1,78 +1,92 @@
 # Sony PlayStation 4
 
-## Supported Installation Types
+The PlayStation 4 installer supports direct PS4 package workflows and extracted folder layouts for ShadPS4-based deployments. It also detects update, DLC, and bonus content and can normalize package-based content into folder-based layouts.
 
-You can store your PS4 roms in RomM in the following manner.
+## Summary
+
+| Attribute | Value |
+| --- | --- |
+| Platform | Sony PlayStation 4 |
+| Plugin platform key | `ps4` |
+| Supported aliases | `ps4`, `sony-playstation-4`, plus additional PS4 aliases defined in code |
+| Default emulator target | ShadPS4 |
+| Installation model | Portable folder-based deployment |
+| Direct files supported | Yes |
+| Archive input supported | Yes |
+| DLC / updates | Supported |
+| Bonus content | Supported |
+
+## Emulator Target
+
+The PS4 installer is built around ShadPS4 workflows.
+
+### Configuration
+
+| Setting | Purpose |
+| --- | --- |
+| `ShadPs4ExecutablePath` | Optional ShadPS4 executable override |
+| `Ps4GamesDirectory` | Optional install directory override for serial-based layout |
+| `Ps4ExternalPkgExtractorPath` | Optional external extractor used for direct `.pkg` downloads |
+| `Ps4FailIfDirectPkgExtractorMissing` | Fails direct PKG installs immediately if no extractor is available |
+| `SupportedFileTypes` | Comma-separated PS4 discovery formats; default is `.pkg,.zip,.7z` |
 
 ## Supported File Formats
 
-1. **PKG**: Storing the game as a PKG file in RomM.
-    ```
-    /roms/ps4/Bloodborne - Game of the Year Edition.pkg
-    ```
+| Format | Supported | Notes |
+| --- | --- | --- |
+| `.pkg` | Yes | Supported package input |
+| Extracted folder layout | Yes | Expected to contain a title-ID-style game folder such as `CUSA01607` |
+| `.zip` / `.7z` archives | Yes | Used as discovery containers when they contain supported PS4 content |
 
-    <img src="../../_assets/images/ps4_pkg_extractor.png " alt="PS4 Platform Screen" width="50%">
+### Optional content folders
 
-2. **Decrypted Folder Format**: Storing the game in a Decrypted Folder Format, provided it is in an archive and a sub-directory with the TITLE ID of the game.
-    ```
-    /roms/ps4/Tearaway_ Unfolded.rar
-      ...
-      |_ /CUSA01607/
-    ```
+- `UPDATE`
+- `DLC`
+- `Bonus` or `BONUS`
 
-## Updates, DLC, & Bonus Content
+### Notes
 
-The system can install the base games as well as the Updates and DLCs if provided in the correct folder names.
+- The installer can use an external PKG extractor when direct `.pkg` content must be normalized into a folder layout.
+- The code detects and normalizes update, DLC, and bonus content into platform-specific output folders.
 
-- BONUS/: A collection of pkg/rap or files that the system will install.
-- DLC/: A collection of pkg/rap files that the system will install.
-- UPDATE/: A collection of pkg/rap files that the system will install.
+## Deployment Overview
 
-## Examples
+1. The PS4 inspector resolves the base game artifact.
+2. Package-based content may be extracted into normalized folders.
+3. The base game is installed into the configured PS4 games directory.
+4. Update, DLC, and bonus content are materialized into their target roots when detected.
 
-> The Base Game can be placed either in directly in the root of the archive, or in a subfolder with the Title ID.
-> Installing a PKG file format will require you specify an external pkg extractor in the PS4 platform configuration.
+### Typical layout examples
 
-**Base Game (PKG)**
+**Base package**
 
-```
-Bloodborne - Game of the Year Edition [CUSA03173].rar/
-  |_ Bloodborne - Game of the Year Edition.pkg
+```text
+/roms/ps4/Game.pkg
 ```
 
-**Base Game (Decrypted Folder)**
+**Extracted folder layout**
 
-```
-Tearaway Unfolded [CUSA01607].rar/
-  |_CUSA01067/<files>
-```
-
-**Base Game + Update + DLC (PKG)**
-
-```
-DriveClub [CUSA00003].rar/
-  |_ DLC/
-    |_ EP9000-CUSA00003_00-DCXTOURXXXXXX001-A0000-V0100.pkg
-  |_ UPDATE/
-    |_ PS4_Driveclub_CUSA00003_Patch_v1.28.pkg
-  |_ PS4_Driveclub_CUSA00003.pkg
+```text
+/roms/ps4/Game.rar
+  /CUSA01607/
 ```
 
-**Base Game + Update + DLC (Decrypted Folder)**
+**Optional content folders**
 
-The base game files would be stored in the TITLE ID folder most importantly the `eboot.bin`.
+```text
+/roms/ps4/Game.rar
+  /UPDATE/
+  /DLC/
+  /BONUS/
+```
 
-```
-Tearaway Unfolded [CUSA01607].rar/
-  |_ CUSA01607/
-  ...
-  |_ DLC/
-    |_ CUSA01607/
-      |_ HOLIDAYPACK00000/
-      |_ POPUPPACK0000000/
-      |_ TORNAWAYPACK0000/
-  |_ UPDATE/
-    |_ CUSA01607-patch/
-  |_ Bonus/
-    |_ CUSA03007/
-```
+## RomM Asset Overview
+
+No PS4-specific asset handling is defined in the installer code. Standard RomM metadata and asset behavior applies.
+
+## Special Considerations
+
+- Direct PKG workflows may depend on an external extractor.
+- The installer supports bonus content in addition to base game, DLC, and updates.
+- Structure and normalization behavior are driven by actual detected content rather than by the template alone.
+
