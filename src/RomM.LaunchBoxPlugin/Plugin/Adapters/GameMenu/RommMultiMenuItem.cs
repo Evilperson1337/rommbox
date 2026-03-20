@@ -35,6 +35,7 @@ namespace RomMbox.Plugin.Adapters.GameMenu
     [Export(typeof(IGameMultiMenuItemPlugin))]
     public sealed class RommMultiMenuItem : IGameMultiMenuItemPlugin
     {
+        private static readonly Lazy<IRomMGameMenuActionService> MenuActionService = new(CreateMenuActionService);
         /// <summary>
         /// Cache duration for save availability checks to avoid repeated API calls.
         /// </summary>
@@ -81,13 +82,7 @@ namespace RomMbox.Plugin.Adapters.GameMenu
         /// </summary>
         public bool GetIsValidForGame(IGame selectedGame)
         {
-            if (selectedGame == null)
-            {
-                return false;
-            }
-
-            var service = PluginEntry.InstallStateService;
-            return service != null && service.IsRomMSourcedGame(selectedGame);
+            return MenuActionService.Value.IsRomMMenuVisible(selectedGame);
         }
 
         public bool GetIsValidForGames(IGame[] selectedGames) => false;
@@ -113,36 +108,16 @@ namespace RomMbox.Plugin.Adapters.GameMenu
                 }
 
                 var service = PluginEntry.InstallStateService;
-                if (service == null || !service.IsRomMSourcedGame(game))
+                if (!MenuActionService.Value.IsRomMMenuVisible(game))
                 {
                     PluginEntry.Logger?.Debug($"RomM menu hidden. ServiceAvailable={service != null}, IsRomMSourced={service?.IsRomMSourcedGame(game) ?? false}, Game='{game?.Title}', ThreadId={threadId}, SyncContext={syncContext}.");
                     return Array.Empty<IGameMenuItem>();
                 }
 
-                // Check install state using application path resolution.
-                var isInstalled = HasValidApplicationPath(game, out var resolvedPath);
-                PluginEntry.Logger?.Debug($"RomM menu for '{game?.Title}': InstalledFlag={game?.Installed == true}, ApplicationPath='{game?.ApplicationPath}', ResolvedPath='{resolvedPath}', IsInstalled={isInstalled}, ThreadId={threadId}, SyncContext={syncContext}.");
-                var children = new List<IGameMenuItem>();
-                if (isInstalled)
-                {
-                    children.Add(new RommGameMenuItem("Uninstall Game", true, ResolveBadge("Not Installed.png"), () => UninstallGame(game)));
-                }
-                else
-                {
-                    children.Add(new RommGameMenuItem("Install Game", true, ResolveBadge("Installed.png"), () => InstallGame(game)));
-                    children.Add(new RommGameMenuItem("Link to Local Game", true, ResolveBadge("Installed.png"), () => LinkLocalGame(game)));
-                }
-
-            if (CanPlayOnRomM(game, service))
-            {
-                children.Add(new RommGameMenuItem("Play on RomM", true, ResolvePluginAssetImage("gaming.png"), () => PlayOnRomM(game)));
-            }
-
-                children.Add(new RommGameMenuItem("View on RomM", true, ResolvePluginAssetImage("romm.png"), () => ViewOnRomM(game)));
-                children.Add(new RommGameMenuItem("Properties", true, ResolveBadge("Not Installed.png"), () => OpenProperties(game)));
-                children.Add(new RommGameMenuItem("Open RomM", true, ResolvePluginAssetImage("romm.png"), OpenRommServer));
-
-                // TODO: Future deployment - re-enable save import/upload menu items when save management is implemented.
+                PluginEntry.Logger?.Info($"[RomM Menu] Building submenu for GameId={game?.Id ?? string.Empty} Title=\"{game?.Title ?? string.Empty}\".");
+                var children = BuildMenuChildren(game);
+                PluginEntry.Logger?.Info($"[RomM Menu] Submenu built for GameId={game?.Id ?? string.Empty} Title=\"{game?.Title ?? string.Empty}\".");
+                PluginEntry.Logger?.Info($"[RomM Menu] Items: {string.Join(", ", children.Select(child => child?.Caption).Where(caption => !string.IsNullOrWhiteSpace(caption)))}");
 
                 childCount = children.Count;
                 menuBuilt = true;
@@ -157,6 +132,216 @@ namespace RomMbox.Plugin.Adapters.GameMenu
                 PluginEntry.Logger?.Debug($"RomM menu build end. DurationMs={stopwatch.ElapsedMilliseconds}, MenuBuilt={menuBuilt}, ChildCount={childCount}, Game='{game?.Title ?? "<null>"}'.");
                 LogMenuTiming(stopwatch, game);
             }
+        }
+
+        private static IRomMGameMenuActionService CreateMenuActionService()
+        {
+            return new RomMGameMenuActionService(
+                game =>
+                {
+                    var service = PluginEntry.InstallStateService;
+                    return game != null && service != null && service.IsRomMSourcedGame(game);
+                },
+                IsInstalledForMenu,
+                game =>
+                {
+                    return EvaluatePlaySupport(game);
+                },
+                game =>
+                {
+                    PluginEntry.Logger?.Info($"[RomM Menu] Action executed: Install. GameId={game?.Id ?? string.Empty} Title=\"{game?.Title ?? string.Empty}\".");
+                    InstallGame(game);
+                },
+                game =>
+                {
+                    PluginEntry.Logger?.Info($"[RomM Menu] Action executed: Uninstall. GameId={game?.Id ?? string.Empty} Title=\"{game?.Title ?? string.Empty}\".");
+                    UninstallGame(game);
+                },
+                game =>
+                {
+                    PluginEntry.Logger?.Info($"[RomM Menu] Action executed: View. GameId={game?.Id ?? string.Empty} Title=\"{game?.Title ?? string.Empty}\".");
+                    ViewOnRomM(game);
+                },
+                game =>
+                {
+                    PluginEntry.Logger?.Info($"[RomM Menu] Action executed: Play. GameId={game?.Id ?? string.Empty} Title=\"{game?.Title ?? string.Empty}\".");
+                    PlayOnRomM(game);
+                },
+                game =>
+                {
+                    PluginEntry.Logger?.Info($"[RomM Menu] Action executed: Refresh. GameId={game?.Id ?? string.Empty} Title=\"{game?.Title ?? string.Empty}\".");
+                    RefreshRomMState(game);
+                },
+                game =>
+                {
+                    PluginEntry.Logger?.Info($"[RomM Menu] Action executed: Properties. GameId={game?.Id ?? string.Empty} Title=\"{game?.Title ?? string.Empty}\".");
+                    OpenProperties(game);
+                },
+                ResolveRommBadge,
+                () => ResolveBadge("Installed.png"),
+                () => ResolveBadge("Not Installed.png"),
+                () => ResolvePluginAssetImage("romm.png"),
+                () => ResolvePluginAssetImage("gaming.png"),
+                () => ResolvePluginAssetImage("romm.png"),
+                () => ResolveBadge("Not Installed.png"));
+        }
+
+        private static List<IGameMenuItem> BuildMenuChildren(IGame game)
+        {
+            var candidates = MenuActionService.Value.GetCandidates(game);
+            foreach (var candidate in candidates)
+            {
+                PluginEntry.Logger?.Info($"[RomM Menu] Candidate action: {candidate.Definition.Caption} Visible={candidate.Visible} Reason={candidate.Reason}");
+            }
+
+            var children = candidates
+                .Where(candidate => candidate.Visible)
+                .Select(candidate => (IGameMenuItem)new RommGameMenuItem(candidate.Definition.Caption, candidate.Definition.Enabled, candidate.Definition.Icon, candidate.Definition.Execute))
+                .ToList();
+
+            return children;
+        }
+
+        private static bool IsInstalledForMenu(IGame game)
+        {
+            if (game == null)
+            {
+                return false;
+            }
+
+            if (HasValidApplicationPath(game, out _))
+            {
+                return true;
+            }
+
+            try
+            {
+                var installStateService = PluginEntry.InstallStateService;
+                var state = installStateService?
+                    .GetStateAsync(game.Id, CancellationToken.None)
+                    .ConfigureAwait(false)
+                    .GetAwaiter()
+                    .GetResult();
+                if (state?.IsInstalled == true)
+                {
+                    return true;
+                }
+
+                var launchService = new RommAdditionalApplicationLaunchService(PluginEntry.Logger, installStateService);
+                return launchService.GetContext(game).IsInstalled;
+            }
+            catch (Exception ex)
+            {
+                PluginEntry.Logger?.Warning($"[RomM Menu] Failed to resolve installed state for GameId={game?.Id ?? string.Empty} Title=\"{game?.Title ?? string.Empty}\". {ex.Message}");
+                return false;
+            }
+        }
+
+        private static void RefreshRomMState(IGame game)
+        {
+            PluginEntry.EnsureInitialized();
+            Task.Run(async () =>
+            {
+                try
+                {
+                    var installStateService = PluginEntry.InstallStateService;
+                    if (installStateService == null || game == null || string.IsNullOrWhiteSpace(game.Id))
+                    {
+                        PluginEntry.Logger?.Warning("Refresh RomM State aborted: install state service or game metadata unavailable.");
+                        return;
+                    }
+
+                    await installStateService.GetStateAsync(game.Id, CancellationToken.None).ConfigureAwait(false);
+                    PluginEntry.Logger?.Info($"Refreshed RomM state for '{game?.Title}'.");
+                }
+                catch (Exception ex)
+                {
+                    PluginEntry.Logger?.Error("Refresh RomM State failed.", ex);
+                }
+            });
+        }
+
+        internal static bool HasValidApplicationPathForMenu(IGame game)
+        {
+            return IsInstalledForMenu(game);
+        }
+
+        internal static bool CanPlayOnRomMForMenu(IGame game)
+        {
+            var support = EvaluatePlaySupport(game);
+            PluginEntry.Logger?.Info($"[RomM Menu] Play on RomM Visible={support.IsPlayableOnRomm} Reason=\"{support.Reason}\"");
+            return support.IsPlayableOnRomm;
+        }
+
+        internal static RomMPlaySupportResult EvaluatePlaySupport(IGame game)
+        {
+            PluginEntry.EnsureInitialized();
+            var evaluator = new RomMPlaySupportEvaluator(
+                PluginEntry.InstallStateService,
+                PluginEntry.SettingsManager ?? new SettingsManager(PluginEntry.Logger),
+                PluginEntry.PlatformInstallers,
+                PluginEntry.Logger);
+            return evaluator.Evaluate(game);
+        }
+
+        internal static void PlayOnRomMForMenu(IGame game)
+        {
+            PlayOnRomM(game);
+        }
+
+        internal static void UninstallGameForMenu(IGame game)
+        {
+            UninstallGame(game);
+        }
+
+        internal static void ViewOnRomMForMenu(IGame game)
+        {
+            ViewOnRomM(game);
+        }
+
+        internal static void RefreshRomMStateForMenu(IGame game)
+        {
+            RefreshRomMState(game);
+        }
+
+        internal static void OpenPropertiesForMenu(IGame game)
+        {
+            OpenProperties(game);
+        }
+
+        internal static Image ResolveRommBadgeForMenu()
+        {
+            return ResolveRommBadge();
+        }
+
+        internal static Image ResolveInstallIconForMenu()
+        {
+            return ResolveBadge("Installed.png");
+        }
+
+        internal static Image ResolvePlayIconForMenu()
+        {
+            return ResolvePluginAssetImage("gaming.png");
+        }
+
+        internal static Image ResolveUninstallIconForMenu()
+        {
+            return ResolveBadge("Not Installed.png");
+        }
+
+        internal static Image ResolveViewIconForMenu()
+        {
+            return ResolvePluginAssetImage("romm.png");
+        }
+
+        internal static Image ResolveRefreshIconForMenu()
+        {
+            return ResolvePluginAssetImage("romm.png");
+        }
+
+        internal static Image ResolvePropertiesIconForMenu()
+        {
+            return ResolveBadge("Not Installed.png");
         }
 
         private static void LogMenuTiming(Stopwatch stopwatch, IGame game)
