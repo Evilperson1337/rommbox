@@ -6,14 +6,16 @@ Use this tab to configure the RomM → LaunchBox platform mapping as well as the
 ## Platform List
 The platform list will display the RomM platforms that were detected along with the LaunchBox platform.  The system will attempt to automatically map common platforms. or you can manually select the correct LaunchBox platform using the drop down.
 
+Only mappings with a LaunchBox platform name and **Disable Auto Import** turned off are offered in the Games tab import platform selector.
+
 ### Exclude
-Should you want to exclude a platform from being mapped, you just need to select the **Exclude** checkbox before the RomM platform on the rowm like the *Browser (Flash/HTML5)* platform above.
+Should you want to exclude a platform from mapping and import workflows, select the **Exclude** checkbox for that row.
 
 ### Configure
-This is where you would configure platform specific settings, this has its own guide [here]().  
+This opens the platform-specific configuration screen. The available settings depend on the installer for that platform. Common settings include install directory, extraction behavior, emulator association, and installer-specific overrides.
 
 ### Audit & Update
-This button will perform an audit on your currently imported games and compare them with your RomM server games.  This will update the RomM metadata if needed, useful if the RomM ID changes for games, but unless you are constantly changing your RomM games - it probably isn't used much.
+This audits already imported LaunchBox games for the selected mapped platform and compares them against RomM matches. It is used to repair or refresh RomM linkage and related metadata for games already in your library.
 
 ### Refresh
 This will refresh the list of platforms from the RomM server.

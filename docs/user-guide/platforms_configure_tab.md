@@ -5,18 +5,20 @@ Use this when you need to understand the platform configuration options.
 
 ## Configuration Options
 
+The exact fields on this screen depend on the selected platform installer. Some platforms expose only a small number of settings, while others add installer-specific options.
+
 ### Installation Type
-There are 2 types of installation - *Basic* and *Enhanced*.  A general rule of thumb is for Emulators/ROMs, you would select a *Basic* installation type, PC Games would be an *Enhanced* installation type.  Enhanced allows you to run installers and add extra logic before a game is considered to be "installed".
+The plugin supports both simple portable installs and more advanced installer-driven workflows, but the current screen is driven by the selected platform's available options rather than a single fixed "Basic" versus "Enhanced" layout for every platform.
 
 ### Global Options
 - **Games Directory**
     - Where do you want to install the games for this platform to?
     - Default: *<LaunchBox_Dir>/Games/<Platform_Name>*
 - **Associated Emulator**
-    - What emulator should be associated with the platform?
+    - Which LaunchBox emulator mapping or override should be used when the platform needs one?
     - Default: Whatever emulator is set as the default for the associated platform in LaunchBox.
 - **Extract archive before install**
-    - Use this if you store your games in an archive on the RomM server, but the emulator does not support archives  This option will extract the contents of the archive to the Games Directory.
+    - Use this if you store your games in an archive on the RomM server and the selected platform workflow needs extracted content.
     - Default: *False*
 
 ### Basic Options
@@ -28,12 +30,12 @@ Use these options to configure basic platform options.
     - Comma separated list of files that you want to target (e.g. *eboot.bin*)
 
 ### Enhanced Options
-Use these options when you need to handle more complex installation scenarios (e.g. Windows Games)
+Some platforms expose extra options for more complex installation scenarios such as Windows games, disc-based platforms, or emulator-specific overrides.
 
 <img src="../_assets/images/romm_platform_options_enhanced.png" alt="RomM Platforms Options" width="75%">
 
 #### Installation Mode
-This option determines whether or not you want the system to run manual installation for each install you perform.
+When available, this option determines whether the system runs the install interactively or tries to automate it.
 
 - **Manual**
     - This will run the installers without supplying anything, essentially mimicking if you run the setup executable yourself.  This gives you the greatest level of control, but at the cost of simplicity/ease of use.
@@ -41,7 +43,7 @@ This option determines whether or not you want the system to run manual installa
     - This will run the installers silently/intelligently, you lose granular control - but it tries to mimick the experience of installing a game from Steam, where it installs everything (Game/DLC/etc.) for you with no further interaction required.
 
 #### Other options
-These options will help you install additional enhancements that may be present in the root of the archive.  See *[Windows Games](windows-games.md) Enhancement* section for an explanation on these.
+These options help control optional content such as bonus files, pre-requisites, or soundtracks when the selected platform installer supports them.
 
 - **Install Bonus Content**
     - Specifies whether or not to install the bonus contents if any are detected in the archive.

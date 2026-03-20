@@ -11,10 +11,13 @@ For detailed technical documentation, see [Developer Guide](docs/developer-guide
 ## Features
 
 - LaunchBox Tools menu entry to open the RomM configuration UI.
+- LaunchBox game submenu for RomM-sourced games and Big Box per-game RomM actions.
 - Platform mapping between RomM and LaunchBox (saved mappings + auto-mapping).
-- Import ROM catalogs into LaunchBox with duplicate detection.
+- Import ROM catalogs into LaunchBox with duplicate detection by RomM ID plus optional title, file name, or MD5 matching.
 - Optional download, extraction, and install flows.
+- Optional save import during game import.
 - Install-state tracking backed by SQLite.
+- RomM badge detection for games already linked to RomM.
 - MVVM-style WPF UI with async background operations.
 
 ## Screenshots
@@ -50,15 +53,17 @@ The plugin stores settings in `system/settings.json` under the plugin folder. Yo
 ## Usage
 
 1. In LaunchBox, open **Tools → RomM** to launch the plugin UI.
-2. Configure the RomM server URL and credentials in the Connection tab.
+2. Configure the RomM server URL and authentication in the Connection tab.
 3. Map RomM platforms to LaunchBox platforms in the Platforms tab.
 4. Import games in the Games tab. Choose import, install, or merge actions.
+5. Use the RomM game menu in LaunchBox or the RomM actions in Big Box for installed RomM-linked games.
 
 Limitations and caveats:
 
 - Windows-only.
 - LaunchBox must be able to resolve its `DataManager` for imports.
 - RomM must be reachable and authenticated.
+- The Tools menu entry is LaunchBox-only; Big Box support is provided through per-game actions instead of a Tools entry.
 
 ## Configuration
 

@@ -12,6 +12,8 @@ Here is where you would select the platform for which you want to import games f
 ### Duplicate Match
 This option controls how the system determines a local game to be a duplicate of a RomM game.
 
+RomM ID matching is always used when possible. The selected option adds an extra matching strategy during duplicate detection.
+
 - **Game Name**: Will try to match based on the Game's Title, the default option, and usually the fastest.  This is the recommended one most of the time.
 - **File Name**: Will attempt to match based on the File Name.  This can be helpful for arcade games in particular where file names need to particular (e.g. *simpsons2a.zip*) and the Game Name matcher does not match it.
 - **MD5**: Will calculate the MD5 hash of the game and compare it to the MD5 Hash of games listed in RomM.  This can take some time depending on the size of the library and whatnot and generally should be avoided unless necessary due to the performance overhead and potential issues depending on your configuration (like comparing an extracted game to an archive).
@@ -24,7 +26,10 @@ This controls what the default action the system will take for the games on the 
 - **Skip All**: This will skip importing the gamne, it will not appear in your LaunhBox library, nor will it download/install anything.  Does not apply to merge action items.
 
 ### Allow Duplicates
-This would tell the system to allow for importing/installing previously imported games.  Currently it does nothing as I determine the actual necessity of such a feature.
+This controls whether the import process skips detected matches that are already present in LaunchBox.
+
+- When **off**, matched games are skipped and counted as duplicates.
+- When **on**, the plugin can still create a new import even if an existing LaunchBox match was found.
 
 ### Hide Skipped Games
 This option will hide the games that have the *Skip* action selected from the Games List below.  Useful if you only want to see items that will perform a meaningful action.
@@ -47,7 +52,11 @@ This determines what the system will do with the game.
 - **Skip**: Does not import the game in anyway.
 
 #### Saves
-This is a *To-Be-Implemented-Fully* feature, where it would download the save file(s) for the game hosted in RomM.  Checking the checkbox would enable it per game, checking it in the header would enable it for all games.  Currently it does not do anything as LaunchBox's Save Game functionality is in early access, but I am planning on introducing it in the future.
+This is a *To-Be-Implemented-Fully* feature.  This controls whether the import process also downloads saves for that game from RomM.
+
+- Save import runs only for rows that are actually imported or installed.
+- Merge and Skip actions do not enable save download.
+- Imported saves are written under LaunchBox's `Saves\<Platform>` folders.
 
 #### Games
 This lists the title of the game and a note about the action it will take.

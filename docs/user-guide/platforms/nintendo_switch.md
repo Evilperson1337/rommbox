@@ -13,11 +13,11 @@ The Nintendo Switch installer supports portable deployment of base game packages
 | Installation model | Portable file deployment |
 | Direct files supported | Yes |
 | Archive input supported | Yes |
-| DLC / updates | Detected, but not installed automatically |
+| DLC / updates | Detected and logged, but not installed automatically |
 
 ## Emulator Target
 
-The installer logs `Eden` as the configured emulator.
+The installer reports `Eden` as the configured emulator and can also use LaunchBox's emulator mapping when no override is supplied.
 
 ### Configuration
 
@@ -33,8 +33,8 @@ If this field is not supplied, the plugin uses the LaunchBox emulator mapping.
 | --- | --- | --- |
 | `.nsp` | Yes | Supported installed artifact |
 | `.xci` | Yes | Supported installed artifact |
-| `.nsz` | Indirectly | Detected as compressed content and normalized to `.nsp` |
-| `.xcz` | Indirectly | Detected as compressed content and normalized to `.xci` |
+| `.nsz` | Indirectly | Detected during inspection and converted into a normalized `.nsp` staging output |
+| `.xcz` | Indirectly | Detected during inspection and converted into a normalized `.xci` staging output |
 
 ### Notes
 
@@ -58,5 +58,6 @@ No Switch-specific RomM asset mapping is implemented in the installer. Standard 
 
 - A base NSP/XCI package is required; update-only or DLC-only content is rejected as the primary install source.
 - The installer logs detected update and DLC packages for future integration.
+- Install verification and install-state detection only treat `.nsp` and `.xci` files as valid installed Switch artifacts.
 - Emulator-side key management and firmware requirements are not defined by the installer code.
 
