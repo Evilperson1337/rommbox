@@ -46,6 +46,7 @@ namespace RomMbox.Services
         private readonly InstallStateService _installStateService;
         private readonly PlatformInstallerRegistry _platformInstallers;
         private readonly PlatformLoggerAdapter _platformLogger;
+        private readonly IRommPlatformCache _platformCache;
         private readonly HashSet<string> _loggedPlatforms = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         /// <summary>
@@ -57,13 +58,20 @@ namespace RomMbox.Services
         /// <param name="mappingService">Resolves RomM platform IDs to LaunchBox platform names.</param>
         /// <param name="client">HTTP client wrapper for RomM API calls.</param>
         /// <param name="dataManager">Optional LaunchBox data manager; if null, PluginHelper is used.</param>
-        public ImportService(LoggingService logger, SettingsManager settingsManager, PlatformMappingService mappingService, IRommClient client, IDataManager dataManager = null)
+        public ImportService(
+            LoggingService logger,
+            SettingsManager settingsManager,
+            PlatformMappingService mappingService,
+            IRommClient client,
+            IDataManager dataManager = null,
+            IRommPlatformCache platformCache = null)
         {
             _logger = logger;
             _settingsManager = settingsManager;
             _mappingService = mappingService;
             _client = client;
             _dataManager = dataManager;
+            _platformCache = platformCache ?? new RommPlatformCache(logger);
             var archiveService = new ArchiveService(logger, settingsManager);
             _downloadService = new DownloadService(logger, client, archiveService, settingsManager);
             _ignoreStore = new MatchIgnoreStore(logger);
@@ -344,6 +352,41 @@ namespace RomMbox.Services
         /// <param name="cancellationToken">Cancellation token for pagination.</param>
         /// <param name="progress">Optional progress reporter for UI feedback.</param>
         public async Task<IReadOnlyList<RommRom>> ListPlatformRomsAsync(string platformId, CancellationToken cancellationToken, IProgress<ImportProgress> progress)
+        {
+            if (string.IsNullOrWhiteSpace(platformId))
+            {
+                throw new ArgumentException("PlatformId is required.", nameof(platformId));
+            }
+
+            var roms = await _platformCache.GetOrFetchAsync(
+                    platformId,
+                    ct => FetchPlatformRomsAsync(platformId, ct, progress),
+                    cancellationToken)
+                .ConfigureAwait(false);
+
+            progress?.Report(new ImportProgress
+            {
+                Total = roms.Count,
+                Processed = roms.Count
+            });
+
+            return roms;
+        }
+
+        public void InvalidatePlatformRoms(string platformId)
+        {
+            _platformCache.Invalidate(platformId);
+        }
+
+        public void InvalidateAllPlatformRoms()
+        {
+            _platformCache.InvalidateAll();
+        }
+
+        private async Task<IReadOnlyList<RommRom>> FetchPlatformRomsAsync(
+            string platformId,
+            CancellationToken cancellationToken,
+            IProgress<ImportProgress> progress)
         {
             if (string.IsNullOrWhiteSpace(platformId))
             {

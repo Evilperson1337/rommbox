@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Windows;
 using RomMbox.Models.Import;
+using RomMbox.Plugin;
 using RomMbox.Services;
 using RomMbox.Services.Logging;
 using RomMbox.Services.Settings;
@@ -68,7 +69,7 @@ public sealed class ImportViewModel : ObservableObject
         // Only initialize network-backed services if we have a valid client.
         _mappingService = client != null ? new PlatformMappingService(_logger, _settingsManager, client) : null;
         _mappingServiceServerUrl = _settingsManager.Load()?.ServerUrl?.Trim() ?? string.Empty;
-        _importService = client != null ? new ImportService(_logger, _settingsManager, _mappingService, client) : null;
+        _importService = client != null ? new ImportService(_logger, _settingsManager, _mappingService, client, platformCache: PluginEntry.RommPlatformCache) : null;
         _ignoreStore = new MatchIgnoreStore(_logger);
 
         // UI collections bound to lists, dropdowns, and grids.
@@ -91,7 +92,7 @@ public sealed class ImportViewModel : ObservableObject
         _filteredRowSnapshot = new List<ImportGameRow>();
 
         // Commands used by buttons in the UI.
-        RefreshCommand = new RelayCommand(async () => await RefreshAsync(), () => !IsImportRunning);
+        RefreshCommand = new RelayCommand(async () => await RefreshAsync(forceRefresh: true), () => !IsImportRunning);
         ImportCommand = new RelayCommand(async () => await ImportSelectedAsync(), () => !IsImportRunning);
 
         StatusText = "Ready to import games from RomM";
@@ -423,7 +424,7 @@ public sealed class ImportViewModel : ObservableObject
                 if (_importService == null)
                 {
                     var existingClient = new RommClient(_logger, _settingsManager, requireServerUrl: true);
-                    _importService = new ImportService(_logger, _settingsManager, _mappingService, existingClient);
+                    _importService = new ImportService(_logger, _settingsManager, _mappingService, existingClient, platformCache: PluginEntry.RommPlatformCache);
                 }
                 return;
             }
@@ -432,7 +433,7 @@ public sealed class ImportViewModel : ObservableObject
             var client = new RommClient(_logger, _settingsManager, requireServerUrl: true);
             _mappingService = new PlatformMappingService(_logger, _settingsManager, client);
             _mappingServiceServerUrl = serverUrl;
-            _importService = new ImportService(_logger, _settingsManager, _mappingService, client);
+            _importService = new ImportService(_logger, _settingsManager, _mappingService, client, platformCache: PluginEntry.RommPlatformCache);
         }
         catch (Exception ex)
         {
@@ -446,7 +447,7 @@ public sealed class ImportViewModel : ObservableObject
         /// <summary>
         /// Fetches the ROM list for the selected platform and rebuilds the grid.
         /// </summary>
-        private async Task RefreshAsync()
+        private async Task RefreshAsync(bool forceRefresh = false)
         {
             if (IsImportRunning || SelectedRomMPlatform == null)
             {
@@ -478,6 +479,10 @@ public sealed class ImportViewModel : ObservableObject
             try
             {
                 var platformId = SelectedRomMPlatform.Id;
+                if (forceRefresh)
+                {
+                    _importService.InvalidatePlatformRoms(platformId);
+                }
                 // Progress is reported from a background thread; marshal to UI.
                 var progress = new Progress<ImportProgress>(progressUpdate =>
                 {

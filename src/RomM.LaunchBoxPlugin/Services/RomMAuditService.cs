@@ -48,7 +48,7 @@ namespace RomMbox.Services
             var settingsManager = PluginEntry.SettingsManager ?? new SettingsManager(logger);
             var client = new RommClient(logger, settingsManager, requireServerUrl: true);
             var mappingService = new PlatformMappingService(logger, settingsManager, client);
-            var importService = new ImportService(logger, settingsManager, mappingService, client);
+            var importService = new ImportService(logger, settingsManager, mappingService, client, platformCache: PluginEntry.RommPlatformCache);
             var installState = PluginEntry.InstallStateService ?? new InstallStateService(logger, settingsManager);
             return new RomMAuditService(logger, settingsManager, installState, mappingService, importService);
         }

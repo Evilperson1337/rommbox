@@ -7,7 +7,7 @@ using RomMbox.Services;
 
 namespace RomMbox.Tests.Utilities
 {
-    internal sealed class StubRommClient : IRommClient
+    internal class StubRommClient : IRommClient
     {
         public IReadOnlyList<RommPlatform> Platforms { get; set; } = new List<RommPlatform>();
 
@@ -16,7 +16,7 @@ namespace RomMbox.Tests.Utilities
             return Task.FromResult(Platforms ?? new List<RommPlatform>());
         }
 
-        public Task<PagedResult<RommRom>> ListRomsByPlatformAsync(string platformId, int page, int pageSize, RommFilters filters, CancellationToken cancellationToken)
+        public virtual Task<PagedResult<RommRom>> ListRomsByPlatformAsync(string platformId, int page, int pageSize, RommFilters filters, CancellationToken cancellationToken)
         {
             return Task.FromResult(new PagedResult<RommRom> { Items = new List<RommRom>() });
         }

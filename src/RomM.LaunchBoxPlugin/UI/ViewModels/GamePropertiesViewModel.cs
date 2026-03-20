@@ -48,7 +48,7 @@ internal sealed class GamePropertiesViewModel : ObservableObject
         _installStateService = PluginEntry.InstallStateService ?? new InstallStateService(_logger, _settingsManager);
         _launcherService = new ExternalLauncherService(_logger);
         _viewUrlService = new RommViewUrlService(_logger);
-        _importService = new ImportService(_logger, _settingsManager, _mappingService, client);
+        _importService = new ImportService(_logger, _settingsManager, _mappingService, client, platformCache: PluginEntry.RommPlatformCache);
 
         ViewOnRomMCommand = new RelayCommand(ViewOnRomM, () => CanViewOnRomM);
         UpdateGameCommand = new RelayCommand(UpdateGame, () => CanUpdateGame);

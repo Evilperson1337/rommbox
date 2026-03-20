@@ -49,7 +49,7 @@ internal sealed class RomMAuditViewModel : ObservableObject
             _settingsManager,
             PluginEntry.InstallStateService ?? new InstallStateService(_logger, _settingsManager),
             _mappingService,
-            new ImportService(_logger, _settingsManager, _mappingService, client));
+            new ImportService(_logger, _settingsManager, _mappingService, client, platformCache: PluginEntry.RommPlatformCache));
 
         Platforms = new ObservableCollection<RommPlatformOption>();
         ResultsLog = new ObservableCollection<string>();

@@ -23,6 +23,7 @@ namespace RomMbox.Plugin
         private static SettingsManager _settingsManager;
         private static InstallStateService _installStateService;
         private static PlatformInstallerRegistry _platformInstallerRegistry;
+        private static IRommPlatformCache _rommPlatformCache;
         private static bool _backgroundConnectionStarted;
         private static ConnectionTestResult _backgroundConnectionResult;
 
@@ -31,6 +32,7 @@ namespace RomMbox.Plugin
         public static SettingsManager SettingsManager => _settingsManager;
         public static InstallStateService InstallStateService => _installStateService;
         public static PlatformInstallerRegistry PlatformInstallers => _platformInstallerRegistry;
+        public static IRommPlatformCache RommPlatformCache => _rommPlatformCache;
         public static event EventHandler<ConnectionTestResult> BackgroundConnectionCompleted;
 
         /// <summary>
@@ -65,9 +67,11 @@ namespace RomMbox.Plugin
                     Logger = logger;
                     _settingsManager = settingsManager;
                     _installStateService = new InstallStateService(logger, settingsManager);
+                    _rommPlatformCache = new RommPlatformCache(logger);
                     var installerLoader = new PlatformInstallerLoader(logger);
-                    _platformInstallerRegistry = installerLoader.Load();
-                    var dataManager = PluginHelper.DataManager;
+                     _platformInstallerRegistry = installerLoader.Load();
+                    _ = new BadgeAssetService(logger).EnsureBadgeImagePath();
+                     var dataManager = PluginHelper.DataManager;
                     if (dataManager != null)
                     {
                         _ = _installStateService.InitializeAsync(CancellationToken.None);
@@ -115,7 +119,7 @@ namespace RomMbox.Plugin
             var settingsManager = _settingsManager ?? new SettingsManager(Logger);
             var client = new RommClient(Logger, settingsManager);
             var mappingService = new PlatformMappingService(Logger, settingsManager, client);
-            return new ImportService(Logger, settingsManager, mappingService, client);
+            return new ImportService(Logger, settingsManager, mappingService, client, platformCache: _rommPlatformCache ?? new RommPlatformCache(Logger));
         }
 
         /// <summary>
